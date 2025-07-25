@@ -1,5 +1,7 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
+// 添加以下命名空间引用
+using Ursa.Themes;
 
 namespace LabelPlus_Next;
 
@@ -18,4 +20,6 @@ sealed class Program
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace();
+    // 添加Ursa主题支持
+
 }

@@ -3,8 +3,7 @@
              xmlns:semi="https://irihi.tech/semi"
              xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
              x:Class="LabelPlus_Next.App"
-             xmlns:local="using:LabelPlus_Next"
-             RequestedThemeVariant="Default">
+             xmlns:local="using:LabelPlus_Next">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>

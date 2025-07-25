@@ -1,0 +1,25 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="350"
+        x:Class="LabelPlus_Next.Views.Pages.FileSettings"
+        Title="File Settings"
+        x:DataType="viewModels:FileSettingsViewModel">
+   
+        
+        <Grid ShowGridLines="False" RowDefinitions=" 10* 10* 80* 20*" ColumnDefinitions="* *">
+                
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Group Settings" FontSize="18"></TextBlock>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Note" FontSize="18"></TextBlock>
+                
+                <ListBox Grid.Row="2" Grid.Column="0" ItemsSource="{Binding GroupList,Mode=TwoWay}" MinHeight="215"> </ListBox>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Notes, Mode=TwoWay}" MinHeight="215"  TextAlignment="Start"
+                         MinWidth= "300" HorizontalAlignment="Left" AcceptsReturn="True" TextWrapping="Wrap" 
+                         CanCopy="True" CanPaste="True" CanRedo="True" HorizontalContentAlignment="Left"></TextBox>
+                
+                <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Content="Save" Click="Save" MinWidth="100" />
+                
+        </Grid>
+</Window>

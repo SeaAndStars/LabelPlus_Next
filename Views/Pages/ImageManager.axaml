@@ -1,0 +1,39 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="650" d:DesignHeight="500"
+        Width="650" Height="500"
+        x:Class="LabelPlus_Next.Views.Pages.ImageManager"
+        Title="Manage Images"
+        x:DataType="viewModels:ImageManagerViewModel">
+        <Grid ShowGridLines="False" RowDefinitions="5* 5* 70* 15* " ColumnDefinitions="2* * 2*" >
+            <TextBlock Grid.Row="1" Text="File in the same folder" FontSize="18" 
+                       HorizontalAlignment="Left"></TextBlock>
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="Included File" FontSize="18"></TextBlock>
+                
+            <ListBox Grid.Row="2" Grid.Column="0"  ItemsSource="{Binding FileFolderList,Mode=TwoWay}" 
+                     SelectedItem="{Binding SelectedFolerFile}" >
+            </ListBox>
+            <ListBox Grid.Row="2" Grid.Column="2"  ItemsSource="{Binding FileList,Mode=TwoWay}" 
+                     SelectedItem="{Binding SelectedFile}" >
+                    
+            </ListBox>
+           <Grid ShowGridLines="False" Grid.Row="2" Grid.Column="1" RowDefinitions="15* 20*  20* 20* 20* 15*">
+               <Button Grid.Row="1" Grid.Column="0" Content="→" MinWidth="100" Click="SelectOneFile"></Button>
+               <Button Grid.Row="2" Grid.Column="0" Content="→ →" MinWidth="100" Click="SelectAllFile"></Button>
+               <Button Grid.Row="3" Grid.Column="0" Content="←" MinWidth="100" Click="UnselectOneFile"></Button>
+               <Button Grid.Row="4" Grid.Column="0" Content="← ←" MinWidth="100" Click="UnselectAllFile"></Button>
+           </Grid>     
+        
+                
+            <Button Grid.Row="3"  Grid.Column="0" Content="Yes" MinWidth="150" HorizontalAlignment="Right" ></Button>
+            <Button Grid.Row="3" Grid.Column="2" Content="Canel" MinWidth="150" Foreground="Red"  HorizontalAlignment="Left"> </Button>
+                
+                
+        </Grid>
+        
+
+        
+</Window>
