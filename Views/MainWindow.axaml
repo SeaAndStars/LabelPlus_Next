@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LabelPlus_Next.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:u="https://irihi.tech/ursa"
+        Width="1200" Height="650"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="650"
+        x:Class="LabelPlus_Next.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="LabelPlus_Next">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+    
+    <!-- Main Grid with proper row definitions -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            
+        </Grid.RowDefinitions>
+
+      
+        <u:ToolBar Grid.Row="0">
+            <MenuItem Header="File(_F)">
+                <MenuItem Header="New(_N)" />
+                <MenuItem Header="Open(_O)" />
+                <Separator />
+                <MenuItem Header="Save(_S)" />
+                <MenuItem Header="Save As(_A)" />
+                <Separator />
+                <MenuItem Header="Exit(_E)" />
+            </MenuItem>
+            <MenuItem Header="Image Manager(_I)" />
+            <MenuItem Header="Output(_P)">
+                <MenuItem Header="Output All Image(_O)" />
+            </MenuItem>
+            <MenuItem Header="Help(_H)">
+                <MenuItem Header="View Help(_H)" />
+                <MenuItem Header="About(_A)" />
+            </MenuItem>
+            <MenuItem Header="Language">
+                <ComboBox MinWidth="100" />
+            </MenuItem>
+        </u:ToolBar>
+
+        <!-- Tool Bar -->
+        <u:ToolBar Grid.Row="1">
+            <u:ToolBar>
+                <Button Content="Browse Mode" />
+                <Button Content="Edit Label Mode" />
+                <Button Content="Input Mode" />
+                <Button Content="Check Mode" />
+                <Button Content="Hide Window" />
+            </u:ToolBar>
+        </u:ToolBar>
+
+        <!-- Main Content -->
+        
+    </Grid>
+</Window>
