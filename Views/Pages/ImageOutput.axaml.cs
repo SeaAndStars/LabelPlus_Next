@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using LabelPlus_Next.ViewModels;
+﻿using Avalonia.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
@@ -12,11 +9,9 @@ public partial class ImageOutput : Window
         InitializeComponent();
         ProcessChange(0);
     }
-    
+
     private void ProcessChange(int process)
     {
-       
-        ProgressBar.Value=process;
+        ProgressBar.Value = process;
     }
-    
 }

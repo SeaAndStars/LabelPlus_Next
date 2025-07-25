@@ -6,6 +6,4 @@ public class FileSettingsViewModel : ViewModelBase
 {
     public List<string> GroupList { get; set; }
     public string Notes { get; set; }
-  
-    
 }

@@ -2,14 +2,15 @@
 
 namespace LabelPlus_Next.Models;
 
-public partial class LabelItem
+public class LabelItem
 {
-    public float    X_percent;
-    public float    Y_percent;        
-    public string   Text;
-    public int      Category;
+    public int Category;
+    public string Text;
+    public float X_percent;
+    public float Y_percent;
 
-    public LabelItem(float x_percent, float y_percent, string text, int category){
+    public LabelItem(float x_percent, float y_percent, string text, int category)
+    {
         if (!(category >= 1 && category <= 9))
             throw new Exception();
 

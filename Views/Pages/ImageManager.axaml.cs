@@ -1,7 +1,5 @@
-﻿using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 
 namespace LabelPlus_Next.Views.Pages;
 
@@ -12,22 +10,19 @@ public partial class ImageManager : Window
         InitializeComponent();
     }
 
-    private void  SelectOneFile (object? sender, RoutedEventArgs e)
+    private void SelectOneFile(object? sender, RoutedEventArgs e)
     {
-        
     }
 
     private void SelectAllFile(object? sender, RoutedEventArgs e)
     {
-        
     }
 
     private void UnselectOneFile(object? sender, RoutedEventArgs e)
     {
-        
     }
+
     private void UnselectAllFile(object? sender, RoutedEventArgs e)
     {
-        
     }
 }

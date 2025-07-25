@@ -1,11 +1,8 @@
-namespace LabelPlus_Next.Models;
-
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-using System.Drawing;
+namespace LabelPlus_Next.Models;
 
 public class GlobalVar
 {
@@ -14,6 +11,29 @@ public class GlobalVar
     public static float SetLabelVisualRatioX;
     public static float SetLabelVisualRatioY;
     public static string DefaultComment;
+
+    public static void Reload()
+    {
+        var configPath = "labelplus_config.json";
+        if (!File.Exists(configPath))
+            throw new Exception("Not found config file.");
+
+        var json = File.ReadAllText(configPath);
+        var config = JsonSerializer.Deserialize<Config>(json);
+
+        // QuickText
+        QuickTextItems = config.QuickText;
+
+        // GroupDefine
+        DefaultGroupDefineItems = config.GroupDefine;
+
+        // SetLabelVisualRatio
+        SetLabelVisualRatioX = config.SetLabelVisualRatio[0];
+        SetLabelVisualRatioY = config.SetLabelVisualRatio[1];
+
+        // DefaultComment
+        DefaultComment = config.DefaultComment.Replace(@"\n", "\r\n");
+    }
 
     public struct QuickTextItem
     {
@@ -31,29 +51,6 @@ public class GlobalVar
             Name = name;
             RGB = rgb;
         }
-    }
-
-    public static void Reload()
-    {
-        string configPath = "labelplus_config.json";
-        if (!File.Exists(configPath))
-            throw new Exception("Not found config file.");
-
-        string json = File.ReadAllText(configPath);
-        var config =  JsonSerializer.Deserialize<Config>(json);
-
-        // QuickText
-        QuickTextItems = config.QuickText;
-
-        // GroupDefine
-        DefaultGroupDefineItems = config.GroupDefine;
-
-        // SetLabelVisualRatio
-        SetLabelVisualRatioX = config.SetLabelVisualRatio[0];
-        SetLabelVisualRatioY = config.SetLabelVisualRatio[1];
-
-        // DefaultComment
-        DefaultComment = config.DefaultComment.Replace(@"\n", "\r\n");
     }
 
     private class Config

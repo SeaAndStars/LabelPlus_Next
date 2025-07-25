@@ -1,29 +1,83 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
-        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="250"
-        Width="300" Height="250"
-        x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
-        Title="Image Output">
-        
-        <Grid ShowGridLines="False"  RowDefinitions="5* 15* 10* 10* 10*" ColumnDefinitions="5* 1* 5*">
-                
-                <TextBlock Grid.Row="1 " Grid.Column="0" Text="Output format" FontSize="15"></TextBlock>
-                <Grid Grid.Row="1" Grid.Column="2" ShowGridLines="False" RowDefinitions="* *" ColumnDefinitions="* *">
-                        <RadioButton HorizontalAlignment="Left" Content="PNG" FontSize="15" IsChecked="True" ></RadioButton>
-                        <RadioButton Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Content="JPG" FontSize="15"></RadioButton>
-                        <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Content="Skip unlabeled Images" FontSize="14"></CheckBox>
-                        
-                </Grid>
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Zoom ratio" HorizontalAlignment="Left" FontSize="15" Margin=" 0 15 0 0"></TextBlock>
-                <MaskedTextBox Grid.Row="2" Grid.Column="2" Text="1.00" Mask="0.00" FontSize="15"></MaskedTextBox>
-                
-                <Button Grid.Row="3" Grid.Column="0" Content="Start" MinWidth="100"></Button>
-                <Button Grid.Row="3" Grid.Column="2" Content="Abort" MinWidth="100" Foreground="Red"></Button>
-                
-                <ProgressBar Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3"  MaxWidth="200" 
-                             ShowProgressText="True"  Name="ProgressBar" ></ProgressBar>
+﻿<Window
+    Height="250"
+    Title="Image Output"
+    Width="300"
+    d:DesignHeight="250"
+    d:DesignWidth="300"
+    mc:Ignorable="d"
+    x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid
+        ColumnDefinitions="5* 1* 5*"
+        RowDefinitions="5* 15* 10* 10* 10*"
+        ShowGridLines="False">
+
+        <TextBlock
+            FontSize="15"
+            Grid.Column="0"
+            Grid.Row="1 "
+            Text="Output format" />
+        <Grid
+            ColumnDefinitions="* *"
+            Grid.Column="2"
+            Grid.Row="1"
+            RowDefinitions="* *"
+            ShowGridLines="False">
+            <RadioButton
+                Content="PNG"
+                FontSize="15"
+                HorizontalAlignment="Left"
+                IsChecked="True" />
+            <RadioButton
+                Content="JPG"
+                FontSize="15"
+                Grid.Column="1"
+                Grid.Row="0"
+                HorizontalAlignment="Left" />
+            <CheckBox
+                Content="Skip unlabeled Images"
+                FontSize="14"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Grid.Row="1" />
+
         </Grid>
+        <TextBlock
+            FontSize="15"
+            Grid.Column="0"
+            Grid.Row="2"
+            HorizontalAlignment="Left"
+            Margin="0,15,0,0"
+            Text="Zoom ratio" />
+        <MaskedTextBox
+            FontSize="15"
+            Grid.Column="2"
+            Grid.Row="2"
+            Mask="0.00"
+            Text="1.00" />
+
+        <Button
+            Content="Start"
+            Grid.Column="0"
+            Grid.Row="3"
+            MinWidth="100" />
+        <Button
+            Content="Abort"
+            Foreground="Red"
+            Grid.Column="2"
+            Grid.Row="3"
+            MinWidth="100" />
+
+        <ProgressBar
+            Grid.Column="0"
+            Grid.ColumnSpan="3"
+            Grid.Row="4"
+            MaxWidth="200"
+            Name="ProgressBar"
+            ShowProgressText="True" />
+    </Grid>
 </Window>
