@@ -131,7 +131,7 @@
     <data name="labelZoom" xml:space="preserve">
         <value>縮放比例</value>
     </data>
-    <data name="button" xml:space="preserve">
+    <data name="button_output" xml:space="preserve">
         <value>輸出</value>
     </data>
     <data name="buttonAbort" xml:space="preserve">
@@ -235,5 +235,11 @@
     </data>
     <data name="toolStripButton_zoomOut" xml:space="preserve">
         <value>框外</value>
+    </data>
+    <data name="button_yes" xml:space="preserve">
+        <value>是</value>
+    </data>
+    <data name="button_start" xml:space="preserve">
+        <value>開始</value>
     </data>
 </root>

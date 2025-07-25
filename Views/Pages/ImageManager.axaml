@@ -9,6 +9,7 @@
     x:DataType="viewModels:ImageManagerViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -20,12 +21,12 @@
             FontSize="18"
             Grid.Row="1"
             HorizontalAlignment="Left"
-            Text="File in the same folder" />
+            Text="{I18N {x:Static lang:LangKeys.labelFolderFile}}" />
         <TextBlock
             FontSize="18"
             Grid.Column="2"
             Grid.Row="1"
-            Text="Included File" />
+            Text="{I18N {x:Static lang:LangKeys.labelIncludedFile}}" />
 
         <ListBox
             Grid.Column="0"
@@ -70,13 +71,13 @@
 
 
         <Button
-            Content="Yes"
+            Content="{I18N {x:Static lang:LangKeys.button_OK}}"
             Grid.Column="0"
             Grid.Row="3"
             HorizontalAlignment="Right"
             MinWidth="150" />
         <Button
-            Content="Canel"
+            Content="{I18N {x:Static lang:LangKeys.buttonCancel}}"
             Foreground="Red"
             Grid.Column="2"
             Grid.Row="3"

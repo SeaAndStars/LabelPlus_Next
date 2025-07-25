@@ -237,7 +237,7 @@
   <data name="labelZoom" xml:space="preserve">
     <value>缩放比例</value>
   </data>
-  <data name="button" xml:space="preserve">
+  <data name="button_output" xml:space="preserve">
     <value>输出</value>
   </data>
   <data name="buttonAbort" xml:space="preserve">
@@ -341,5 +341,11 @@
   </data>
   <data name="notHeadFootSignCheckBox" xml:space="preserve">
     <value>添加头尾标志(startN、endN) </value>
+  </data>
+  <data name="button_yes" xml:space="preserve">
+    <value>是</value>
+  </data>
+  <data name="button_start" xml:space="preserve">
+    <value>开始</value>
   </data>
 </root>

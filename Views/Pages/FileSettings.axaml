@@ -7,6 +7,7 @@
     x:DataType="viewModels:FileSettingsViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -21,7 +22,7 @@
             FontSize="18"
             Grid.Column="0"
             Grid.Row="1"
-            Text="Group Settings" />
+            Text="{I18N {x:Static lang:LangKeys.labelGroup}}" />
         <TextBlock
             FontSize="18"
             Grid.Column="1"
@@ -50,7 +51,7 @@
 
         <Button
             Click="Save"
-            Content="Save"
+            Content="{I18N {x:Static lang:LangKeys.button_OK}}"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Grid.Row="3"

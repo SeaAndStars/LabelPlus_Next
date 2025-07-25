@@ -148,16 +148,16 @@
     <value>File Format</value>
   </data>
   <data name="labelZoom" xml:space="preserve">
-    <value>Zoom</value>
+    <value>Zoom Ratio</value>
   </data>
-  <data name="button" xml:space="preserve">
+  <data name="button_output" xml:space="preserve">
     <value>Output</value>
   </data>
   <data name="buttonAbort" xml:space="preserve">
     <value>Abort</value>
   </data>
   <data name="checkBoxJumpNoNum" xml:space="preserve">
-    <value>Jump unlabeled</value>
+    <value>Skip unlabeled Images</value>
   </data>
   
   <!-- ManageImageFrm -->
@@ -179,7 +179,7 @@
     <value>File Setting</value>
   </data>
   <data name="labelGroup" xml:space="preserve">
-    <value>Groups</value>
+    <value>Group Settings</value>
   </data>
   <data name="labelComment" xml:space="preserve">
     <value>Comment</value>
@@ -257,5 +257,11 @@
   <data name="notLabelNumCheckBox" xml:space="preserve">
     <value>
 Add start and end flags (startN, endN) to facilitate the use of actions</value>
+  </data>
+  <data name="button_yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="button_start" xml:space="preserve">
+    <value>Start</value>
   </data>
 </root>

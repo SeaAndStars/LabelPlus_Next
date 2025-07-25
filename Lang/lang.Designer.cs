@@ -69,20 +69,38 @@ namespace LabelPlus_Next.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 输出.
-        /// </summary>
-        public static string button {
-            get {
-                return ResourceManager.GetString("button", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to 确认.
         /// </summary>
         public static string button_OK {
             get {
                 return ResourceManager.GetString("button_OK", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 输出.
+        /// </summary>
+        public static string button_output {
+            get {
+                return ResourceManager.GetString("button_output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 开始.
+        /// </summary>
+        public static string button_start {
+            get {
+                return ResourceManager.GetString("button_start", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 是.
+        /// </summary>
+        public static string button_yes {
+            get {
+                return ResourceManager.GetString("button_yes", resourceCulture);
             }
         }
         

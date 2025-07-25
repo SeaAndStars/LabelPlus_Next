@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 namespace LabelPlus_Next.Views.Pages;
 
@@ -7,8 +9,9 @@ public partial class ImageOutput : Window
     public ImageOutput()
     {
         InitializeComponent();
-        ProcessChange(0);
     }
+
+
 
     private void ProcessChange(int process)
     {
