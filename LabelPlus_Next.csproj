@@ -16,7 +16,8 @@
 
     <ItemGroup>
         <PackageReference Include="Antelcat.I18N.Avalonia" Version="1.1.2" />
-        <PackageReference Include="Avalonia" Version="11.3.0" />
+        <PackageReference Include="Avalonia" Version="11.3.2" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.2" />
         <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
         <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
@@ -40,6 +41,9 @@
       <EmbeddedResource Update="Lang\lang.resx">
         <Generator>PublicResXFileCodeGenerator</Generator>
         <LastGenOutput>lang.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <EmbeddedResource Update="Lang\lang.zh-hant-tw.resx">
+        <Generator></Generator>
       </EmbeddedResource>
 
     </ItemGroup>

@@ -1,5 +1,8 @@
 using System;
+using System.Drawing;
 using Avalonia;
+using Avalonia.Input;
+
 // 添加以下命名空间引用
 
 namespace LabelPlus_Next;
@@ -12,7 +15,7 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        BuildAvaloniaApp()
+            BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }
 

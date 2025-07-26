@@ -36,9 +36,6 @@
             MinHeight="215" />
         <TextBox
             AcceptsReturn="True"
-            CanCopy="True"
-            CanPaste="True"
-            CanRedo="True"
             Grid.Column="1"
             Grid.Row="2"
             HorizontalAlignment="Left"

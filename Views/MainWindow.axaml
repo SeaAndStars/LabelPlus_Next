@@ -15,7 +15,8 @@
     xmlns:u="https://irihi.tech/ursa"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
     xmlns:vm="using:LabelPlus_Next.ViewModels"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid">
 
     <Design.DataContext>
         <vm:MainWindowViewModel />
@@ -31,14 +32,14 @@
         <u:ToolBar Grid.Row="0" Margin="0,0,0,0">
             <Button Content="{I18N {x:Static lang:LangKeys.fileToolStripMenuItem}}">
                 <Button.Flyout>
-                    <MenuFlyout>
-                        <MenuItem Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}" />
+                    <MenuFlyout HorizontalOffset="5">
+                        <MenuItem Click="NewTranslation" Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}" />
+                        <MenuItem Click="OpenTranslationFile" Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}" />
+                        <MenuItem Click="SaveFile" Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
+                        <MenuItem Click="SaveAsAnotherFile" Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
                         <MenuItem Header="-" />
                         <MenuItem Header="{I18N {x:Static lang:LangKeys.exitEToolStripMenuItem}}" />
                     </MenuFlyout>
@@ -111,6 +112,7 @@
 
 
         </u:ToolBar>
+     
         <u:ButtonGroup
             Grid.Column="1"
             Grid.Row="1"
@@ -121,6 +123,65 @@
         </u:ButtonGroup>
 
         <!--  Main Content  -->
+        <Grid
+            Grid.Column="0"
+            Grid.Row="2"
+            Name="PictureView"
+            RowDefinitions="90* 10*"
+            ShowGridLines="True" />
 
+        <Grid
+            Grid.Column="1"
+            Grid.Row="2"
+            Name="LabelView"
+            RowDefinitions="40* 40* 9*"
+            ShowGridLines="True">
+            <Grid RowDefinitions="1.5* 9*" ShowGridLines="True">
+                <u:ToolBar>
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditBig}}" HorizontalAlignment="Left"></Button>
+                    <u:ToolBarSeparator></u:ToolBarSeparator>
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditSmall}}" HorizontalAlignment="Left" ></Button>
+                    <u:ToolBarSeparator></u:ToolBarSeparator>
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}"></Button>
+                    <u:ToolBarSeparator></u:ToolBarSeparator>
+                    <TextBlock Text="{I18N {x:Static lang:LangKeys.toolStripLabelTipSetCategory}}" FontSize="15"></TextBlock>
+                    <ComboBox Name="ImageFileNamesComboBox"
+                              ItemsSource="{Binding ImageFileNames}"
+                              SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}"
+                              MinWidth="120" />
+                </u:ToolBar>
+
+                <!-- 替换TreeDataGrid为DataGrid -->
+                <dataGrid:DataGrid Grid.Row="1"
+                    ItemsSource="{Binding CurrentLabels}"
+                    SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
+                    AutoGenerateColumns="False"
+                    FontSize="18"
+                    SelectionMode="Single"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
+                    <dataGrid:DataGrid.Columns>
+                        <dataGrid:DataGridTextColumn Header="编号" Binding="{Binding Index}" />
+                        <dataGrid:DataGridTextColumn Header="文本" Binding="{Binding Text}"  />
+                        <dataGrid:DataGridTextColumn Header="分类" Binding="{Binding CategoryString}" />
+                    </dataGrid:DataGrid.Columns>
+                </dataGrid:DataGrid>
+            </Grid>
+            <TextBox Name="LabelTextBox"
+                     Grid.Row="1"
+                     HorizontalAlignment="Stretch"
+                     VerticalAlignment="Stretch"
+                     MinHeight="250"
+                     FontSize="18"
+                     Text="{Binding CurrentText, Mode=TwoWay}"
+                     TextAlignment="Left"
+                     VerticalContentAlignment="Top" />
+        </Grid>
     </Grid>
+
+    <Window.Styles>
+        <Style Selector="TextBox#LabelTextBox">
+            <Setter Property="Background" Value="{DynamicResource BackgroundBrush}" />
+        </Style>
+    </Window.Styles>
 </Window>
