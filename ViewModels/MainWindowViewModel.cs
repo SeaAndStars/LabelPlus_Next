@@ -1,36 +1,31 @@
 using System.Collections.Generic;
-using System.Globalization;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
-using System.Collections.ObjectModel;
-using System.Linq;
-
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    protected static LabelFileManager LabelFileManager1  = new LabelFileManager();
-    public List<string> LangList { get; } = new List<string> { "default", "en", "zh-hant-tw" };
+    protected static LabelFileManager LabelFileManager1 = new();
 
-    [ObservableProperty]
-    private ObservableCollection<string> imageFileNames = new();
-    [ObservableProperty]
-    private ObservableCollection<LabelItem> currentLabels = new();
-    [ObservableProperty]
-    private string? selectedImageFile;
-    [ObservableProperty]
-    private LabelItem? selectedLabel;
-    [ObservableProperty]
-    private string? currentText;
-    [ObservableProperty]
-    private string? newTranslationPath;
-    [ObservableProperty]
-    private string? openTranslationFilePath;
+    [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
+
+    [ObservableProperty] private string? currentText;
+
+    [ObservableProperty] private ObservableCollection<string> imageFileNames = new();
+
+    [ObservableProperty] private string? newTranslationPath;
+
+    [ObservableProperty] private string? openTranslationFilePath;
+
+    [ObservableProperty] private string? selectedImageFile;
+
+    [ObservableProperty] private LabelItem? selectedLabel;
+
+    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
 
     // 新增：ListBox编号辅助属性
     public int GetLabelIndex(LabelItem item)
@@ -42,11 +37,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public string GetCategoryString(LabelItem item)
     {
         return item.Category == 1 ? "框内" : "框外";
-    }
-
-    public MainWindowViewModel()
-    {
-        // currentLang = LangList[0]; // 注释掉未定义的currentLang
     }
 
     [RelayCommand]
@@ -100,15 +90,17 @@ public partial class MainWindowViewModel : ViewModelBase
     private void UpdateCurrentLabels()
     {
         CurrentLabels.Clear();
-        if (!string.IsNullOrEmpty(SelectedImageFile) && LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
+        if (!string.IsNullOrEmpty(SelectedImageFile) &&
+            LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
         {
-            for (int i = 0; i < labels.Count; i++)
+            for (var i = 0; i < labels.Count; i++)
             {
                 var item = labels[i];
                 item.Index = i + 1;
                 item.CategoryString = item.Category == 1 ? "框内" : "框外";
                 CurrentLabels.Add(item);
             }
+
             if (CurrentLabels.Count > 0)
                 SelectedLabel = CurrentLabels[0];
         }

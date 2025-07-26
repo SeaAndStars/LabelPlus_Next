@@ -11,17 +11,15 @@ public class LabelFileReader
     public async Task<(string, Dictionary<string, List<LabelItem>?> store)> ReadAsync(string path)
     {
         // 路径解码
-        string decodedPath = Uri.UnescapeDataString(path);
-        string normalizedPath = decodedPath.Replace('/', '\\');
+        var decodedPath = Uri.UnescapeDataString(path);
+        var normalizedPath = decodedPath.Replace('/', '\\');
 
         if (!File.Exists(normalizedPath))
-        {
             throw new FileNotFoundException($"文件未找到或无法访问: {normalizedPath}，请检查路径是否正确，文件是否存在。");
-        }
 
         var store = new Dictionary<string, List<LabelItem>?>();
         var headerBuilder = new StringBuilder();
-        bool headerRead = false;
+        var headerRead = false;
         string? nowFilename = null;
         List<LabelItem>? currentList = null;
 
@@ -33,15 +31,11 @@ public class LabelFileReader
             if (!headerRead)
             {
                 if (line.StartsWith(">>>>>>>>[") || line.StartsWith("----------------["))
-                {
                     headerRead = true;
-                    // 这一行属于内容部分，不加到 header
-                    // 跳出 header 读取
-                }
+                // 这一行属于内容部分，不加到 header
+                // 跳出 header 读取
                 else
-                {
                     headerBuilder.AppendLine(line);
-                }
                 continue;
             }
 
@@ -56,7 +50,7 @@ public class LabelFileReader
                 // 标签头
                 var labelInfo = line.Substring(17, line.IndexOf("]----------------", StringComparison.Ordinal) - 17);
                 var rightText = line.Substring(line.IndexOf("]----------------", StringComparison.Ordinal) + 17);
-                int category = 1;
+                var category = 1;
                 float x = 0, y = 0;
                 if (rightText.StartsWith("[") && rightText.EndsWith("]"))
                 {
@@ -69,7 +63,7 @@ public class LabelFileReader
                     }
                 }
 
-                string? text = await sr.ReadLineAsync();
+                var text = await sr.ReadLineAsync();
                 if (currentList != null) currentList.Add(new LabelItem(x, y, text, category));
             }
         }

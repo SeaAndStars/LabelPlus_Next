@@ -10,13 +10,13 @@
     x:DataType="viewModels:MainWindowViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
     xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
     xmlns:vm="using:LabelPlus_Next.ViewModels"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Design.DataContext>
         <vm:MainWindowViewModel />
@@ -91,12 +91,12 @@
             <u:ThemeToggleButton HorizontalAlignment="Right" Margin="50,0,0,0" />
         </u:ToolBar>
         <Border
+            Background="{DynamicResource AccentButtonBackground}"
             Grid.Column="0"
             Grid.ColumnSpan="3"
             Grid.Row="1"
-            Margin="0,0,0,32"
             Height="2"
-            Background="{DynamicResource AccentButtonBackground}" />
+            Margin="0,0,0,32" />
 
         <!--  Tool Bar  -->
         <u:ToolBar
@@ -115,7 +115,7 @@
 
 
         </u:ToolBar>
-     
+
         <u:ButtonGroup
             Grid.Column="2"
             Grid.Row="1"
@@ -141,57 +141,61 @@
             ShowGridLines="False">
             <Grid RowDefinitions="1.5* 9*" ShowGridLines="False">
                 <u:ToolBar Grid.Row="0">
-                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditBig}}" HorizontalAlignment="Left"></Button>
-                    <u:ToolBarSeparator></u:ToolBarSeparator>
-                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditSmall}}" HorizontalAlignment="Left" ></Button>
-                    <u:ToolBarSeparator></u:ToolBarSeparator>
-                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}"></Button>
-                    <u:ToolBarSeparator></u:ToolBarSeparator>
-                    <TextBlock Text="{I18N {x:Static lang:LangKeys.toolStripLabelTipSetCategory}}" FontSize="15"></TextBlock>
-                    <ComboBox Name="ImageFileNamesComboBox"
-                              ItemsSource="{Binding ImageFileNames}"
-                              SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}"
-                              MinWidth="120" />
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditBig}}" HorizontalAlignment="Left" />
+                    <u:ToolBarSeparator />
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditSmall}}" HorizontalAlignment="Left" />
+                    <u:ToolBarSeparator />
+                    <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
+                    <u:ToolBarSeparator />
+                    <TextBlock FontSize="15" Text="{I18N {x:Static lang:LangKeys.toolStripLabelTipSetCategory}}" />
+                    <ComboBox
+                        ItemsSource="{Binding ImageFileNames}"
+                        MinWidth="120"
+                        Name="ImageFileNamesComboBox"
+                        SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
                 </u:ToolBar>
 
-                <!-- 替换TreeDataGrid为DataGrid -->
-                <dataGrid:DataGrid Grid.Row="1"
-                    ItemsSource="{Binding CurrentLabels}"
-                    SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
+                <!--  替换TreeDataGrid为DataGrid  -->
+                <dataGrid:DataGrid
                     AutoGenerateColumns="False"
                     FontSize="18"
-                    SelectionMode="Single"
+                    Grid.Row="1"
                     HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding CurrentLabels}"
+                    SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
+                    SelectionMode="Single"
                     VerticalAlignment="Stretch">
                     <dataGrid:DataGrid.Columns>
-                        <dataGrid:DataGridTextColumn Header="编号" Binding="{Binding Index}" />
-                        <dataGrid:DataGridTextColumn Header="文本" Binding="{Binding Text}"  />
-                        <dataGrid:DataGridTextColumn Header="分类" Binding="{Binding CategoryString}" />
+                        <dataGrid:DataGridTextColumn Binding="{Binding Index}" Header="编号" />
+                        <dataGrid:DataGridTextColumn Binding="{Binding Text}" Header="文本" />
+                        <dataGrid:DataGridTextColumn Binding="{Binding CategoryString}" Header="分类" />
                     </dataGrid:DataGrid.Columns>
                 </dataGrid:DataGrid>
             </Grid>
-            <Border Grid.Row="1"      Height="2"
-                    Margin="-3 0 0 0"
-                    HorizontalAlignment="Stretch"
-
-                    Background="{DynamicResource AccentButtonBackground}" ></Border>
-            <TextBox Name="LabelTextBox"
-                     Grid.Row="2"
-                     HorizontalAlignment="Stretch"
-                     VerticalAlignment="Stretch"
-                     MinHeight="250"
-                     FontSize="18"
-                     Text="{Binding CurrentText, Mode=TwoWay}"
-                     TextAlignment="Left"
-                     VerticalContentAlignment="Top" />
+            <Border
+                Background="{DynamicResource AccentButtonBackground}"
+                Grid.Row="1"
+                Height="2"
+                HorizontalAlignment="Stretch"
+                Margin="-3,0,0,0" />
+            <TextBox
+                FontSize="18"
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                MinHeight="250"
+                Name="LabelTextBox"
+                Text="{Binding CurrentText, Mode=TwoWay}"
+                TextAlignment="Left"
+                VerticalAlignment="Stretch"
+                VerticalContentAlignment="Top" />
         </Grid>
         <Border
+            Background="{DynamicResource AccentButtonBackground}"
             Grid.Column="1"
             Grid.Row="1"
             Grid.RowSpan="2"
             Margin="0,0,0,0"
-            Width="2"
-            Background="{DynamicResource AccentButtonBackground}" />
+            Width="2" />
     </Grid>
 
     <Window.Styles>

@@ -2,9 +2,7 @@
 
 namespace LabelPlus_Next.Lang;
 
-
-[ResourceKeysOf(typeof(LabelPlus_Next.Lang.lang))]
+[ResourceKeysOf(typeof(lang))]
 public partial class LangKeys
 {
-    
 }

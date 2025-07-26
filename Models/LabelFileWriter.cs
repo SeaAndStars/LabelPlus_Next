@@ -24,11 +24,12 @@ public class LabelFileWriter
         {
             await sw.WriteLineAsync();
             await sw.WriteLineAsync($">>>>>>>>[{kvp.Key}]<<<<<<<<");
-            int count = 0;
+            var count = 0;
             foreach (var n in kvp.Value)
             {
                 count++;
-                await sw.WriteLineAsync($"----------------[{count}]----------------[{n.XPercent:F3},{n.YPercent:F3},{n.Category}]");
+                await sw.WriteLineAsync(
+                    $"----------------[{count}]----------------[{n.XPercent:F3},{n.YPercent:F3},{n.Category}]");
                 await sw.WriteLineAsync(n.Text);
                 await sw.WriteLineAsync();
             }

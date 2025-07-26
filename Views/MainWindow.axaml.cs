@@ -1,33 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Platform.Storage;
 using LabelPlus_Next.Lang;
 using LabelPlus_Next.ViewModels;
-using static LabelPlus_Next.ViewModels.MainWindowViewModel;    
 using LabelPlus_Next.Views.Pages;
-using System.Collections.ObjectModel;
-using System.Collections.Generic;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.Views;
 
 public partial class MainWindow : Window
-{   
+{
     private ComboBox? langComboBox; // 添加空值安全字段
-    private MainWindowViewModel ViewModel => DataContext as MainWindowViewModel;
 
     public MainWindow()
     {
-        InitializeComponent(true , true);
+        InitializeComponent();
         langComboBox = this.FindControl<ComboBox>("LangComboBox");
     }
+
+    private MainWindowViewModel ViewModel => DataContext as MainWindowViewModel;
 
     private void Imagine_manager_OnClick(object? sender, RoutedEventArgs e)
     {
@@ -41,8 +36,13 @@ public partial class MainWindow : Window
         outputpage.Show();
     }
 
-    private void View_Help_OnClick(object? sender, RoutedEventArgs e) { }
-    private void About_OnClick(object? sender, RoutedEventArgs e) { }
+    private void View_Help_OnClick(object? sender, RoutedEventArgs e)
+    {
+    }
+
+    private void About_OnClick(object? sender, RoutedEventArgs e)
+    {
+    }
 
     private void LangComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
@@ -62,13 +62,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            var path = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions()
+            var path = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = I18NExtension.Translate(LangKeys.newToolStripMenuItem),
+                Title = I18NExtension.Translate(LangKeys.newToolStripMenuItem)
             });
-            Console.WriteLine(path[0].Path.AbsolutePath.ToString());
+            Console.WriteLine(path[0].Path.AbsolutePath);
             if (ViewModel != null)
-                ViewModel.NewTranslationPath = path[0].Path.AbsolutePath.ToString();
+                ViewModel.NewTranslationPath = path[0].Path.AbsolutePath;
         }
         catch (Exception ex)
         {
@@ -80,16 +80,16 @@ public partial class MainWindow : Window
     {
         try
         {
-            var opentranslationfile = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
+            var opentranslationfile = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = I18NExtension.Translate(LangKeys.openToolStripMenuItem),
                 FileTypeFilter = new List<FilePickerFileType> { FilePickerFileTypes.TextPlain }
             });
-            Console.WriteLine(opentranslationfile[0].Path.AbsolutePath.ToString());
+            Console.WriteLine(opentranslationfile[0].Path.AbsolutePath);
             if (ViewModel != null)
             {
-                ViewModel.OpenTranslationFilePath = opentranslationfile[0].Path.AbsolutePath.ToString();
-                await ViewModel.LoadTranslationFile(opentranslationfile[0].Path.AbsolutePath.ToString());
+                ViewModel.OpenTranslationFilePath = opentranslationfile[0].Path.AbsolutePath;
+                await ViewModel.LoadTranslationFile(opentranslationfile[0].Path.AbsolutePath);
             }
         }
         catch (Exception exception)
@@ -102,13 +102,14 @@ public partial class MainWindow : Window
     {
         try
         {
-            var fileTypeChoices = new List<FilePickerFileType> { new FilePickerFileType("Text") { Patterns = new List<string> { "*.txt" } } };
-            var saveasanotherfileHelper = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
+            var fileTypeChoices = new List<FilePickerFileType>
+                { new("Text") { Patterns = new List<string> { "*.txt" } } };
+            var saveasanotherfileHelper = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = I18NExtension.Translate(LangKeys.saveAsDToolStripMenuItem),
                 SuggestedFileName = "translation",
                 FileTypeChoices = fileTypeChoices,
-                DefaultExtension = ".txt",
+                DefaultExtension = ".txt"
             });
         }
         catch (Exception ex)
@@ -121,14 +122,14 @@ public partial class MainWindow : Window
     {
         try
         {
-            var savefile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
+            var savefile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = I18NExtension.Translate(LangKeys.saveAsDToolStripMenuItem),
-                DefaultExtension = ".txt",
+                DefaultExtension = ".txt"
             });
             if (savefile != null && ViewModel != null)
             {
-                var path = savefile.Path.AbsolutePath.ToString();
+                var path = savefile.Path.AbsolutePath;
                 await ViewModel.FileSave(path);
             }
         }

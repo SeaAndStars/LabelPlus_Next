@@ -1,27 +1,29 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace LabelPlus_Next.Models;
 
 public class LabelFileHeaderManager
 {
-    public static async Task<(string[] fileHead, List<string> groupList, string comment)> ParseHeaderAsync(string headerText)
+    public static async Task<(string[] fileHead, List<string> groupList, string comment)> ParseHeaderAsync(
+        string headerText)
     {
         // 使用 Environment.NewLine 兼容所有平台
-        var nl = System.Environment.NewLine;
+        var nl = Environment.NewLine;
 
         // 先按分隔符拆分 header，每个分隔符独占一行
-        var blocks = headerText.Split(new[] { nl + "-" + nl }, System.StringSplitOptions.None);
+        var blocks = headerText.Split(new[] { nl + "-" + nl }, StringSplitOptions.None);
 
         if (blocks.Length < 3)
-            throw new System.Exception("文件头丢失");
+            throw new Exception("文件头丢失");
 
         // 文件头部分
         var fileHead = blocks[0].Split(',');
 
         // 分组部分
         var groupList = new List<string>();
-        foreach (var line in blocks[1].Split(new[] { nl }, System.StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in blocks[1].Split(new[] { nl }, StringSplitOptions.RemoveEmptyEntries))
         {
             var t = line.Trim();
             if (t != "")
@@ -36,7 +38,7 @@ public class LabelFileHeaderManager
 
     public static async Task<string> GenerateHeaderAsync(string[] fileHead, List<string> groupList, string comment)
     {
-        var nl = System.Environment.NewLine;
+        var nl = Environment.NewLine;
         var result = string.Join(",", fileHead) + nl + "-" + nl;
         foreach (var str in groupList)
             result += str + nl;

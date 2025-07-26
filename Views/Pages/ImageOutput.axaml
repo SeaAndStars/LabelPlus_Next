@@ -8,7 +8,6 @@
     x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:lang="[lang ]clr-namespace:LabelPlus_Next.Lang"
     xmlns:lang1="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
