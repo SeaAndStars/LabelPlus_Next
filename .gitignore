@@ -3,3 +3,7 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+/.idea/.idea.LabelPlus_Next/.idea
+/.vs
+/LabelPlus_Next.csproj.DotSettings
+/LabelPlus_Next.sln.DotSettings.user
