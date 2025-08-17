@@ -1,0 +1,84 @@
+﻿<Window
+    Height="250"
+    Title="Image Output"
+    Width="300"
+    d:DesignHeight="250"
+    d:DesignWidth="300"
+    mc:Ignorable="d"
+    x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lang1="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid
+        ColumnDefinitions="5* 1* 5*"
+        RowDefinitions="5* 15* 10* 10* 10*"
+        ShowGridLines="False">
+
+        <TextBlock
+            FontSize="15"
+            Grid.Column="0"
+            Grid.Row="1 "
+            Text="{I18N {x:Static lang1:LangKeys.labelOutputFormat}}" />
+        <Grid
+            ColumnDefinitions="* *"
+            Grid.Column="2"
+            Grid.Row="1"
+            RowDefinitions="* *"
+            ShowGridLines="False">
+            <RadioButton
+                Content="PNG"
+                FontSize="15"
+                HorizontalAlignment="Left"
+                IsChecked="True" />
+            <RadioButton
+                Content="JPG"
+                FontSize="15"
+                Grid.Column="1"
+                Grid.Row="0"
+                HorizontalAlignment="Left" />
+            <CheckBox
+                Content="{I18N {x:Static lang1:LangKeys.checkBoxJumpNoNum}}"
+                FontSize="14"
+                Grid.Column="0"
+                Grid.ColumnSpan="2"
+                Grid.Row="1" />
+
+        </Grid>
+        <TextBlock
+            FontSize="15"
+            Grid.Column="0"
+            Grid.Row="2"
+            HorizontalAlignment="Left"
+            Margin="0,15,0,0"
+            Text="{I18N {x:Static lang1:LangKeys.labelZoom}}" />
+        <MaskedTextBox
+            FontSize="15"
+            Grid.Column="2"
+            Grid.Row="2"
+            Mask="0.00"
+            Text="1.00" />
+
+        <Button
+            Content="{I18N {x:Static lang1:LangKeys.button_start}}"
+            Grid.Column="0"
+            Grid.Row="3"
+            MinWidth="100" />
+        <Button
+            Content="{I18N {x:Static lang1:LangKeys.buttonAbort}}"
+            Foreground="Red"
+            Grid.Column="2"
+            Grid.Row="3"
+            MinWidth="100" />
+
+        <ProgressBar
+            Grid.Column="0"
+            Grid.ColumnSpan="3"
+            Grid.Row="4"
+            MaxWidth="200"
+            Name="ProgressBar"
+            ShowProgressText="True" />
+    </Grid>
+</Window>

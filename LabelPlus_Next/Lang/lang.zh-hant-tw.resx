@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+  </resheader>
+  <data name="fileToolStripMenuItem" xml:space="preserve">
+        <value>檔案(_F)</value>
+    </data>
+  <data name="newToolStripMenuItem" xml:space="preserve">
+        <value>新增翻譯(_N)</value>
+    </data>
+  <data name="openToolStripMenuItem" xml:space="preserve">
+        <value>開啟翻譯(_O)</value>
+    </data>
+  <data name="saveProjectSToolStripMenuItem" xml:space="preserve">
+        <value>儲存翻譯(_S)</value>
+    </data>
+  <data name="saveAsDToolStripMenuItem" xml:space="preserve">
+        <value>翻譯另存為(_S)</value>
+    </data>
+  <data name="exitEToolStripMenuItem" xml:space="preserve">
+        <value>結束(_E)</value>
+    </data>
+  <data name="imageToolStripMenuItem" xml:space="preserve">
+        <value>圖片管理(_I)</value>
+    </data>
+  <data name="outputPToolStripMenuItem" xml:space="preserve">
+        <value>匯出(_O)</value>
+    </data>
+  <data name="outputAllToolStripMenuItem" xml:space="preserve">
+        <value>匯出帶標記圖片(_O)</value>
+    </data>
+  <data name="outputPhotoshopScriptToolStripMenuItem" xml:space="preserve">
+        <value>匯出Photoshop腳本(_P)</value>
+    </data>
+  <data name="helpAToolStripMenuItem" xml:space="preserve">
+        <value>說明(_H)</value>
+    </data>
+  <data name="viewHelpHToolStripMenuItem" xml:space="preserve">
+        <value>顯示說明(_H)</value>
+    </data>
+  <data name="aboutAToolStripMenuItem" xml:space="preserve">
+        <value>關於(_A)</value>
+    </data>
+  <data name="toolStripButton_BrowseMode" xml:space="preserve">
+        <value>瀏覽模式(_Q)</value>
+    </data>
+  <data name="toolStripButton_EditLabelMode" xml:space="preserve">
+        <value>Label模式(_W)</value>
+    </data>
+  <data name="toolStripButton_InputMode" xml:space="preserve">
+        <value>輸入模式(_E)</value>
+    </data>
+  <data name="toolStripButton_CheckMode" xml:space="preserve">
+        <value>審校模式(_R)</value>
+    </data>
+  <data name="toolStripButton_HideWindow" xml:space="preserve">
+        <value>隱藏視窗(_T)</value>
+    </data>
+  <data name="fileToolStripLabel" xml:space="preserve">
+        <value>圖片</value>
+    </data>
+  <data name="toolStripButton_EditBig" xml:space="preserve">
+        <value>▲ 字型增大</value>
+    </data>
+  <data name="toolStripButton_EditSmall" xml:space="preserve">
+        <value>▼ 字型減小</value>
+    </data>
+  <data name="toolStripButton_FileSetting" xml:space="preserve">
+        <value>檔案設定</value>
+    </data>
+  <data name="labelCtrlEnterTip" xml:space="preserve">
+        <value>切換條目(Ctrl+Enter,),快速片語(Alt+A)</value>
+    </data>
+  <data name="toolStripLabelTipSetCategory" xml:space="preserve">
+        <value>數字鍵設定分類</value>
+    </data>
+  <data name="OutputScriptFrm.Text" xml:space="preserve">
+        <value>匯出PS腳本</value>
+    </data>
+  <data name="LabelNumCheckBox" xml:space="preserve">
+        <value>匯出標號(1、2、3…)</value>
+    </data>
+  <data name="notLabelNumCheckBox" xml:space="preserve">
+        <value>新增頭尾標誌(startN、endN) 以便使用動作</value>
+    </data>
+  <data name="checkBoxMakeUnLabeledFile" xml:space="preserve">
+        <value>處理無標號文件</value>
+    </data>
+  <data name="checkBoxSetFont" xml:space="preserve">
+        <value>自訂字型</value>
+    </data>
+  <data name="checkBoxSetFontSize" xml:space="preserve">
+        <value>自訂字型大小</value>
+    </data>
+  <data name="outputButton" xml:space="preserve">
+        <value>匯出</value>
+    </data>
+  <data name="checkBoxUseOtherFileType" xml:space="preserve">
+        <value>使用指定類型圖源</value>
+    </data>
+  <data name="checkBoxAutoGroupAction" xml:space="preserve">
+        <value>根據標號分組,執行指定動作組中的動作GroupN</value>
+    </data>
+  <data name="labelAutoGroupActionTip" xml:space="preserve">
+        <value>(動作組名)</value>
+    </data>
+  <data name="labelOutputItemTip" xml:space="preserve">
+        <value>匯出項目</value>
+    </data>
+  <data name="labelDefaultFormatTip" xml:space="preserve">
+        <value>預設格式</value>
+    </data>
+  <data name="labelAutodoTip" xml:space="preserve">
+        <value>流程及自動化</value>
+    </data>
+  <data name="ImageOutputFrm.Text" xml:space="preserve">
+        <value>匯出帶標記圖片</value>
+    </data>
+  <data name="labelOutputFormat" xml:space="preserve">
+        <value>輸出格式</value>
+    </data>
+  <data name="labelZoom" xml:space="preserve">
+        <value>縮放比例</value>
+    </data>
+  <data name="button_output" xml:space="preserve">
+        <value>輸出</value>
+    </data>
+  <data name="buttonAbort" xml:space="preserve">
+        <value>停止</value>
+    </data>
+  <data name="checkBoxJumpNoNum" xml:space="preserve">
+        <value>跳過無標號圖</value>
+    </data>
+  <data name="ManageImageFrm.Text" xml:space="preserve">
+        <value>圖片管理</value>
+    </data>
+  <data name="labelFolderFile" xml:space="preserve">
+        <value>忽略檔案</value>
+    </data>
+  <data name="labelIncludedFile" xml:space="preserve">
+        <value>包含檔案</value>
+    </data>
+  <data name="button_OK" xml:space="preserve">
+        <value>確認</value>
+    </data>
+  <data name="buttonCancel" xml:space="preserve">
+        <value>取消</value>
+    </data>
+  <data name="FileSettingFrm.Text" xml:space="preserve">
+        <value>檔案設定</value>
+    </data>
+  <data name="labelGroup" xml:space="preserve">
+        <value>分組設定</value>
+    </data>
+  <data name="labelComment" xml:space="preserve">
+        <value>備註</value>
+    </data>
+  <data name="save_question" xml:space="preserve">
+        <value>檔案已修改，是否儲存？</value>
+    </data>
+  <data name="save_complete" xml:space="preserve">
+        <value>儲存成功</value>
+    </data>
+  <data name="input_images_need_save" xml:space="preserve">
+        <value>檔案未儲存，請先將檔案存至與圖片同資料夾下！</value>
+    </data>
+  <data name="clear_all_label_question" xml:space="preserve">
+        <value>確認要刪除所有標籤嗎！？</value>
+    </data>
+  <data name="can_not_output_file" xml:space="preserve">
+        <value>無法輸出檔案：</value>
+    </data>
+  <data name="output_complete" xml:space="preserve">
+        <value>輸出完畢</value>
+    </data>
+  <data name="output_fail" xml:space="preserve">
+        <value>輸出失敗</value>
+    </data>
+  <data name="output_aborted" xml:space="preserve">
+        <value>輸出已終止</value>
+    </data>
+  <data name="ps_output_complete" xml:space="preserve">
+        <value>產生成功 腳本檔案已儲存在同一目錄下：auto_label_for_photoshop.jsx \n 使用方法：1.直接拖進Photoshop中；或"檔案-腳本-瀏覽"，選取腳本 \n2.選取圖片所在目錄</value>
+    </data>
+  <data name="tip_chose_photo_dir" xml:space="preserve">
+        <value>請選擇圖片資料夾。\n程式將為您在目錄下自動建立翻譯文字檔案。</value>
+    </data>
+  <data name="tip_new_file_be_saved" xml:space="preserve">
+        <value>新增檔案已儲存為：{0}</value>
+    </data>
+  <data name="tip_setting_group" xml:space="preserve">
+        <value>請以正確的格式設定分組，每行一組，分組數量為1-9組</value>
+    </data>
+  <data name="tip_sure_del_label" xml:space="preserve">
+        <value>確認刪除選取的標籤嗎?</value>
+    </data>
+  <data name="tip_setting_comment" xml:space="preserve">
+        <value>備註裡不能以'-'作為單獨一行</value>
+    </data>
+  <data name="default_file_name" xml:space="preserve">
+        <value>翻譯</value>
+    </data>
+  <data name="error_openfilefail" xml:space="preserve">
+        <value>開啟檔案失敗</value>
+    </data>
+  <data name="error_file_version_over" xml:space="preserve">
+        <value>檔案版本太高，無法使用本版本編輯！</value>
+    </data>
+  <data name="error_file_startblocks_lost" xml:space="preserve">
+        <value>檔案StartBlocks遺失</value>
+    </data>
+  <data name="listview_menustrip_del" xml:space="preserve">
+        <value>刪除(_D)</value>
+    </data>
+  <data name="languageblock" xml:space="preserve">
+        <value>語言:</value>
+    </data>
+  <data name="toolStripButton_zoomIn" xml:space="preserve">
+        <value>框內</value>
+    </data>
+  <data name="notCloseFileCheckBox" xml:space="preserve">
+        <value>不要在編輯後關閉此檔案</value>
+    </data>
+  <data name="notHeadFootSignCheckBox" xml:space="preserve">
+        <value>新增頭尾標誌(startN、endN) </value>
+    </data>
+  <data name="toolStripButton_zoomOut" xml:space="preserve">
+        <value>框外</value>
+    </data>
+  <data name="button_yes" xml:space="preserve">
+        <value>是</value>
+    </data>
+  <data name="button_start" xml:space="preserve">
+        <value>開始</value>
+    </data>
+</root>

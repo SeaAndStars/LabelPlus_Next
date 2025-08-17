@@ -1,0 +1,61 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:LabelPlus_Next"
+             xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+             xmlns:semi="https://irihi.tech/semi"
+             xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
+             x:Class="LabelPlus_Next.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme />
+        <semi:SemiTheme Locale="zh-CN" />
+        <u-semi:SemiTheme Locale="zh-CN" />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+        <!-- Default template for PicViewer with overlay and shared transform (no built-in zoom UI) -->
+        <Style Selector="customControls|PicViewer">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid ClipToBounds="True" Background="Transparent">
+                        <Grid x:Name="PART_Viewport">
+                            <Grid.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}"
+                                                    ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    <TranslateTransform X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}"
+                                                        Y="{Binding TranslateY, RelativeSource={RelativeSource TemplatedParent}}" />
+                                </TransformGroup>
+                            </Grid.RenderTransform>
+                            <Image x:Name="PART_Image"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   Source="{Binding Source, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Stretch="{Binding Stretch, RelativeSource={RelativeSource TemplatedParent}}" />
+                            <customControls:LabelOverlay x:Name="PART_Overlay"
+                                IsHitTestVisible="False"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                ClipToBounds="True"
+                                Width="{Binding #PART_Image.Bounds.Width}"
+                                Height="{Binding #PART_Image.Bounds.Height}"
+                                Labels="{Binding Labels, RelativeSource={RelativeSource TemplatedParent}}"
+                                ContentWidth="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
+                                ContentOffsetX="{Binding ContentOffsetX, RelativeSource={RelativeSource TemplatedParent}}"
+                                ContentOffsetY="{Binding ContentOffsetY, RelativeSource={RelativeSource TemplatedParent}}"
+                                HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Grid>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </Application.Styles>
+</Application>

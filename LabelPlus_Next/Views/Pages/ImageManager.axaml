@@ -1,0 +1,91 @@
+﻿<Window
+    Height="500"
+    Title="Manage Images"
+    Width="650"
+    d:DesignHeight="500"
+    d:DesignWidth="650"
+    mc:Ignorable="d"
+    x:Class="LabelPlus_Next.Views.Pages.ImageManager"
+    x:DataType="viewModels:ImageManagerViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid
+        ColumnDefinitions="2* * 2*"
+        RowDefinitions="5* 5* 70* 15* "
+        ShowGridLines="False">
+        <TextBlock
+            FontSize="18"
+            Grid.Row="1"
+            HorizontalAlignment="Left"
+            Text="{I18N {x:Static lang:LangKeys.labelFolderFile}}" />
+        <TextBlock
+            FontSize="18"
+            Grid.Column="2"
+            Grid.Row="1"
+            Text="{I18N {x:Static lang:LangKeys.labelIncludedFile}}" />
+
+        <ListBox
+            Grid.Column="0"
+            Grid.Row="2"
+            ItemsSource="{Binding FileFolderList, Mode=TwoWay}"
+            SelectedItem="{Binding SelectedFolerFile}" />
+        <ListBox
+            Grid.Column="2"
+            Grid.Row="2"
+            ItemsSource="{Binding FileList, Mode=TwoWay}"
+            SelectedItem="{Binding SelectedFile}" />
+        <Grid
+            Grid.Column="1"
+            Grid.Row="2"
+            RowDefinitions="15* 20*  20* 20* 20* 15*"
+            ShowGridLines="False">
+            <Button
+                Click="SelectOneFile"
+                Content="→"
+                Grid.Column="0"
+                Grid.Row="1"
+                MinWidth="100" />
+            <Button
+                Click="SelectAllFile"
+                Content="→ →"
+                Grid.Column="0"
+                Grid.Row="2"
+                MinWidth="100" />
+            <Button
+                Click="UnselectOneFile"
+                Content="←"
+                Grid.Column="0"
+                Grid.Row="3"
+                MinWidth="100" />
+            <Button
+                Click="UnselectAllFile"
+                Content="← ←"
+                Grid.Column="0"
+                Grid.Row="4"
+                MinWidth="100" />
+        </Grid>
+
+
+        <Button
+            Content="{I18N {x:Static lang:LangKeys.button_OK}}"
+            Grid.Column="0"
+            Grid.Row="3"
+            HorizontalAlignment="Right"
+            MinWidth="150" />
+        <Button
+            Content="{I18N {x:Static lang:LangKeys.buttonCancel}}"
+            Foreground="Red"
+            Grid.Column="2"
+            Grid.Row="3"
+            HorizontalAlignment="Left"
+            MinWidth="150" />
+
+
+    </Grid>
+
+
+</Window>

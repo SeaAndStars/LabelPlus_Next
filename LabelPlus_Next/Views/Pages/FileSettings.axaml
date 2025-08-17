@@ -1,0 +1,58 @@
+﻿<Window
+    Title="File Settings"
+    d:DesignHeight="350"
+    d:DesignWidth="600"
+    mc:Ignorable="d"
+    x:Class="LabelPlus_Next.Views.Pages.FileSettings"
+    x:DataType="viewModels:FileSettingsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+
+    <Grid
+        ColumnDefinitions="* *"
+        RowDefinitions=" 10* 10* 80* 20*"
+        ShowGridLines="False">
+
+        <TextBlock
+            FontSize="18"
+            Grid.Column="0"
+            Grid.Row="1"
+            Text="{I18N {x:Static lang:LangKeys.labelGroup}}" />
+        <TextBlock
+            FontSize="18"
+            Grid.Column="1"
+            Grid.Row="1"
+            Text="Note" />
+
+        <ListBox
+            Grid.Column="0"
+            Grid.Row="2"
+            ItemsSource="{Binding GroupList, Mode=TwoWay}"
+            MinHeight="215" />
+        <TextBox
+            AcceptsReturn="True"
+            Grid.Column="1"
+            Grid.Row="2"
+            HorizontalAlignment="Left"
+            HorizontalContentAlignment="Left"
+            MinHeight="215"
+            MinWidth="300"
+            Text="{Binding Notes, Mode=TwoWay}"
+            TextAlignment="Start"
+            TextWrapping="Wrap" />
+
+        <Button
+            Click="Save"
+            Content="{I18N {x:Static lang:LangKeys.button_OK}}"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Grid.Row="3"
+            MinWidth="100" />
+
+    </Grid>
+</Window>
