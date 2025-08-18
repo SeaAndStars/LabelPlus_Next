@@ -82,6 +82,12 @@ namespace LabelPlus_Next.Views
 
         private void ProcessKeyGesture(KeyEventArgs e)
         {
+            // Don't handle global shortcuts while editing text
+            if (this.FocusManager?.GetFocusedElement() is TextBox || this.FocusManager?.GetFocusedElement() is LabeledTextBox)
+            {
+                return;
+            }
+
             var vm = ViewModel;
 
             // Quick access to viewer
