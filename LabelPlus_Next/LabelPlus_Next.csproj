@@ -34,8 +34,4 @@
     <PackageReference Include="ReactiveUI" />
     <PackageReference Include="Semi.Avalonia" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Models\" />
-  </ItemGroup>
 </Project>

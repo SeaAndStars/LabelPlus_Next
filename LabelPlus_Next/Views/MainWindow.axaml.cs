@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
@@ -14,6 +15,7 @@ using LabelPlus_Next.Views.Pages;
 using Ursa.Controls;
 using LabelPlus_Next.Lang;
 using System.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 
 namespace LabelPlus_Next.Views
@@ -34,11 +36,16 @@ namespace LabelPlus_Next.Views
             if (labelsGrid is not null)
             {
                 labelsGrid.SelectionChanged += LabelsGridOnSelectionChanged;
+                // Remove per-control key handlers to avoid duplicate Delete handling
             }
             if (picViewerControl is not null)
             {
                 picViewerControl.AddLabelRequested += OnAddLabelRequested;
+                // Remove per-control key handlers to avoid duplicate Delete handling
             }
+
+            // Handle KeyDown at Window in Tunneling phase only, so we run once before inner controls
+            this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel, handledEventsToo: false);
 
             this.DataContextChanged += OnDataContextChanged;
             if (DataContext is INotifyPropertyChanged npc)
@@ -47,7 +54,51 @@ namespace LabelPlus_Next.Views
             }
 
             this.Focus();
-            // Remove manual image loading; VM drives PicImageSource binding
+        }
+
+        private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e is null || e.Handled) return;
+            ProcessKeyGesture(e);
+        }
+
+        private void ProcessKeyGesture(KeyEventArgs e)
+        {
+            if ((e.KeyModifiers & KeyModifiers.Control) != 0)
+            {
+                if (e.Key == Key.Up)
+                {
+                    MoveSelection(-1);
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Down)
+                {
+                    MoveSelection(1);
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Z)
+                {
+                    var undoCmd = ViewModel?.UndoRemoveLabelCommandCommand as IAsyncRelayCommand;
+                    if (undoCmd?.CanExecute(null) == true)
+                    {
+                        undoCmd.Execute(null);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+            }
+            else if (e.Key == Key.Delete)
+            {
+                var delCmd = ViewModel?.RemoveLabelCommandCommand as IAsyncRelayCommand;
+                if (delCmd?.CanExecute(null) == true)
+                {
+                    delCmd.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
 
         private async void OnAddLabelRequested(object? sender, PicViewer.AddLabelRequestedEventArgs e)
@@ -96,22 +147,7 @@ namespace LabelPlus_Next.Views
                 {
                     labelsGrid.ScrollIntoView(item, null);
                 }
-                catch
-                {
-                    // Ignore if API changes
-                }
-            }
-        }
-
-        private void Window_OnKeyDown(object? sender, KeyEventArgs e)
-        {
-            if ((e.KeyModifiers & KeyModifiers.Control) != 0 && e.Key == Key.Z)
-            {
-                if (ViewModel != null && ViewModel.GetType().GetProperty("UndoRemoveLabelCommand")?.GetValue(ViewModel) is CommunityToolkit.Mvvm.Input.IRelayCommand undoCmd && undoCmd.CanExecute(null))
-                {
-                    undoCmd.Execute(null);
-                }
-                e.Handled = true;
+                catch { }
             }
         }
 
@@ -218,7 +254,6 @@ namespace LabelPlus_Next.Views
                                                   });
                 if (saveasanotherfileHelper == null)
                     return;
-                // Optionally, implement save as logic using ViewModel.FileSave
             }
             catch (Exception ex)
             {
@@ -244,24 +279,6 @@ namespace LabelPlus_Next.Views
             catch (Exception ex)
             {
                 await MessageBox.ShowAsync(ex.Message);
-            }
-        }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            base.OnKeyDown(e);
-            if ((e.KeyModifiers & KeyModifiers.Control) != 0)
-            {
-                if (e.Key == Key.Up)
-                {
-                    MoveSelection(-1);
-                    e.Handled = true;
-                }
-                else if (e.Key == Key.Down)
-                {
-                    MoveSelection(1);
-                    e.Handled = true;
-                }
             }
         }
 
