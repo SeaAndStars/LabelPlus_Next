@@ -12,6 +12,8 @@ using System.Linq;
 
 namespace LabelPlus_Next.CustomControls;
 
+public enum ViewerMode { Browse, Label, Input, Check }
+
 [TemplatePart(PART_Image, typeof(Image))]
 [TemplatePart(PART_Overlay, typeof(LabelOverlay))]
 [PseudoClasses(PC_Moving)]
@@ -26,7 +28,6 @@ public class PicViewer : TemplatedControl
     private Point? _lastClickPoint;
     private Point? _lastLocation;
     private bool _handlersHooked;
-    private bool _spacePressed;
     private bool _panning;
 
     public static readonly StyledProperty<Control?> OverlayerProperty = AvaloniaProperty.Register<PicViewer, Control?>(nameof(Overlayer));
@@ -41,6 +42,15 @@ public class PicViewer : TemplatedControl
 
     public static readonly StyledProperty<int> HighlightIndexProperty = AvaloniaProperty.Register<PicViewer, int>(nameof(HighlightIndex), -1);
     public int HighlightIndex { get => GetValue(HighlightIndexProperty); set => SetValue(HighlightIndexProperty, value); }
+
+    public static readonly StyledProperty<LabelItem?> SelectedLabelProperty = AvaloniaProperty.Register<PicViewer, LabelItem?>(nameof(SelectedLabel));
+    public LabelItem? SelectedLabel { get => GetValue(SelectedLabelProperty); set => SetValue(SelectedLabelProperty, value); }
+
+    public static readonly StyledProperty<ViewerMode> ModeProperty = AvaloniaProperty.Register<PicViewer, ViewerMode>(nameof(Mode), defaultValue: ViewerMode.Browse);
+    public ViewerMode Mode { get => GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
+
+    // Event to request adding a label at clicked position (percent coords in content space)
+    public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
 
     private double _scale = 1;
     public static readonly DirectProperty<PicViewer, double> ScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(Scale), o => o.Scale, (o, v) => o.Scale = v, unsetValue: 1);
@@ -90,6 +100,9 @@ public class PicViewer : TemplatedControl
         TranslateYProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnTranslateYChanged(e));
         StretchProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnStretchChanged(e));
         MinScaleProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnMinScaleChanged(e));
+        // Sync overlay highlight with external selection and labels changes
+        SelectedLabelProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnSelectedLabelChanged(e));
+        LabelsProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnLabelsChanged(e));
     }
 
     private void RecomputeContentGeometry()
@@ -169,6 +182,31 @@ public class PicViewer : TemplatedControl
         }
     }
 
+    private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
+    {
+        UpdateHighlightFromSelection();
+    }
+
+    private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)
+    {
+        UpdateHighlightFromSelection();
+    }
+
+    private void UpdateHighlightFromSelection()
+    {
+        int idx = -1;
+        if (Labels is { } labels && SelectedLabel is { } sel)
+        {
+            var list = labels.ToList();
+            idx = list.IndexOf(sel);
+        }
+        if (HighlightIndex != idx)
+        {
+            HighlightIndex = idx;
+        }
+        _overlay?.InvalidateVisual();
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -188,26 +226,16 @@ public class PicViewer : TemplatedControl
             AdornerLayer.SetAdorner(this, c);
         }
         RecomputeContentGeometry();
+        // Initial sync in case SelectedLabel was set before template applied
+        UpdateHighlightFromSelection();
     }
 
     private void HookPointerHandlers()
     {
         if (_handlersHooked) return;
-        AddHandler(InputElement.PointerWheelChangedEvent, HandlePointerWheelChanged, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-        AddHandler(InputElement.PointerMovedEvent, HandlePointerMoved, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-        AddHandler(InputElement.PointerPressedEvent, HandlePointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-        AddHandler(InputElement.PointerReleasedEvent, HandlePointerReleased, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-        AddHandler(InputElement.KeyDownEvent, HandleKeyDown, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-        AddHandler(InputElement.KeyUpEvent, HandleKeyUp, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+        // No AddHandler here; rely on virtual overrides to avoid double invocation
         _handlersHooked = true;
     }
-
-    private void HandlePointerWheelChanged(object? sender, PointerWheelEventArgs e) => OnPointerWheelChanged(e);
-    private void HandlePointerMoved(object? sender, PointerEventArgs e) => OnPointerMoved(e);
-    private void HandlePointerPressed(object? sender, PointerPressedEventArgs e) => OnPointerPressed(e);
-    private void HandlePointerReleased(object? sender, PointerReleasedEventArgs e) => OnPointerReleased(e);
-    private void HandleKeyDown(object? sender, KeyEventArgs e) => OnKeyDown(e);
-    private void HandleKeyUp(object? sender, KeyEventArgs e) => OnKeyUp(e);
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
@@ -232,6 +260,13 @@ public class PicViewer : TemplatedControl
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+
+        // Crosshair in Label mode or when holding Ctrl in Browse mode
+        if (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0)
+            Cursor = new Cursor(StandardCursorType.Cross);
+        else if (!_panning)
+            Cursor = null;
+
         if (_panning && Equals(e.Pointer.Captured, this) && _lastClickPoint != null)
         {
             var p = e.GetPosition(this);
@@ -242,7 +277,7 @@ public class PicViewer : TemplatedControl
             return;
         }
 
-        // 悬浮高亮（在 Overlay 的局部坐标中命中测试，区域为整个矩形）
+        // Hover highlight only
         if (_draggingLabelIndex < 0 && Labels is { } labelsHover && _overlay is { })
         {
             var list = labelsHover.ToList();
@@ -271,7 +306,7 @@ public class PicViewer : TemplatedControl
             }
         }
 
-        // 拖动标签实时更新（同样在 Overlay 局部坐标中）
+        // Dragging updates
         if (_draggingLabelIndex >= 0 && Labels is { } labels && _overlay is { })
         {
             var pos = e.GetPosition(_overlay);
@@ -287,7 +322,7 @@ public class PicViewer : TemplatedControl
                 var item = list[_draggingLabelIndex];
                 item.XPercent = (float)nx;
                 item.YPercent = (float)ny;
-                HighlightIndex = _draggingLabelIndex; // 拖动中保持高亮
+                HighlightIndex = _draggingLabelIndex; // keep highlight while dragging
                 _overlay?.InvalidateVisual();
             }
         }
@@ -297,45 +332,67 @@ public class PicViewer : TemplatedControl
     {
         base.OnPointerPressed(e);
 
-        if (_spacePressed)
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        var labelModeAction = Mode == ViewerMode.Label || ctrl; // in Label mode or holding Ctrl
+
+        if (labelModeAction && _overlay is { })
         {
-            e.Pointer.Capture(this);
-            _lastClickPoint = e.GetPosition(this);
-            _panning = true;
-            return;
+            var pt = e.GetCurrentPoint(this);
+            var isLeft = pt.Properties.IsLeftButtonPressed;
+            var isRight = pt.Properties.IsRightButtonPressed;
+            if (!isLeft && !isRight)
+                return;
+
+            var pos = e.GetPosition(_overlay);
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            if (cw > 0 && ch > 0)
+            {
+                var nx = Math.Clamp(pos.X / cw, 0, 1);
+                var ny = Math.Clamp(pos.Y / ch, 0, 1);
+                var category = isRight ? 2 : 1; // right: 框外, left: 框内
+                AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nx, ny, category));
+                e.Handled = true;
+                return;
+            }
         }
 
+        // Only respond to left button for drag/pan (Browse mode behavior)
+        var pt2 = e.GetCurrentPoint(this);
+        if (!pt2.Properties.IsLeftButtonPressed)
+            return;
+
+        int hit = -1;
         if (Labels is { } labels && _overlay is { })
         {
             var list = labels.ToList();
             var cw = ContentWidth;
             var ch = ContentHeight;
             var side = LabelOverlay.LabelSideLength(cw, ch);
-
             var pos = e.GetPosition(_overlay);
-
-            int hit = -1;
             for (int idx = 0; idx < list.Count; idx++)
             {
                 var label = list[idx];
                 var centerX = label.XPercent * cw;
                 var centerY = label.YPercent * ch;
                 var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
-                if (rect.Contains(pos))
-                {
-                    hit = idx;
-                    break;
-                }
+                if (rect.Contains(pos)) { hit = idx; break; }
             }
-
             if (hit >= 0)
             {
                 e.Pointer.Capture(this);
                 _draggingLabelIndex = hit;
                 HighlightIndex = hit;
+                SelectedLabel = list[hit];
                 _overlay?.InvalidateVisual();
+                return;
             }
         }
+
+        // Not hitting a label: start panning
+        e.Pointer.Capture(this);
+        _lastClickPoint = e.GetPosition(this);
+        _panning = true;
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -350,33 +407,43 @@ public class PicViewer : TemplatedControl
         }
         _panning = false;
         _draggingLabelIndex = -1;
+
+        // Clear hover highlight when interaction ends unless still hovering
+        if (_overlay is { })
+        {
+            var pos = e.GetPosition(_overlay);
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            var side = LabelOverlay.LabelSideLength(cw, ch);
+            var hit = -1;
+            if (Labels is { } labels)
+            {
+                var list = labels.ToList();
+                for (int idx = 0; idx < list.Count; idx++)
+                {
+                    var centerX = list[idx].XPercent * cw;
+                    var centerY = list[idx].YPercent * ch;
+                    var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
+                    if (rect.Contains(pos)) { hit = idx; break; }
+                }
+            }
+            HighlightIndex = hit;
+        }
         _overlay?.InvalidateVisual();
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
-        {
-            _spacePressed = true;
-            e.Handled = true;
-        }
-        base.OnKeyDown(e);
-    }
-
-    protected override void OnKeyUp(KeyEventArgs e)
-    {
-        if (e.Key == Key.Space)
-        {
-            _spacePressed = false;
-            if (_panning)
-            {
-                _lastLocation = new Point(TranslateX, TranslateY);
-                _panning = false;
-            }
-            e.Handled = true;
-        }
-        base.OnKeyUp(e);
-    }
-
     private int _draggingLabelIndex = -1;
+
+    public class AddLabelRequestedEventArgs : EventArgs
+    {
+        public double XPercent { get; }
+        public double YPercent { get; }
+        public int Category { get; }
+        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
+        {
+            XPercent = xPercent;
+            YPercent = yPercent;
+            Category = category;
+        }
+    }
 }

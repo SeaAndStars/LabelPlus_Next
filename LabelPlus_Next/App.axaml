@@ -10,6 +10,24 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
 
+    <!-- Fallback resources and theme-aware brushes -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Provide a sensible default if the theme doesn't register this token at runtime -->
+            <Color x:Key="SemiColorText2">#FF202020</Color>
+
+            <!-- Theme-specific brush for LabeledTextBox text/index -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="LabeledTextBrush">Black</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="LabeledTextBrush">White</SolidColorBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
         <semi:SemiTheme Locale="zh-CN" />
@@ -28,9 +46,11 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
 
-        <!-- default styling for custom LabeledTextBox: separator color from theme resource -->
+        <!-- default styling for custom LabeledTextBox: separator and index capsule background -->
         <Style Selector="customControls|LabeledTextBox">
             <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}"/>
+            <Setter Property="IndexBackgroundBrush" Value="{DynamicResource BackgroundBrush}"/>
+            <Setter Property="TextBrush" Value="{DynamicResource LabeledTextBrush}"/>
         </Style>
 
         <Style Selector="customControls|PicViewer">

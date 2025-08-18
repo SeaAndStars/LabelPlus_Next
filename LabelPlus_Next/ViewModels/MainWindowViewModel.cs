@@ -1,73 +1,67 @@
-using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform.Storage;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using LabelPlus_Next.Lang;
-using LabelPlus_Next.Models;
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
+using Avalonia.Controls;
+using Avalonia.Media; // for IImage
+using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using LabelPlus_Next.Models;
+using LabelPlus_Next.Services;
+using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private IFileDialogService? _dialogs;
     protected static LabelFileManager LabelFileManager1 = new();
 
+    public void InitializeServices(IFileDialogService dialogs) => _dialogs ??= dialogs;
+
+    public MainWindowViewModel() { }
+
     [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
-
     [ObservableProperty] private string? currentText;
-
     [ObservableProperty] private ObservableCollection<string> imageFileNames = new();
-
     [ObservableProperty] private string? newTranslationPath;
-
     [ObservableProperty] private string? openTranslationFilePath;
-
     [ObservableProperty] private string? selectedImageFile;
-
     [ObservableProperty] private LabelItem? selectedLabel;
-
     [ObservableProperty] private ObservableCollection<LabelItem> deletedLabels = new();
-
     [ObservableProperty] private IImage? picImageSource;
-
-    private Stack<(LabelItem, int)> deletedLabelStack = new();
 
     public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
 
     [ObservableProperty]
     private string? selectedLang = "default";
 
-    [RelayCommand]
-    public async Task AddLabelCommand()
+    // Expose file header settings
+    public (List<string> groupList, string notes) GetFileSettings()
     {
-        // 1. 检查当前选中的图片文件
-        if (string.IsNullOrEmpty(SelectedImageFile))
-            return;
+        return (new List<string>(LabelFileManager1.GroupStringList), LabelFileManager1.Comment);
+    }
 
-        // 2. 创建一个新的LabelItem（默认参数，可根据需要调整）
-        var newLabel = new LabelItem
+    public async Task<bool> SaveFileSettingsAsync(List<string> groupList, string notes)
+    {
+        LabelFileManager1.UpdateHeader(groupList, notes);
+        if (!string.IsNullOrEmpty(OpenTranslationFilePath))
         {
-            XPercent = 0.5f,
-            YPercent = 0.5f,
-            Text = "新标签",
-            Category = 1
-        };
+            await FileSave(OpenTranslationFilePath);
+            return true;
+        }
+        return false;
+    }
 
-        // 3. 添加到StoreManager
-        await LabelFileManager1.StoreManager.AddLabelAsync(SelectedImageFile, newLabel);
-
-        // 4. 刷新当前标签列表
+    // Add: create label at percent coords and update selection
+    public async Task AddLabelAtAsync(float xPercent, float yPercent, int category = 1)
+    {
+        if (string.IsNullOrEmpty(SelectedImageFile)) return;
+        var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = "新标签", Category = category };
+        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
         UpdateCurrentLabels();
-
-        // 5. 选中新添加的标签
         if (CurrentLabels.Count > 0)
         {
             SelectedLabel = CurrentLabels[^1];
@@ -75,16 +69,123 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    // 新增：ListBox编号辅助属性
-    public int GetLabelIndex(LabelItem item)
+    [RelayCommand]
+    public async Task AddLabelCommand()
     {
-        return CurrentLabels.IndexOf(item) + 1;
+        if (string.IsNullOrEmpty(SelectedImageFile)) return;
+        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "新标签", Category = 1 };
+        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
+        UpdateCurrentLabels();
+        if (CurrentLabels.Count > 0)
+        {
+            SelectedLabel = CurrentLabels[^1];
+            CurrentText = SelectedLabel.Text;
+        }
     }
 
-    // 新增：分类辅助属性
-    public string GetCategoryString(LabelItem item)
+    [RelayCommand]
+    public async Task RemoveLabelCommand()
     {
-        return item.Category == 1 ? "框内" : "框外";
+        if (!string.IsNullOrEmpty(SelectedImageFile))
+        {
+            await LabelManager.Instance.RemoveSelectedAsync(LabelFileManager1, SelectedImageFile, CurrentLabels, SelectedLabel);
+            UpdateCurrentLabels();
+            SelectedLabel = CurrentLabels.Count > 0 ? CurrentLabels[^1] : null;
+            CurrentText = SelectedLabel?.Text ?? string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    public async Task UndoRemoveLabelCommand()
+    {
+        if (!string.IsNullOrEmpty(SelectedImageFile))
+        {
+            await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
+            UpdateCurrentLabels();
+            if (SelectedLabel is null && CurrentLabels.Count > 0)
+                SelectedLabel = CurrentLabels[^1];
+            CurrentText = SelectedLabel?.Text ?? string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    public async Task NewTranslationCommand()
+    {
+        if (_dialogs is null) return;
+        var folder = await _dialogs.PickFolderAsync("选择翻译目录");
+        if (string.IsNullOrEmpty(folder)) return;
+
+        // show image chooser
+        var selected = await _dialogs.ChooseImagesAsync(folder);
+        if (selected == null || selected.Count == 0) return;
+
+        // Build default header
+        var header = string.Join(Environment.NewLine, new[]
+        {
+            "1,0",
+            "-",
+            "框内",
+            "框外",
+            "-",
+            "Default Comment",
+            " You can edit me",
+            string.Empty
+        });
+
+        // Compose content
+        var nl = Environment.NewLine;
+        var sb = new System.Text.StringBuilder();
+        sb.Append(header);
+        foreach (var name in selected)
+        {
+            sb.Append($">>>>>>>>[{name}]<<<<<<<");
+            sb.Append(nl);
+            sb.Append($">>>>>>>>[{name}]<<<<<<<<");
+            sb.Append(nl);
+        }
+
+        // Save as translation.txt in folder
+        var outPath = Path.Combine(folder, "translation.txt");
+        await File.WriteAllTextAsync(outPath, sb.ToString(), System.Text.Encoding.UTF8);
+
+        await _dialogs.ShowMessageAsync($"创建完成:{nl}{outPath}{nl}共 {selected.Count} 个文件。");
+        OpenTranslationFilePath = outPath;
+        await LoadTranslationFile(outPath);
+    }
+
+    [RelayCommand]
+    public async Task OpenTranslationFileCommand()
+    {
+        if (_dialogs is null) return;
+        var path = await _dialogs.OpenTranslationFileAsync();
+        if (string.IsNullOrEmpty(path)) return;
+        OpenTranslationFilePath = path;
+        await LoadTranslationFile(path);
+        await _dialogs.ShowMessageAsync("打开成功。");
+    }
+
+    [RelayCommand]
+    public async Task SaveCurrentCommand()
+    {
+        if (_dialogs is null) return;
+        if (string.IsNullOrEmpty(OpenTranslationFilePath))
+        {
+            await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。");
+            return;
+        }
+        await FileSave(OpenTranslationFilePath);
+        await _dialogs.ShowMessageAsync("保存成功。");
+    }
+
+    [RelayCommand]
+    public async Task SaveAsCommand()
+    {
+        if (_dialogs is null) return;
+        var path = await _dialogs.SaveAsTranslationFileAsync();
+        if (string.IsNullOrEmpty(path)) return;
+        await FileSave(path);
+        OpenTranslationFilePath = path; // future Ctrl+S writes here
+        await _dialogs.ShowMessageAsync("另存为成功。");
     }
 
     [RelayCommand]
@@ -100,167 +201,46 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public async Task FileSave(string path)
-    {
-        await LabelFileManager1.SaveAsync(path);
-    }
-
-    [RelayCommand]
-    public async Task RemoveLabelCommand()
-    {
-        if (SelectedLabel != null && !string.IsNullOrEmpty(SelectedImageFile))
-        {
-            var index = CurrentLabels.IndexOf(SelectedLabel);
-            deletedLabelStack.Push((SelectedLabel, index));
-            await LabelFileManager1.StoreManager.RemoveLabelAsync(SelectedImageFile, index);
-            UpdateCurrentLabels();
-            SelectedLabel = CurrentLabels.Count > 0 ? CurrentLabels[^1] : null;
-            CurrentText = SelectedLabel?.Text ?? string.Empty;
-        }
-    }
-
-    [RelayCommand]
-    public async Task UndoRemoveLabelCommand()
-    {
-        if (deletedLabelStack.Count > 0 && !string.IsNullOrEmpty(SelectedImageFile))
-        {
-            var (label, index) = deletedLabelStack.Pop();
-            if (!LabelFileManager1.StoreManager.Store.ContainsKey(SelectedImageFile))
-                LabelFileManager1.StoreManager.Store[SelectedImageFile] = new List<LabelItem>();
-            var labels = LabelFileManager1.StoreManager.Store[SelectedImageFile];
-            if (index > labels.Count) index = labels.Count;
-            labels.Insert(index, label);
-            UpdateCurrentLabels();
-            SelectedLabel = label;
-            CurrentText = label.Text;
-        }
-    }
-
-    [RelayCommand]
-    public async Task NewTranslationCommand()
-    {
-        // 这里假设有 StorageProvider 可用，实际项目中需注入或传递
-        // 这里只做演示，实际调用需在 View 层传递 StorageProvider
-    }
-
-    [RelayCommand]
-    public async Task OpenTranslationFileCommand()
-    {
-        // 这里只做演示，实际调用需在 View 层传递 StorageProvider
-    }
-
-    [RelayCommand]
-    public async Task SaveFileCommand()
-    {
-        // 这里只做演示，实际调用需在 View 层传递 StorageProvider
-    }
-
-    [RelayCommand]
-    public async Task SaveAsAnotherFileCommand()
-    {
-        // 这里只做演示，实际调用需在 View 层传递 StorageProvider
-    }
-
-    [RelayCommand]
-    public void ImagineManagerCommand()
-    {
-        // 打开图片管理窗口，实际应由 View 层实现
-    }
-
-    [RelayCommand]
-    public void OutputCommand()
-    {
-        // 打开输出窗口，实际应由 View 层实现
-    }
-
-    [RelayCommand]
-    public void ViewHelpCommand()
-    {
-        // 打开帮助，实际应由 View 层实现
-    }
-
-    [RelayCommand]
-    public void AboutCommand()
-    {
-        // 打开关于，实际应由 View 层实现
-    }
+    public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
 
     partial void OnSelectedImageFileChanged(string? value)
     {
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
-            // 获取翻译文件的路径
             string? translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
             string? translationDir = null;
             if (!string.IsNullOrEmpty(translationFilePath))
-            {
-                translationDir = System.IO.Path.GetDirectoryName(translationFilePath);
-            }
+                translationDir = Path.GetDirectoryName(translationFilePath);
 
-            // 构建完整的图像路径
             string imagePath = value;
-            if (translationDir != null && !System.IO.Path.IsPathRooted(imagePath))
-            {
-                imagePath = System.IO.Path.Combine(translationDir, imagePath);
-            }
+            if (translationDir != null && !Path.IsPathRooted(imagePath))
+                imagePath = Path.Combine(translationDir, imagePath);
 
-            // 确保路径分隔符符合当前平台的格式
-            imagePath = imagePath.Replace('/', System.IO.Path.DirectorySeparatorChar).Replace("\\", System.IO.Path.DirectorySeparatorChar.ToString());
+            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString());
             imagePath = Uri.UnescapeDataString(imagePath);
-            imagePath = System.IO.Path.GetFullPath(imagePath);
+            imagePath = Path.GetFullPath(imagePath);
 
-            // 检查文件是否存在
-            if (System.IO.File.Exists(imagePath))
+            if (File.Exists(imagePath))
             {
-                try
-                {
-                    PicImageSource = new Bitmap(imagePath);
-                }
-                catch (Exception ex)
-                {
-                    // 如果加载失败，PicImageSource置为null
-                    PicImageSource = null;
-                    Console.WriteLine("Error loading image: " + ex.Message);
-                }
+                try { PicImageSource = new Bitmap(imagePath); }
+                catch { PicImageSource = null; }
             }
-            else
-            {
-                // 如果文件不存在，PicImageSource也置为null
-                PicImageSource = null;
-            }
+            else { PicImageSource = null; }
         }
-        else
-        {
-            // 如果路径为空，PicImageSource置为null
-            PicImageSource = null;
-        }
+        else { PicImageSource = null; }
 
-        // 更新当前标签
         if (CurrentLabels.Count > 0)
-        {
-            SelectedLabel = CurrentLabels[0];
-            CurrentText = SelectedLabel.Text;
-        }
+        { SelectedLabel = CurrentLabels[0]; CurrentText = SelectedLabel.Text; }
         else
-        {
-            SelectedLabel = null;
-            CurrentText = string.Empty;
-        }
+        { SelectedLabel = null; CurrentText = string.Empty; }
     }
 
-    partial void OnSelectedLabelChanged(LabelItem? value)
-    {
-        if (value != null)
-            CurrentText = value.Text;
-        else
-            CurrentText = string.Empty;
-    }
+    partial void OnSelectedLabelChanged(LabelItem? value) => CurrentText = value?.Text ?? string.Empty;
 
     partial void OnCurrentTextChanged(string? value)
     {
-        if (SelectedLabel != null)
-            SelectedLabel.Text = value;
+        if (SelectedLabel != null) SelectedLabel.Text = value;
     }
 
     private void UpdateCurrentLabels()
@@ -276,7 +256,21 @@ public partial class MainWindowViewModel : ViewModelBase
                 item.CategoryString = item.Category == 1 ? "框内" : "框外";
                 CurrentLabels.Add(item);
             }
-            // 移除自动设置 SelectedLabel，交由外部逻辑处理
         }
+    }
+
+    [RelayCommand]
+    public async Task ManageImagesCommand()
+    {
+        if (_dialogs is null) return;
+        var folder = await _dialogs.PickFolderAsync("选择图片目录");
+        if (string.IsNullOrEmpty(folder)) return;
+        var selected = await _dialogs.ChooseImagesAsync(folder);
+        if (selected == null)
+        {
+            await _dialogs.ShowMessageAsync("已取消。");
+            return;
+        }
+        await _dialogs.ShowMessageAsync($"已选择 {selected.Count} 个文件。");
     }
 }

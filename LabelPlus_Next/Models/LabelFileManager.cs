@@ -31,4 +31,11 @@ public class LabelFileManager
         var writer = new LabelFileWriter();
         await writer.WriteAsync(path, header, StoreManager.Store);
     }
+
+    // Update header data (groups and comment)
+    public void UpdateHeader(List<string> groups, string comment)
+    {
+        GroupStringList = groups ?? new List<string>();
+        Comment = comment ?? string.Empty;
+    }
 }

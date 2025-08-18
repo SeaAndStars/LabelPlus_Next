@@ -136,11 +136,10 @@ public class LabeledTextBox : Control
     {
         base.Render(context);
         var bounds = Bounds;
-        // Separator line at top
         var lineY = SeparatorThickness / 2;
-        context.DrawLine(new Pen(SeparatorBrush, SeparatorThickness), new Point(0, lineY), new Point(bounds.Width, lineY));
+        var pen = new Pen(SeparatorBrush, SeparatorThickness);
 
-        // Draw rounded capsule for index, left aligned
+        Rect? capsule = null;
         if (Index > 0)
         {
             var text = Index.ToString();
@@ -152,12 +151,29 @@ public class LabeledTextBox : Control
             if (w <= 0) w = fontSize * text.Length * 0.6;
             if (h <= 0) h = fontSize;
             var padX = 8; var padY = 2;
-            var capsule = new Rect(4, lineY - (h / 2) - padY, w + padX * 2, h + padY * 2);
-            using (var dc = context.PushClip(capsule))
-            {
-                context.FillRectangle(IndexBackgroundBrush, capsule);
-            }
-            layout.Draw(context, new Point(capsule.X + padX, capsule.Y + padY));
+            // Over-extend height by SeparatorThickness to guarantee coverage with DPI/AA
+            var cap = new Rect(4, lineY - (h / 2) - padY - SeparatorThickness, w + padX * 2, h + padY * 2 + SeparatorThickness * 2);
+            capsule = cap;
+
+            // Draw capsule background (same color as app Background via style)
+            context.FillRectangle(IndexBackgroundBrush, cap);
+
+            // Draw index text on top
+            layout.Draw(context, new Point(cap.X + padX, cap.Y + padY));
+        }
+
+        // Draw separator line in two segments (left/right of capsule) to avoid drawing under the capsule
+        if (capsule is Rect rc)
+        {
+            if (rc.X > 0)
+                context.DrawLine(pen, new Point(0, lineY), new Point(rc.X, lineY));
+            var rightStart = rc.Right;
+            if (rightStart < bounds.Width)
+                context.DrawLine(pen, new Point(rightStart, lineY), new Point(bounds.Width, lineY));
+        }
+        else
+        {
+            context.DrawLine(pen, new Point(0, lineY), new Point(bounds.Width, lineY));
         }
 
         // Draw editable text content starting from top-left below separator
@@ -167,7 +183,7 @@ public class LabeledTextBox : Control
         var tl = CreateTextLayout(layoutText, areaWidth);
         tl.Draw(context, origin);
 
-        // Draw caret optionally
+        // Optional caret
         if (ShowCaret)
         {
             var (cx, cy, ch) = GetCaretPoint(tl);
