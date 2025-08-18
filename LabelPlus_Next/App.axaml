@@ -10,6 +10,12 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
 
+    <!-- Fallback resources to prevent missing token exceptions from third-party themes -->
+    <Application.Resources>
+        <!-- Provide a sensible default if the theme doesn't register this token at runtime -->
+        <Color x:Key="SemiColorText2">#FF202020</Color>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
         <semi:SemiTheme Locale="zh-CN" />
