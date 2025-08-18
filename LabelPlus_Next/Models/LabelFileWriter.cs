@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +15,7 @@ public class LabelFileWriter
         path = Uri.UnescapeDataString(path);
 
         var dir = Path.GetDirectoryName(path);
-        if (!Directory.Exists(dir))
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
         using var sw = new StreamWriter(path, false, Encoding.UTF8);
@@ -28,8 +29,8 @@ public class LabelFileWriter
             foreach (var n in kvp.Value)
             {
                 count++;
-                await sw.WriteLineAsync(
-                    $"----------------[{count}]----------------[{n.XPercent:F3},{n.YPercent:F3},{n.Category}]");
+                var coord = string.Format(CultureInfo.InvariantCulture, "[{0:F3},{1:F3},{2}]", n.XPercent, n.YPercent, n.Category);
+                await sw.WriteLineAsync($"----------------[{count}]----------------{coord}");
                 await sw.WriteLineAsync(n.Text);
                 await sw.WriteLineAsync();
             }

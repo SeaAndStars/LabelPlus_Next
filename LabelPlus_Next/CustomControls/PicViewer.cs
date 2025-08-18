@@ -113,7 +113,7 @@ public class PicViewer : TemplatedControl
         double s = Stretch switch
         {
             Stretch.None => 1,
-            Stretch.Fill => Math.Min(sx, sy), // Fill uses bounds, but we keep aspect by min to avoid distortion for overlay math
+            Stretch.Fill => Math.Min(sx, sy),
             Stretch.Uniform => Math.Min(sx, sy),
             Stretch.UniformToFill => Math.Max(sx, sy),
             _ => Math.Min(sx, sy)
@@ -242,25 +242,23 @@ public class PicViewer : TemplatedControl
             return;
         }
 
-        // 悬浮高亮
-        if (_draggingLabelIndex < 0 && Labels is { } labelsHover && _image is { })
+        // 悬浮高亮（在 Overlay 的局部坐标中命中测试，区域为整个矩形）
+        if (_draggingLabelIndex < 0 && Labels is { } labelsHover && _overlay is { })
         {
             var list = labelsHover.ToList();
-            var imageW = ContentWidth;
-            var imageH = ContentHeight;
-            var side = LabelOverlay.LabelSideLength(imageW, imageH);
-            var pos = e.GetPosition(_image);
-            var imgX = pos.X - ContentOffsetX;
-            var imgY = pos.Y - ContentOffsetY;
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            var side = LabelOverlay.LabelSideLength(cw, ch);
+            var pos = e.GetPosition(_overlay);
 
             int hit = -1;
             for (int idx = 0; idx < list.Count; idx++)
             {
                 var label = list[idx];
-                var centerX = ContentOffsetX + label.XPercent * imageW;
-                var centerY = ContentOffsetY + label.YPercent * imageH;
+                var centerX = label.XPercent * cw;
+                var centerY = label.YPercent * ch;
                 var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
-                if (rect.Contains(new Point(pos.X, pos.Y)))
+                if (rect.Contains(pos))
                 {
                     hit = idx;
                     break;
@@ -273,18 +271,15 @@ public class PicViewer : TemplatedControl
             }
         }
 
-        // 拖动标签实时更新
-        if (_draggingLabelIndex >= 0 && Labels is { } labels && _image is { })
+        // 拖动标签实时更新（同样在 Overlay 局部坐标中）
+        if (_draggingLabelIndex >= 0 && Labels is { } labels && _overlay is { })
         {
-            var pos = e.GetPosition(_image);
-            var imgX = pos.X - ContentOffsetX;
-            var imgY = pos.Y - ContentOffsetY;
+            var pos = e.GetPosition(_overlay);
+            var cw = ContentWidth;
+            var ch = ContentHeight;
 
-            var imageW = ContentWidth;
-            var imageH = ContentHeight;
-
-            var nx = Math.Clamp(imgX / imageW, 0, 1);
-            var ny = Math.Clamp(imgY / imageH, 0, 1);
+            var nx = Math.Clamp(pos.X / cw, 0, 1);
+            var ny = Math.Clamp(pos.Y / ch, 0, 1);
 
             var list = labels.ToList();
             if (_draggingLabelIndex < list.Count)
@@ -310,24 +305,23 @@ public class PicViewer : TemplatedControl
             return;
         }
 
-        if (Labels is { } labels && _image is { })
+        if (Labels is { } labels && _overlay is { })
         {
             var list = labels.ToList();
-            var imageW = ContentWidth;
-            var imageH = ContentHeight;
-            var side = LabelOverlay.LabelSideLength(imageW, imageH);
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            var side = LabelOverlay.LabelSideLength(cw, ch);
 
-            var pos = e.GetPosition(_image);
-            var hitPoint = pos;
+            var pos = e.GetPosition(_overlay);
 
             int hit = -1;
             for (int idx = 0; idx < list.Count; idx++)
             {
                 var label = list[idx];
-                var centerX = ContentOffsetX + label.XPercent * imageW;
-                var centerY = ContentOffsetY + label.YPercent * imageH;
+                var centerX = label.XPercent * cw;
+                var centerY = label.YPercent * ch;
                 var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
-                if (rect.Contains(hitPoint))
+                if (rect.Contains(pos))
                 {
                     hit = idx;
                     break;
