@@ -13,6 +13,7 @@ using LabelPlus_Next.CustomControls;
 using LabelPlus_Next.Views.Pages;
 using Ursa.Controls;
 using LabelPlus_Next.Lang;
+using System.ComponentModel;
 
 
 namespace LabelPlus_Next.Views
@@ -21,14 +22,85 @@ namespace LabelPlus_Next.Views
     {
         private ComboBox? langComboBox;
         private PicViewer? picViewerControl;
+        private DataGrid? labelsGrid;
+        private INotifyPropertyChanged? vmNotify;
 
         public MainWindow()
         {
             InitializeComponent(true, true);
             langComboBox = this.FindControl<ComboBox>("LangComboBox");
             picViewerControl = this.FindControl<PicViewer>("Pic");
+            labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
+            if (labelsGrid is not null)
+            {
+                labelsGrid.SelectionChanged += LabelsGridOnSelectionChanged;
+            }
+            if (picViewerControl is not null)
+            {
+                picViewerControl.AddLabelRequested += OnAddLabelRequested;
+            }
+
+            this.DataContextChanged += OnDataContextChanged;
+            if (DataContext is INotifyPropertyChanged npc)
+            {
+                HookViewModel(npc);
+            }
+
             this.Focus();
             // Remove manual image loading; VM drives PicImageSource binding
+        }
+
+        private async void OnAddLabelRequested(object? sender, PicViewer.AddLabelRequestedEventArgs e)
+        {
+            if (ViewModel is null) return;
+            await ViewModel.AddLabelAtAsync((float)e.XPercent, (float)e.YPercent);
+        }
+
+        private void OnDataContextChanged(object? sender, EventArgs e)
+        {
+            if (vmNotify is not null)
+            {
+                vmNotify.PropertyChanged -= VmOnPropertyChanged;
+                vmNotify = null;
+            }
+            if (DataContext is INotifyPropertyChanged npc)
+            {
+                HookViewModel(npc);
+            }
+        }
+
+        private void HookViewModel(INotifyPropertyChanged npc)
+        {
+            vmNotify = npc;
+            vmNotify.PropertyChanged += VmOnPropertyChanged;
+        }
+
+        private void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainWindowViewModel.SelectedLabel))
+            {
+                ScrollSelectedIntoView();
+            }
+        }
+
+        private void LabelsGridOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            ScrollSelectedIntoView();
+        }
+
+        private void ScrollSelectedIntoView()
+        {
+            if (labelsGrid?.SelectedItem is { } item)
+            {
+                try
+                {
+                    labelsGrid.ScrollIntoView(item, null);
+                }
+                catch
+                {
+                    // Ignore if API changes
+                }
+            }
         }
 
         private void Window_OnKeyDown(object? sender, KeyEventArgs e)
@@ -202,6 +274,7 @@ namespace LabelPlus_Next.Views
             var newIdx = idx < 0 ? 0 : System.Math.Clamp(idx + delta, 0, vm.CurrentLabels.Count - 1);
             vm.SelectedLabel = vm.CurrentLabels[newIdx];
             vm.CurrentText = vm.SelectedLabel?.Text;
+            ScrollSelectedIntoView();
         }
     }
 }

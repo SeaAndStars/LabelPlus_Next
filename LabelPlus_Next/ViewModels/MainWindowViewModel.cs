@@ -45,6 +45,26 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string? selectedLang = "default";
 
+    // Add: create label at percent coords and update selection
+    public async Task AddLabelAtAsync(float xPercent, float yPercent)
+    {
+        if (string.IsNullOrEmpty(SelectedImageFile)) return;
+        var newLabel = new LabelItem
+        {
+            XPercent = xPercent,
+            YPercent = yPercent,
+            Text = "新标签",
+            Category = 1
+        };
+        await LabelFileManager1.StoreManager.AddLabelAsync(SelectedImageFile, newLabel);
+        UpdateCurrentLabels();
+        if (CurrentLabels.Count > 0)
+        {
+            SelectedLabel = CurrentLabels[^1];
+            CurrentText = SelectedLabel.Text;
+        }
+    }
+
     [RelayCommand]
     public async Task AddLabelCommand()
     {

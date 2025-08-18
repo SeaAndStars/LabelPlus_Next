@@ -196,11 +196,12 @@
 
 			<!--  替换TreeDataGrid为DataGrid  -->
 			<dataGrid:DataGrid
+                x:Name="LabelsGrid"
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 AutoGenerateColumns="False"
-                FontSize="18"
+                FontSize="14"
                 ItemsSource="{Binding CurrentLabels}"
                 SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
                 SelectionMode="Single">
