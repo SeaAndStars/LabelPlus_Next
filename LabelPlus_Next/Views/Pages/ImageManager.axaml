@@ -75,14 +75,16 @@
             Grid.Column="0"
             Grid.Row="3"
             HorizontalAlignment="Right"
-            MinWidth="150" />
+            MinWidth="150"
+            Click="OnOkClick" />
         <Button
             Content="{I18N {x:Static lang:LangKeys.buttonCancel}}"
             Foreground="Red"
             Grid.Column="2"
             Grid.Row="3"
             HorizontalAlignment="Left"
-            MinWidth="150" />
+            MinWidth="150"
+            Click="OnCancelClick" />
 
 
     </Grid>

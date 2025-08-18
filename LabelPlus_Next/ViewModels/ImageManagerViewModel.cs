@@ -1,11 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.ObjectModel;
 
 namespace LabelPlus_Next.ViewModels;
 
 public class ImageManagerViewModel : ViewModelBase
 {
-    public List<string> SelectedFolerFile { get; set; }
-    public List<string> FileFolderList { get; set; }
-    public List<string> FileList { get; set; }
-    public List<string> SelectedFile { get; set; }
+    public string? FolderPath { get; set; }
+    public string? CreatedFilePath { get; set; }
+
+    public ObservableCollection<string> FileFolderList { get; set; } = new(); // Ignored list (left)
+    public ObservableCollection<string> FileList { get; set; } = new(); // Included list (right)
+
+    public string? SelectedFolerFile { get; set; }
+    public string? SelectedFile { get; set; }
 }

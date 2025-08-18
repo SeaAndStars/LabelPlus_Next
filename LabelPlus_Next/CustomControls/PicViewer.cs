@@ -12,6 +12,8 @@ using System.Linq;
 
 namespace LabelPlus_Next.CustomControls;
 
+public enum ViewerMode { Browse, Label, Input, Check }
+
 [TemplatePart(PART_Image, typeof(Image))]
 [TemplatePart(PART_Overlay, typeof(LabelOverlay))]
 [PseudoClasses(PC_Moving)]
@@ -43,6 +45,9 @@ public class PicViewer : TemplatedControl
 
     public static readonly StyledProperty<LabelItem?> SelectedLabelProperty = AvaloniaProperty.Register<PicViewer, LabelItem?>(nameof(SelectedLabel));
     public LabelItem? SelectedLabel { get => GetValue(SelectedLabelProperty); set => SetValue(SelectedLabelProperty, value); }
+
+    public static readonly StyledProperty<ViewerMode> ModeProperty = AvaloniaProperty.Register<PicViewer, ViewerMode>(nameof(Mode), defaultValue: ViewerMode.Browse);
+    public ViewerMode Mode { get => GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
 
     // Event to request adding a label at clicked position (percent coords in content space)
     public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
@@ -256,8 +261,8 @@ public class PicViewer : TemplatedControl
     {
         base.OnPointerMoved(e);
 
-        // Update cursor when Ctrl is held
-        if ((e.KeyModifiers & KeyModifiers.Control) != 0)
+        // Crosshair in Label mode or when holding Ctrl in Browse mode
+        if (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0)
             Cursor = new Cursor(StandardCursorType.Cross);
         else if (!_panning)
             Cursor = null;
@@ -327,9 +332,17 @@ public class PicViewer : TemplatedControl
     {
         base.OnPointerPressed(e);
 
-        // Ctrl-click to request add label at position
-        if ((e.KeyModifiers & KeyModifiers.Control) != 0 && _overlay is { })
+        var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        var labelModeAction = Mode == ViewerMode.Label || ctrl; // in Label mode or holding Ctrl
+
+        if (labelModeAction && _overlay is { })
         {
+            var pt = e.GetCurrentPoint(this);
+            var isLeft = pt.Properties.IsLeftButtonPressed;
+            var isRight = pt.Properties.IsRightButtonPressed;
+            if (!isLeft && !isRight)
+                return;
+
             var pos = e.GetPosition(_overlay);
             var cw = ContentWidth;
             var ch = ContentHeight;
@@ -337,15 +350,16 @@ public class PicViewer : TemplatedControl
             {
                 var nx = Math.Clamp(pos.X / cw, 0, 1);
                 var ny = Math.Clamp(pos.Y / ch, 0, 1);
-                AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nx, ny));
+                var category = isRight ? 2 : 1; // right: 框外, left: 框内
+                AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nx, ny, category));
                 e.Handled = true;
                 return;
             }
         }
 
-        // Only respond to left button for drag/pan
-        var pt = e.GetCurrentPoint(this);
-        if (!pt.Properties.IsLeftButtonPressed)
+        // Only respond to left button for drag/pan (Browse mode behavior)
+        var pt2 = e.GetCurrentPoint(this);
+        if (!pt2.Properties.IsLeftButtonPressed)
             return;
 
         int hit = -1;
@@ -424,10 +438,12 @@ public class PicViewer : TemplatedControl
     {
         public double XPercent { get; }
         public double YPercent { get; }
-        public AddLabelRequestedEventArgs(double xPercent, double yPercent)
+        public int Category { get; }
+        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
         {
             XPercent = xPercent;
             YPercent = yPercent;
+            Category = category;
         }
     }
 }

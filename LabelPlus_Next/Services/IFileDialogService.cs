@@ -1,0 +1,14 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace LabelPlus_Next.Services
+{
+    public interface IFileDialogService
+    {
+        Task<string?> OpenTranslationFileAsync();
+        Task<string?> SaveAsTranslationFileAsync(string suggestedFileName = "translation");
+        Task<string?> PickFolderAsync(string title);
+        Task<System.Collections.Generic.IReadOnlyList<string>?> ChooseImagesAsync(string folderPath);
+        Task ShowMessageAsync(string message);
+    }
+}
