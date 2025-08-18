@@ -28,9 +28,10 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
 
-        <!-- default styling for custom LabeledTextBox: separator color from theme resource -->
+        <!-- default styling for custom LabeledTextBox: separator and index capsule background -->
         <Style Selector="customControls|LabeledTextBox">
             <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}"/>
+            <Setter Property="IndexBackgroundBrush" Value="{DynamicResource BackgroundBrush}"/>
         </Style>
 
         <Style Selector="customControls|PicViewer">

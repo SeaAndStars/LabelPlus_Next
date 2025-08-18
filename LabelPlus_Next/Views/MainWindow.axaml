@@ -133,6 +133,7 @@
             <customControls:PicViewer x:Name="Pic"
                 Grid.Row="0"
                 Labels="{Binding CurrentLabels}"
+                SelectedLabel="{Binding SelectedLabel, Mode=TwoWay}"
                 Source ="{Binding PicImageSource,Mode=TwoWay}"/>
             <!-- 外部缩放控制条 -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="6,4,6,6" Spacing="6" HorizontalAlignment="Right">
@@ -159,7 +160,7 @@
             Name="LabelView"
             Grid.Row="2"
             Grid.Column="2"
-            RowDefinitions="Auto 40* 40*"
+            RowDefinitions="Auto 40* 15 40*"
             ShowGridLines="False">
 			<u:ToolBar Grid.Row="0">
 
@@ -229,7 +230,7 @@
    <!--              HorizontalAlignment="Stretch" -->
    <!--              Background="{DynamicResource AccentButtonBackground}" /> -->
             <!-- 自定义文本编辑控件，分割线显示编号 -->
-			<customControls:LabeledTextBox Grid.Row="2" MinHeight="250" MinWidth="150" Index="{Binding SelectedLabel.Index}" Text="{Binding CurrentText, Mode=TwoWay}" />
+			<customControls:LabeledTextBox Grid.Row="3" Margin="-2 0 0 0 " Index="{Binding SelectedLabel.Index}" Text="{Binding CurrentText, Mode=TwoWay}" />
 		</Grid>
 		<Border
             Grid.Row="1"

@@ -42,6 +42,9 @@ public class PicViewer : TemplatedControl
     public static readonly StyledProperty<int> HighlightIndexProperty = AvaloniaProperty.Register<PicViewer, int>(nameof(HighlightIndex), -1);
     public int HighlightIndex { get => GetValue(HighlightIndexProperty); set => SetValue(HighlightIndexProperty, value); }
 
+    public static readonly StyledProperty<LabelItem?> SelectedLabelProperty = AvaloniaProperty.Register<PicViewer, LabelItem?>(nameof(SelectedLabel));
+    public LabelItem? SelectedLabel { get => GetValue(SelectedLabelProperty); set => SetValue(SelectedLabelProperty, value); }
+
     private double _scale = 1;
     public static readonly DirectProperty<PicViewer, double> ScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(Scale), o => o.Scale, (o, v) => o.Scale = v, unsetValue: 1);
     public double Scale { get => _scale; set => SetAndRaise(ScaleProperty, ref _scale, value); }
@@ -242,7 +245,7 @@ public class PicViewer : TemplatedControl
             return;
         }
 
-        // 悬浮高亮（在 Overlay 的局部坐标中命中测试，区域为整个矩形）
+        // Hover highlight only
         if (_draggingLabelIndex < 0 && Labels is { } labelsHover && _overlay is { })
         {
             var list = labelsHover.ToList();
@@ -271,7 +274,7 @@ public class PicViewer : TemplatedControl
             }
         }
 
-        // 拖动标签实时更新（同样在 Overlay 局部坐标中）
+        // Dragging updates
         if (_draggingLabelIndex >= 0 && Labels is { } labels && _overlay is { })
         {
             var pos = e.GetPosition(_overlay);
@@ -287,7 +290,7 @@ public class PicViewer : TemplatedControl
                 var item = list[_draggingLabelIndex];
                 item.XPercent = (float)nx;
                 item.YPercent = (float)ny;
-                HighlightIndex = _draggingLabelIndex; // 拖动中保持高亮
+                HighlightIndex = _draggingLabelIndex; // keep highlight while dragging
                 _overlay?.InvalidateVisual();
             }
         }
@@ -333,6 +336,8 @@ public class PicViewer : TemplatedControl
                 e.Pointer.Capture(this);
                 _draggingLabelIndex = hit;
                 HighlightIndex = hit;
+                // Update external selection only on click
+                SelectedLabel = list[hit];
                 _overlay?.InvalidateVisual();
             }
         }
@@ -350,6 +355,27 @@ public class PicViewer : TemplatedControl
         }
         _panning = false;
         _draggingLabelIndex = -1;
+        // Clear highlight when interaction ends and cursor not hovering a label
+        if (_overlay is { })
+        {
+            var pos = e.GetPosition(_overlay);
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            var side = LabelOverlay.LabelSideLength(cw, ch);
+            var hit = -1;
+            if (Labels is { } labels)
+            {
+                var list = labels.ToList();
+                for (int idx = 0; idx < list.Count; idx++)
+                {
+                    var centerX = list[idx].XPercent * cw;
+                    var centerY = list[idx].YPercent * ch;
+                    var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
+                    if (rect.Contains(pos)) { hit = idx; break; }
+                }
+            }
+            HighlightIndex = hit;
+        }
         _overlay?.InvalidateVisual();
     }
 
