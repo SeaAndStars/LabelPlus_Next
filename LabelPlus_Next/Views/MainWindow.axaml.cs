@@ -7,11 +7,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.CustomControls;
-using LabelPlus_Next.Models;
 using LabelPlus_Next.Views.Pages;
 using Ursa.Controls;
 using LabelPlus_Next.Lang;
@@ -21,8 +19,6 @@ namespace LabelPlus_Next.Views
 {
     public partial class MainWindow : Window
     {
-
-
         private ComboBox? langComboBox;
         private PicViewer? picViewerControl;
 
@@ -30,11 +26,9 @@ namespace LabelPlus_Next.Views
         {
             InitializeComponent(true, true);
             langComboBox = this.FindControl<ComboBox>("LangComboBox");
-            // picViewerControl = this.FindControl<PicViewer>("PicViewerControl");
+            picViewerControl = this.FindControl<PicViewer>("Pic");
             this.Focus();
-            var imageComboBox = this.FindControl<ComboBox>("ImageFileNamesComboBox");
-            if (imageComboBox != null)
-                imageComboBox.SelectionChanged += ImageFileNamesComboBox_OnSelectionChanged;
+            // Remove manual image loading; VM drives PicImageSource binding
         }
 
         private void Window_OnKeyDown(object? sender, KeyEventArgs e)
@@ -89,13 +83,19 @@ namespace LabelPlus_Next.Views
         {
             try
             {
-                var path = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                var paths = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
                                                                            {
                                                                                Title = I18NExtension.Translate(LangKeys.newToolStripMenuItem)
                                                                            });
-                Console.WriteLine(path[0].Path.AbsolutePath);
-                if (ViewModel != null)
-                    ViewModel.NewTranslationPath = path[0].Path.AbsolutePath;
+                if (paths == null || paths.Count == 0)
+                    return;
+                var first = paths[0];
+                if (first?.Path is { } p)
+                {
+                    Console.WriteLine(p.AbsolutePath);
+                    if (ViewModel != null)
+                        ViewModel.NewTranslationPath = p.AbsolutePath;
+                }
             }
             catch (Exception ex)
             {
@@ -107,16 +107,22 @@ namespace LabelPlus_Next.Views
         {
             try
             {
-                var opentranslationfile = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+                var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
                                               {
                                                   Title = I18NExtension.Translate(LangKeys.openToolStripMenuItem),
                                                   FileTypeFilter = new List<FilePickerFileType> { FilePickerFileTypes.TextPlain }
                                               });
-                Console.WriteLine(opentranslationfile[0].Path.AbsolutePath);
-                if (ViewModel != null)
+                if (files == null || files.Count == 0)
+                    return;
+                var file = files[0];
+                if (file?.Path is { } p)
                 {
-                    ViewModel.OpenTranslationFilePath = opentranslationfile[0].Path.AbsolutePath;
-                    await ViewModel.LoadTranslationFile(opentranslationfile[0].Path.AbsolutePath);
+                    Console.WriteLine(p.AbsolutePath);
+                    if (ViewModel != null)
+                    {
+                        ViewModel.OpenTranslationFilePath = p.AbsolutePath;
+                        await ViewModel.LoadTranslationFile(p.AbsolutePath);
+                    }
                 }
             }
             catch (Exception exception)
@@ -138,6 +144,9 @@ namespace LabelPlus_Next.Views
                                                       FileTypeChoices = fileTypeChoices,
                                                       DefaultExtension = ".txt"
                                                   });
+                if (saveasanotherfileHelper == null)
+                    return;
+                // Optionally, implement save as logic using ViewModel.FileSave
             }
             catch (Exception ex)
             {
@@ -154,9 +163,9 @@ namespace LabelPlus_Next.Views
                                                                                  Title = I18NExtension.Translate(LangKeys.saveAsDToolStripMenuItem),
                                                                                  DefaultExtension = ".txt"
                                                                              });
-                if (savefile != null && ViewModel != null)
+                if (savefile != null && ViewModel != null && savefile.Path is { } p)
                 {
-                    var path = savefile.Path.AbsolutePath;
+                    var path = p.AbsolutePath;
                     await ViewModel.FileSave(path);
                 }
             }
@@ -166,33 +175,33 @@ namespace LabelPlus_Next.Views
             }
         }
 
-        private async void ImageFileNamesComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (picViewerControl == null || ViewModel == null) return;
-            var selectedFile = ViewModel.SelectedImageFile;
-            if (string.IsNullOrEmpty(selectedFile))
+            base.OnKeyDown(e);
+            if ((e.KeyModifiers & KeyModifiers.Control) != 0)
             {
-                picViewerControl.Source = null;
-                return;
-            }
-            // 加载图片
-            if (File.Exists(selectedFile))
-            {
-                try
+                if (e.Key == Key.Up)
                 {
-                    picViewerControl.Source = new Bitmap(selectedFile);
+                    MoveSelection(-1);
+                    e.Handled = true;
                 }
-                catch
+                else if (e.Key == Key.Down)
                 {
-                    picViewerControl.Source = null;
+                    MoveSelection(1);
+                    e.Handled = true;
                 }
             }
-            else
-            {
-                picViewerControl.Source = null;
-            }
-            // PicViewer 没有 Labels 属性，移除相关赋值
         }
 
+        private void MoveSelection(int delta)
+        {
+            var vm = DataContext as ViewModels.MainWindowViewModel;
+            if (vm == null || vm.CurrentLabels == null || vm.CurrentLabels.Count == 0)
+                return;
+            var idx = vm.SelectedLabel != null ? vm.CurrentLabels.IndexOf(vm.SelectedLabel) : -1;
+            var newIdx = idx < 0 ? 0 : System.Math.Clamp(idx + delta, 0, vm.CurrentLabels.Count - 1);
+            vm.SelectedLabel = vm.CurrentLabels[newIdx];
+            vm.CurrentText = vm.SelectedLabel?.Text;
+        }
     }
 }

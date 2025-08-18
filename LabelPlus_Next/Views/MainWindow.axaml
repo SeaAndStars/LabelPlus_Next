@@ -159,7 +159,7 @@
             Name="LabelView"
             Grid.Row="2"
             Grid.Column="2"
-            RowDefinitions="Auto 40* 2 40* 9*"
+            RowDefinitions="Auto 40* 40*"
             ShowGridLines="False">
 			<u:ToolBar Grid.Row="0">
 
@@ -222,22 +222,14 @@
 					</dataGrid:DataGridTemplateColumn>
 				</dataGrid:DataGrid.Columns>
 			</dataGrid:DataGrid>
-			<Border
-                Grid.Row="2"
-                Height="2"
-                Margin="0,8,0,8"
-                HorizontalAlignment="Stretch"
-                Background="{DynamicResource AccentButtonBackground}" />
-			<TextBox
-                Name="LabelTextBox"
-                Grid.Row="3"
-                MinHeight="250"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch"
-                VerticalContentAlignment="Top"
-                FontSize="18"
-                Text="{Binding CurrentText, Mode=TwoWay}"
-                TextAlignment="Left" />
+			<!-- <Border -->
+   <!--              Grid.Row="2" -->
+   <!--              Height="2" -->
+   <!--              Margin="0,8,0,8" -->
+   <!--              HorizontalAlignment="Stretch" -->
+   <!--              Background="{DynamicResource AccentButtonBackground}" /> -->
+            <!-- 自定义文本编辑控件，分割线显示编号 -->
+			<customControls:LabeledTextBox Grid.Row="2" MinHeight="250" MinWidth="150" Index="{Binding SelectedLabel.Index}" Text="{Binding CurrentText, Mode=TwoWay}" />
 		</Grid>
 		<Border
             Grid.Row="1"

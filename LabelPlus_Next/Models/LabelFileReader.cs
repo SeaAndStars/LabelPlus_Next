@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,9 +11,9 @@ public class LabelFileReader
 {
     public async Task<(string, Dictionary<string, List<LabelItem>?> store)> ReadAsync(string path)
     {
-        // 路径解码
+        // 路径解码并标准化
         var decodedPath = Uri.UnescapeDataString(path);
-        var normalizedPath = decodedPath.Replace('/', '\\');
+        var normalizedPath = decodedPath.Replace('/', Path.DirectorySeparatorChar);
 
         if (!File.Exists(normalizedPath))
             throw new FileNotFoundException($"文件未找到或无法访问: {normalizedPath}，请检查路径是否正确，文件是否存在。");
@@ -27,51 +28,63 @@ public class LabelFileReader
         string? line;
         while ((line = await sr.ReadLineAsync()) != null)
         {
-            // 只要没遇到文件内容标记，就一直读 header
             if (!headerRead)
             {
-                if (line.StartsWith(">>>>>>>>[") || line.StartsWith("----------------["))
+                if ((line.StartsWith(">>>>>>>>") || line.StartsWith("----------------")) && line.Contains('[') && line.Contains(']'))
                 {
                     headerRead = true;
-                    nowFilename = line.Substring(9, line.IndexOf("]<<<<<<<<", StringComparison.Ordinal) - 9);
-                    currentList = new List<LabelItem>();
-                    store[nowFilename] = currentList;
+                    // 将该行作为内容部分处理，继续到主体逻辑
                 }
-                  
-                // 这一行属于内容部分，不加到 header
-                // 跳出 header 读取
                 else
+                {
                     headerBuilder.AppendLine(line);
-                continue;
+                    continue;
+                }
             }
 
             if (line.StartsWith(">>>>>>>>[") && line.Contains("]<<<<<<<<"))
             {
-                nowFilename = line.Substring(9, line.IndexOf("]<<<<<<<<", StringComparison.Ordinal) - 9);
-                currentList = new List<LabelItem>();
-                store[nowFilename] = currentList;
-            }
-            else if (line.StartsWith("----------------[") && line.Contains("]----------------"))
-            {
-                // 标签头
-                var labelInfo = line.Substring(17, line.IndexOf("]----------------", StringComparison.Ordinal) - 17);
-                var rightText = line.Substring(line.IndexOf("]----------------", StringComparison.Ordinal) + 17);
-                var category = 1;
-                float x = 0, y = 0;
-                if (rightText.StartsWith("[") && rightText.EndsWith("]"))
+                var start = line.IndexOf('[') + 1;
+                var end = line.IndexOf("]<<<<<<<<", StringComparison.Ordinal);
+                if (end > start)
                 {
-                    var splitText = rightText.Substring(1, rightText.Length - 2).Split(',');
-                    if (splitText.Length >= 3)
-                    {
-                        x = float.Parse(splitText[0]);
-                        y = float.Parse(splitText[1]);
-                        category = int.Parse(splitText[2]);
-                    }
+                    nowFilename = line.Substring(start, end - start);
+                    currentList = new List<LabelItem>();
+                    store[nowFilename] = currentList;
                 }
-
-                var text = await sr.ReadLineAsync();
-                if (currentList != null) currentList.Add(new LabelItem(x, y, text, category));
+                continue;
             }
+
+            if (line.StartsWith("----------------[") && line.Contains("]----------------"))
+            {
+                var headerStart = line.IndexOf('[') + 1;
+                var headerEnd = line.IndexOf("]----------------", StringComparison.Ordinal);
+                var rightStart = headerEnd + "]----------------".Length;
+                if (headerEnd > headerStart && rightStart <= line.Length)
+                {
+                    var rightText = line.Substring(rightStart);
+                    int category = 1;
+                    float x = 0, y = 0;
+                    if (rightText.StartsWith("[") && rightText.EndsWith("]"))
+                    {
+                        var content = rightText.Substring(1, rightText.Length - 2);
+                        var splitText = content.Split(',');
+                        if (splitText.Length >= 3)
+                        {
+                            float.TryParse(splitText[0], NumberStyles.Float, CultureInfo.InvariantCulture, out x);
+                            float.TryParse(splitText[1], NumberStyles.Float, CultureInfo.InvariantCulture, out y);
+                            int.TryParse(splitText[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out category);
+                        }
+                    }
+
+                    var text = await sr.ReadLineAsync();
+                    if (currentList != null)
+                        currentList.Add(new LabelItem(x, y, text, category));
+                }
+                continue;
+            }
+
+            // 其他空行等忽略
         }
 
         return (headerBuilder.ToString(), store);

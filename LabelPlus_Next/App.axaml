@@ -6,10 +6,6 @@
              xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
              x:Class="LabelPlus_Next.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
-
-
-
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
@@ -20,7 +16,23 @@
         <u-semi:SemiTheme Locale="zh-CN" />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
-        <!-- Default template for PicViewer with overlay and shared transform (no built-in zoom UI) -->
+        <!-- Keep TextBox global tweaks if any other TextBox is used elsewhere -->
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="TextBox:pointerover /template/ Border#PART_RootBorder">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_RootBorder">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- default styling for custom LabeledTextBox: separator color from theme resource -->
+        <Style Selector="customControls|LabeledTextBox">
+            <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}"/>
+        </Style>
+
         <Style Selector="customControls|PicViewer">
             <Setter Property="Template">
                 <ControlTemplate>
@@ -28,6 +40,7 @@
                         <Grid x:Name="PART_Viewport">
                             <Grid.RenderTransform>
                                 <TransformGroup>
+                                    <!-- Scale first, then translate: x' = S*x + T  -->
                                     <ScaleTransform ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}"
                                                     ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
                                     <TranslateTransform X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}"
@@ -37,21 +50,20 @@
                             <Image x:Name="PART_Image"
                                    HorizontalAlignment="Stretch"
                                    VerticalAlignment="Stretch"
-                                   Source="{Binding Source, RelativeSource={RelativeSource TemplatedParent}}"
-                                   Stretch="{Binding Stretch, RelativeSource={RelativeSource TemplatedParent}}" />
+                                   Source="{TemplateBinding Source}"
+                                   Stretch="{TemplateBinding Stretch}" />
+                            <!-- Overlay centered and sized to the image content rect -->
                             <customControls:LabelOverlay x:Name="PART_Overlay"
                                 IsHitTestVisible="False"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Width="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                Height="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
                                 ClipToBounds="True"
-                                Width="{Binding #PART_Image.Bounds.Width}"
-                                Height="{Binding #PART_Image.Bounds.Height}"
                                 Labels="{Binding Labels, RelativeSource={RelativeSource TemplatedParent}}"
+                                HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}"
                                 ContentWidth="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
-                                ContentOffsetX="{Binding ContentOffsetX, RelativeSource={RelativeSource TemplatedParent}}"
-                                ContentOffsetY="{Binding ContentOffsetY, RelativeSource={RelativeSource TemplatedParent}}"
-                                HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}" />
+                                ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Grid>
                     </Grid>
                 </ControlTemplate>

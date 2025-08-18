@@ -143,14 +143,15 @@ public class LabelOverlay : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Labels is null || (ImageWidth <= 0 && ContentWidth <= 0) || (ImageHeight <= 0 && ContentHeight <= 0))
+        if (Labels is null)
             return;
 
-        // Prefer content rect if provided, otherwise fall back to full image size without offset.
+        // Use content rect size; the overlay is already translated by ContentOffset in the template
         var cw = ContentWidth > 0 ? ContentWidth : ImageWidth;
         var ch = ContentHeight > 0 ? ContentHeight : ImageHeight;
-        var ox = ContentWidth > 0 || ContentHeight > 0 ? ContentOffsetX : 0;
-        var oy = ContentWidth > 0 || ContentHeight > 0 ? ContentOffsetY : 0;
+
+        if (cw <= 0 || ch <= 0)
+            return;
 
         double side = LabelSideLength(cw, ch);
         var innerBrush = Brushes.OrangeRed;
@@ -161,8 +162,9 @@ public class LabelOverlay : Control
         foreach (var label in Labels)
         {
             i++;
-            double x = ox + label.XPercent * cw;
-            double y = oy + label.YPercent * ch;
+            // Local coordinates in content space [0,cw]x[0,ch]
+            double x = label.XPercent * cw;
+            double y = label.YPercent * ch;
 
             var rect = GetLabelRect(x, y, side);
             var brush = label.Category == 1 ? innerBrush : outerBrush;
@@ -222,14 +224,14 @@ public class LabelOverlay : Control
 
                 double tipX = rect.X;
                 double tipY = rect.Y - bgH - 4;
-                // 边界修正，基于内容区域
-                if (tipX + bgW > ox + cw)
-                    tipX = System.Math.Max(ox, ox + cw - bgW - 1);
-                if (tipX < ox) tipX = ox;
-                if (tipY < oy)
+                // Clamp to content bounds [0,cw]x[0,ch]
+                if (tipX + bgW > cw)
+                    tipX = System.Math.Max(0, cw - bgW - 1);
+                if (tipX < 0) tipX = 0;
+                if (tipY < 0)
                     tipY = rect.Bottom + 4;
-                if (tipY + bgH > oy + ch)
-                    tipY = System.Math.Max(oy, rect.Y - bgH - 4);
+                if (tipY + bgH > ch)
+                    tipY = System.Math.Max(0, rect.Y - bgH - 4);
 
                 var bg = new SolidColorBrush(Colors.Black, 0.7);
                 var bgRect = new Rect(tipX, tipY, bgW, bgH);
