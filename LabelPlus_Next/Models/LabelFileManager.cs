@@ -23,6 +23,9 @@ public class LabelFileManager
         StoreManager.Store.Clear();
         foreach (var kvp in store)
             StoreManager.Store[kvp.Key] = kvp.Value;
+
+        // Loaded from disk, clear dirty state
+        StoreManager.ResetDirty();
     }
 
     public async Task SaveAsync(string path)
@@ -30,6 +33,8 @@ public class LabelFileManager
         var header = await LabelFileHeaderManager.GenerateHeaderAsync(FileHead, GroupStringList, Comment);
         var writer = new LabelFileWriter();
         await writer.WriteAsync(path, header, StoreManager.Store);
+        // Saved to disk, clear dirty state
+        StoreManager.ResetDirty();
     }
 
     // Update header data (groups and comment)
@@ -37,5 +42,6 @@ public class LabelFileManager
     {
         GroupStringList = groups ?? new List<string>();
         Comment = comment ?? string.Empty;
+        StoreManager.TouchDirty();
     }
 }

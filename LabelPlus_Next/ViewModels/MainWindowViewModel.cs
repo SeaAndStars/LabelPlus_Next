@@ -38,6 +38,18 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string? selectedLang = "default";
 
+    public bool HasUnsavedChanges => LabelFileManager1.StoreManager.IsDirty;
+
+    // Quickly set selected label category
+    public void SetSelectedCategory(int category)
+    {
+        if (SelectedLabel is null) return;
+        if (category != 1 && category != 2) return;
+        SelectedLabel.Category = category;
+        SelectedLabel.CategoryString = category == 1 ? "框内" : "框外";
+        LabelFileManager1.StoreManager.TouchDirty();
+    }
+
     // Expose file header settings
     public (List<string> groupList, string notes) GetFileSettings()
     {
@@ -240,7 +252,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnCurrentTextChanged(string? value)
     {
-        if (SelectedLabel != null) SelectedLabel.Text = value;
+        if (SelectedLabel != null)
+        {
+            SelectedLabel.Text = value;
+            LabelFileManager1.StoreManager.TouchDirty();
+        }
     }
 
     private void UpdateCurrentLabels()
