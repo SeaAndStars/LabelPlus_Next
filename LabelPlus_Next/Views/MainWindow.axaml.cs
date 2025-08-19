@@ -13,6 +13,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Views.Pages; // add for AboutWindow
 using LabelPlus_Next.Views.Pages; // add for ImageManager
 using Ursa.Controls; // for MessageBox and enums
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
@@ -437,6 +438,12 @@ namespace LabelPlus_Next.Views
         private void NextImage_OnClick(object? sender, RoutedEventArgs e)
         {
             MoveImageSelection(1);
+        }
+
+        private async void OnAboutClick(object? sender, RoutedEventArgs e)
+        {
+            var dlg = new AboutWindow();
+            await dlg.ShowDialog(this);
         }
     }
 }

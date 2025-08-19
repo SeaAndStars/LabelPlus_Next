@@ -1,0 +1,52 @@
+<Window
+    x:Class="LabelPlus_Next.Views.Pages.AboutWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="关于"
+    Width="520"
+    Height="460"
+    UseLayoutRounding="True">
+    <Border Padding="16">
+        <StackPanel Spacing="12">
+            <TextBlock
+                FontSize="20"
+                FontWeight="Bold"
+                Text="LabelPlus_Next" />
+            <TextBlock x:Name="VersionText" Text="版本" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="作者：" />
+                <TextBlock Text="SeaStar" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="项目链接：" />
+                <TextBlock
+                    Classes="link"
+                    Foreground="#1E90FF"
+                    PointerPressed="OnProjectLinkPressed"
+                    Text="https://github.com/SeaAndStars/LabelPlus_Next"
+                    TextDecorations="Underline" />
+            </StackPanel>
+
+            <Separator />
+            <TextBlock FontWeight="SemiBold" Text="特别鸣谢" />
+            <Image
+                Height="200"
+                RenderOptions.BitmapInterpolationMode="HighQuality"
+                Source="avares://LabelPlus_Next/Assets/20210801GreenTealogo.png"
+                Stretch="Uniform" />
+
+            <StackPanel
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button
+                    Width="80"
+                    HorizontalAlignment="Right"
+                    Click="OnCloseClick"
+                    Content="关闭" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

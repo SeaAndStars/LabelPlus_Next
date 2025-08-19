@@ -65,7 +65,7 @@
                     <MenuFlyout>
                         <MenuItem Header="{I18N {x:Static lang:LangKeys.viewHelpHToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Header="{I18N {x:Static lang:LangKeys.aboutAToolStripMenuItem}}" />
+                        <MenuItem Header="{I18N {x:Static lang:LangKeys.aboutAToolStripMenuItem}}" Click="OnAboutClick" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -149,6 +149,7 @@
                 Grid.Row="0"
                 Labels="{Binding CurrentLabels}"
                 SelectedLabel="{Binding SelectedLabel, Mode=TwoWay}"
+                RenderOptions.BitmapInterpolationMode="HighQuality"
                 Source="{Binding PicImageSource, Mode=TwoWay}" />
             <Grid
                 Grid.Row="1"
