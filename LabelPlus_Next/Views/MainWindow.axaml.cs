@@ -14,7 +14,8 @@ using CommunityToolkit.Mvvm.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Views.Pages; // add for ImageManager
-using Ursa.Controls;
+using Ursa.Controls; // for MessageBox and enums
+using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 
 namespace LabelPlus_Next.Views
 {
@@ -56,6 +57,39 @@ namespace LabelPlus_Next.Views
             this.Closing += OnWindowClosing;
 
             this.Focus();
+        }
+
+        private void EnsureNotificationManager(MainWindowViewModel vm)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null) return;
+            if (vm.NotificationManager is not null) return; // already set
+
+            vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
+                ? manager
+                : new WindowNotificationManager(topLevel);
+
+            vm.NotificationManager.Position = Avalonia.Controls.Notifications.NotificationPosition.TopRight;
+            vm.NotificationManager.MaxItems = 5;
+            try
+            {
+                var type = vm.NotificationManager.GetType();
+                var topmostProp = type.GetProperty("Topmost");
+                topmostProp?.SetValue(vm.NotificationManager, true);
+                var zIndexProp = type.GetProperty("ZIndex");
+                if (zIndexProp != null && zIndexProp.PropertyType == typeof(int))
+                    zIndexProp.SetValue(vm.NotificationManager, 10000);
+            }
+            catch { }
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (DataContext is MainWindowViewModel vm)
+            {
+                EnsureNotificationManager(vm);
+            }
         }
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
@@ -279,6 +313,7 @@ namespace LabelPlus_Next.Views
             if (DataContext is MainWindowViewModel mvm)
             {
                 mvm.InitializeServices(new AvaloniaFileDialogService(this));
+                EnsureNotificationManager(mvm);
             }
         }
 

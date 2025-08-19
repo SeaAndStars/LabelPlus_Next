@@ -4,13 +4,17 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using NLog;
 
 namespace LabelPlus_Next.Models;
 
 public class LabelFileReader
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public async Task<(string, Dictionary<string, List<LabelItem>?> store)> ReadAsync(string path)
     {
+        Logger.Debug("Reading file: {path}", path);
         // 路径解码并标准化
         var decodedPath = Uri.UnescapeDataString(path);
         var normalizedPath = decodedPath.Replace('/', Path.DirectorySeparatorChar);
@@ -112,6 +116,7 @@ public class LabelFileReader
             i++;
         }
 
+        Logger.Debug("Read completed: images={count}", store.Count);
         return (headerBuilder.ToString(), store);
     }
 }
