@@ -9,6 +9,7 @@ using Avalonia.Media;
 using LabelPlus_Next.Models;
 using System;
 using System.Linq;
+using Avalonia.Threading;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -190,6 +191,16 @@ public class PicViewer : TemplatedControl
     private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
     {
         UpdateHighlightFromSelection();
+        // Try center on the newly selected label
+        if (SelectedLabel is { })
+        {
+            // Post to UI thread to ensure geometry is up-to-date
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (SelectedLabel is { } l)
+                    CenterOnPercent(l.XPercent, l.YPercent);
+            });
+        }
     }
 
     private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)
@@ -535,5 +546,31 @@ public class PicViewer : TemplatedControl
             YPercent = yPercent;
             Category = category;
         }
+    }
+
+    // Center view so that the given content percent (0..1) is in the middle of the control
+    public void CenterOnPercent(double xPercent, double yPercent)
+    {
+        if (_image is null) return;
+        // Ensure we have recent geometry
+        RecomputeContentGeometry();
+        var cw = ContentWidth;
+        var ch = ContentHeight;
+        if (cw <= 0 || ch <= 0) return;
+
+        // Target point in control coords (content offset + percent within content)
+        var targetX = ContentOffsetX + xPercent * cw;
+        var targetY = ContentOffsetY + yPercent * ch;
+        var centerX = Bounds.Width / 2.0;
+        var centerY = Bounds.Height / 2.0;
+
+        TranslateX = centerX - targetX;
+        TranslateY = centerY - targetY;
+    }
+
+    public void CenterOnLabel(LabelItem? item)
+    {
+        if (item is null) return;
+        CenterOnPercent(item.XPercent, item.YPercent);
     }
 }

@@ -19,7 +19,7 @@
     d:DesignWidth="1200"
     x:DataType="viewModels:MainWindowViewModel"
     Focusable="True"
-    Icon="/Assets/avalonia-logo.ico"
+    Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     mc:Ignorable="d">
 
     <Design.DataContext>
