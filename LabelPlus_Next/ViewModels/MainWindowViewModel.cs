@@ -10,16 +10,40 @@ using LabelPlus_Next.Services;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using Avalonia.Controls.Notifications;
+using Avalonia.Threading;
+using Notification = Ursa.Controls.Notification;
+using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
+using NLog;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private IFileDialogService? _dialogs;
     protected static LabelFileManager LabelFileManager1 = new();
 
-    public void InitializeServices(IFileDialogService dialogs) => _dialogs ??= dialogs;
+    // Notification manager (injected from MainWindow)
+    public WindowNotificationManager? NotificationManager { get; set; }
+
+    // Auto-save timer
+    private Timer? _autoSaveTimer;
+    private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
+    private int _autoSaveBusy; // 0 = idle, 1 = running
+    private string? _lastBackupSignature; // avoid duplicate backups
+
+    public void InitializeServices(IFileDialogService dialogs)
+    {
+        _dialogs ??= dialogs;
+        Logger.Debug("Services initialized.");
+    }
 
     public MainWindowViewModel() { }
 
@@ -37,6 +61,149 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? selectedLang = "default";
+
+    public bool HasUnsavedChanges => LabelFileManager1.StoreManager.IsDirty;
+
+    // Start/Stop auto-save
+    private void StartAutoSave()
+    {
+        _autoSaveTimer ??= new Timer(async _ => await AutoSaveTickAsync(), null, _autoSaveInterval, _autoSaveInterval);
+        Logger.Info("Auto-save started with interval {minutes} minutes.", _autoSaveInterval.TotalMinutes);
+    }
+
+    public void StopAutoSave()
+    {
+        _autoSaveTimer?.Dispose();
+        _autoSaveTimer = null;
+        Logger.Info("Auto-save stopped.");
+    }
+
+    private async Task<string> BuildSnapshotAsync()
+    {
+        Logger.Trace("Building snapshot for backup.");
+        var header = await LabelFileHeaderManager.GenerateHeaderAsync(LabelFileManager1.FileHead, LabelFileManager1.GroupStringList, LabelFileManager1.Comment);
+        var sb = new StringBuilder();
+        sb.AppendLine(header);
+        foreach (var kvp in LabelFileManager1.StoreManager.Store)
+        {
+            sb.AppendLine();
+            sb.AppendLine($">>>>>>>>[{kvp.Key}]<<<<<<<<");
+            var count = 0;
+            foreach (var n in kvp.Value)
+            {
+                count++;
+                var coord = string.Format(CultureInfo.InvariantCulture, "[{0:F3},{1:F3},{2}]", n.XPercent, n.YPercent, n.Category);
+                sb.AppendLine($"----------------[{count}]----------------{coord}");
+                sb.AppendLine(n.Text);
+                sb.AppendLine();
+            }
+        }
+        return sb.ToString();
+    }
+
+    private static string ComputeHash(string content)
+    {
+        using var sha = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(content);
+        var hash = sha.ComputeHash(bytes);
+        return Convert.ToHexString(hash);
+    }
+
+    private async Task AutoSaveTickAsync()
+    {
+        if (Interlocked.Exchange(ref _autoSaveBusy, 1) == 1) { Logger.Debug("Skip autosave tick: busy."); return; }
+        try
+        {
+            var path = OpenTranslationFilePath;
+            if (string.IsNullOrEmpty(path)) { Logger.Debug("Skip autosave: no open file."); return; }
+            if (!HasUnsavedChanges) { Logger.Debug("Skip autosave: no changes."); return; }
+
+            string snapshot;
+            try { snapshot = await BuildSnapshotAsync(); }
+            catch (Exception ex) { Logger.Error(ex, "Autosave snapshot build failed."); return; }
+            var sig = ComputeHash(snapshot);
+            if (string.Equals(sig, _lastBackupSignature, StringComparison.Ordinal))
+            {
+                Logger.Debug("Skip autosave: snapshot unchanged.");
+                return;
+            }
+
+            var dir = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(dir)) { Logger.Warn("Autosave: cannot resolve directory of {path}.", path); return; }
+            var bakDir = Path.Combine(dir, "bak");
+            try { Directory.CreateDirectory(bakDir); } catch (Exception ex) { Logger.Error(ex, "Autosave: create bak dir failed: {bakDir}", bakDir); return; }
+
+            var fileName = Path.GetFileName(path);
+            var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var outName = $"{stamp}_{fileName}";
+            var outPath = Path.Combine(bakDir, outName);
+
+            try
+            {
+                await File.WriteAllTextAsync(outPath, snapshot, Encoding.UTF8);
+                _lastBackupSignature = sig;
+                Logger.Info("Autosave created: {outPath}", outPath);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Autosave write failed: {outPath}", outPath);
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _autoSaveBusy, 0);
+        }
+    }
+
+    // Utilities for Image Manager integration
+    public IReadOnlyCollection<string> GetIncludedImageFiles()
+    {
+        return LabelFileManager1.StoreManager.Store.Keys.ToList();
+    }
+
+    public async Task AddImageFileAsync(string relativePath)
+    {
+        await LabelFileManager1.StoreManager.AddFileAsync(relativePath);
+        Logger.Info("Image added to include list: {file}", relativePath);
+    }
+
+    public async Task RemoveImageFileAsync(string relativePath)
+    {
+        await LabelFileManager1.StoreManager.RemoveFileAsync(relativePath);
+        Logger.Info("Image removed from include list: {file}", relativePath);
+    }
+
+    public void RefreshImagesList()
+    {
+        Logger.Debug("Refreshing image list UI.");
+        var selected = SelectedImageFile;
+        ImageFileNames.Clear();
+        foreach (var key in LabelFileManager1.StoreManager.Store.Keys)
+            ImageFileNames.Add(key);
+        if (!string.IsNullOrEmpty(selected) && ImageFileNames.Contains(selected))
+        {
+            SelectedImageFile = selected;
+        }
+        else if (ImageFileNames.Count > 0)
+        {
+            SelectedImageFile = ImageFileNames[0];
+        }
+        else
+        {
+            SelectedImageFile = null;
+        }
+        UpdateCurrentLabels();
+    }
+
+    // Quickly set selected label category
+    public void SetSelectedCategory(int category)
+    {
+        if (SelectedLabel is null) return;
+        if (category != 1 && category != 2) return;
+        SelectedLabel.Category = category;
+        SelectedLabel.CategoryString = category == 1 ? "框内" : "框外";
+        LabelFileManager1.StoreManager.TouchDirty();
+    }
 
     // Expose file header settings
     public (List<string> groupList, string notes) GetFileSettings()
@@ -157,11 +324,31 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task OpenTranslationFileCommand()
     {
         if (_dialogs is null) return;
-        var path = await _dialogs.OpenTranslationFileAsync();
-        if (string.IsNullOrEmpty(path)) return;
-        OpenTranslationFilePath = path;
-        await LoadTranslationFile(path);
-        await _dialogs.ShowMessageAsync("打开成功。");
+        try
+        {
+            var path = await _dialogs.OpenTranslationFileAsync();
+            if (string.IsNullOrEmpty(path)) return;
+            OpenTranslationFilePath = path;
+            await LoadTranslationFile(path);
+            if (NotificationManager is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("提示", "打开成功。"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+            }
+        }
+        catch (Exception ex)
+        {
+            if (NotificationManager is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("错误", $"打开失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+            }
+            else if (_dialogs is not null)
+            {
+                await _dialogs.ShowMessageAsync($"打开失败：{ex.Message}");
+            }
+            Logger.Error(ex, "Open translation file failed.");
+        }
     }
 
     [RelayCommand]
@@ -173,8 +360,30 @@ public partial class MainWindowViewModel : ViewModelBase
             await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。");
             return;
         }
-        await FileSave(OpenTranslationFilePath);
-        await _dialogs.ShowMessageAsync("保存成功。");
+        try
+        {
+            await FileSave(OpenTranslationFilePath);
+            if (NotificationManager is not null)
+            {
+                var file = Path.GetFileName(OpenTranslationFilePath);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("提示", $"保存成功：{file}"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+            }
+            Logger.Info("File saved: {file}", OpenTranslationFilePath);
+        }
+        catch (Exception ex)
+        {
+            if (NotificationManager is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("错误", $"保存失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+            }
+            else
+            {
+                await _dialogs.ShowMessageAsync($"保存失败：{ex.Message}");
+            }
+            Logger.Error(ex, "Save current file failed.");
+        }
     }
 
     [RelayCommand]
@@ -183,9 +392,31 @@ public partial class MainWindowViewModel : ViewModelBase
         if (_dialogs is null) return;
         var path = await _dialogs.SaveAsTranslationFileAsync();
         if (string.IsNullOrEmpty(path)) return;
-        await FileSave(path);
-        OpenTranslationFilePath = path; // future Ctrl+S writes here
-        await _dialogs.ShowMessageAsync("另存为成功。");
+        try
+        {
+            await FileSave(path);
+            OpenTranslationFilePath = path; // future Ctrl+S writes here
+            if (NotificationManager is not null)
+            {
+                var file = Path.GetFileName(path);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("提示", $"另存为成功：{file}"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+            }
+            Logger.Info("File saved as: {file}", path);
+        }
+        catch (Exception ex)
+        {
+            if (NotificationManager is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                    NotificationManager.Show(new Notification("错误", $"另存为失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+            }
+            else
+            {
+                await _dialogs.ShowMessageAsync($"另存为失败：{ex.Message}");
+            }
+            Logger.Error(ex, "Save as file failed.");
+        }
     }
 
     [RelayCommand]
@@ -198,10 +429,21 @@ public partial class MainWindowViewModel : ViewModelBase
         if (ImageFileNames.Count > 0)
             SelectedImageFile = ImageFileNames[0];
         UpdateCurrentLabels();
+        // Ensure auto-save is running
+        StartAutoSave();
+        Logger.Info("Translation file loaded: {file}", path);
     }
 
     [RelayCommand]
     public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
+
+    partial void OnOpenTranslationFilePathChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+            StartAutoSave();
+        else
+            StopAutoSave();
+    }
 
     partial void OnSelectedImageFileChanged(string? value)
     {
@@ -240,7 +482,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnCurrentTextChanged(string? value)
     {
-        if (SelectedLabel != null) SelectedLabel.Text = value;
+        if (SelectedLabel != null)
+        {
+            SelectedLabel.Text = value;
+            LabelFileManager1.StoreManager.TouchDirty();
+            Logger.Debug("Label text updated: {text}", value);
+        }
     }
 
     private void UpdateCurrentLabels()

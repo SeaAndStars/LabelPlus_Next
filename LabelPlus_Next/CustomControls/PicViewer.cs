@@ -9,6 +9,7 @@ using Avalonia.Media;
 using LabelPlus_Next.Models;
 using System;
 using System.Linq;
+using Avalonia.Threading;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -29,6 +30,11 @@ public class PicViewer : TemplatedControl
     private Point? _lastLocation;
     private bool _handlersHooked;
     private bool _panning;
+
+    // Track whether a left press in label mode should add a label on release (i.e., treated as click, not drag)
+    private bool _pendingAddLabelLeft;
+    private Point _pressOverlayPos;
+    private const double ClickThreshold = 4.0; // pixels
 
     public static readonly StyledProperty<Control?> OverlayerProperty = AvaloniaProperty.Register<PicViewer, Control?>(nameof(Overlayer));
     public Control? Overlayer { get => GetValue(OverlayerProperty); set => SetValue(OverlayerProperty, value); }
@@ -185,6 +191,16 @@ public class PicViewer : TemplatedControl
     private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
     {
         UpdateHighlightFromSelection();
+        // Try center on the newly selected label
+        if (SelectedLabel is { })
+        {
+            // Post to UI thread to ensure geometry is up-to-date
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (SelectedLabel is { } l)
+                    CenterOnPercent(l.XPercent, l.YPercent);
+            });
+        }
     }
 
     private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)
@@ -267,6 +283,24 @@ public class PicViewer : TemplatedControl
         else if (!_panning)
             Cursor = null;
 
+        // If we have a pending left press in label mode, start panning only when movement exceeds threshold
+        if (!_panning && _pendingAddLabelLeft && _overlay is { })
+        {
+            var pt = e.GetCurrentPoint(this);
+            if (pt.Properties.IsLeftButtonPressed)
+            {
+                var cur = e.GetPosition(_overlay);
+                if (Math.Abs(cur.X - _pressOverlayPos.X) > ClickThreshold || Math.Abs(cur.Y - _pressOverlayPos.Y) > ClickThreshold)
+                {
+                    _pendingAddLabelLeft = false;
+                    e.Pointer.Capture(this);
+                    _panning = true;
+                    _lastClickPoint = e.GetPosition(this);
+                    _lastLocation = new Point(TranslateX, TranslateY);
+                }
+            }
+        }
+
         if (_panning && Equals(e.Pointer.Captured, this) && _lastClickPoint != null)
         {
             var p = e.GetPosition(this);
@@ -328,76 +362,143 @@ public class PicViewer : TemplatedControl
         }
     }
 
+    private int HitTestLabelIndex(Point pos)
+    {
+        if (Labels is not { } labels || _overlay is null) return -1;
+        var list = labels.ToList();
+        var cw = ContentWidth;
+        var ch = ContentHeight;
+        var side = LabelOverlay.LabelSideLength(cw, ch);
+        for (int idx = 0; idx < list.Count; idx++)
+        {
+            var label = list[idx];
+            var centerX = label.XPercent * cw;
+            var centerY = label.YPercent * ch;
+            var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
+            if (rect.Contains(pos)) return idx;
+        }
+        return -1;
+    }
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
 
         var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
-        var labelModeAction = Mode == ViewerMode.Label || ctrl; // in Label mode or holding Ctrl
+        var isLabelMode = Mode == ViewerMode.Label || ctrl; // in Label mode or holding Ctrl
 
-        if (labelModeAction && _overlay is { })
+        var pt = e.GetCurrentPoint(this);
+        var isLeft = pt.Properties.IsLeftButtonPressed;
+        var isRight = pt.Properties.IsRightButtonPressed;
+        if (!isLeft && !isRight)
+            return;
+
+        if (_overlay is { })
         {
-            var pt = e.GetCurrentPoint(this);
-            var isLeft = pt.Properties.IsLeftButtonPressed;
-            var isRight = pt.Properties.IsRightButtonPressed;
-            if (!isLeft && !isRight)
-                return;
-
-            var pos = e.GetPosition(_overlay);
-            var cw = ContentWidth;
-            var ch = ContentHeight;
-            if (cw > 0 && ch > 0)
+            var posOverlay = e.GetPosition(_overlay);
+            // In label mode, prefer dragging when clicking an existing label
+            if (isLabelMode)
             {
-                var nx = Math.Clamp(pos.X / cw, 0, 1);
-                var ny = Math.Clamp(pos.Y / ch, 0, 1);
-                var category = isRight ? 2 : 1; // right: 框外, left: 框内
-                AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nx, ny, category));
-                e.Handled = true;
+                int hit = HitTestLabelIndex(posOverlay);
+                if (hit >= 0)
+                {
+                    e.Pointer.Capture(this);
+                    _draggingLabelIndex = hit;
+                    HighlightIndex = hit;
+                    if (Labels is { } labelsList)
+                    {
+                        var list = labelsList.ToList();
+                        if (hit < list.Count)
+                            SelectedLabel = list[hit];
+                    }
+                    _overlay?.InvalidateVisual();
+                    return;
+                }
+            }
+
+            // Right-click always adds label 2 immediately
+            if (isRight && isLabelMode)
+            {
+                var cw = ContentWidth;
+                var ch = ContentHeight;
+                if (cw > 0 && ch > 0)
+                {
+                    var nxR = Math.Clamp(posOverlay.X / cw, 0, 1);
+                    var nyR = Math.Clamp(posOverlay.Y / ch, 0, 1);
+                    AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nxR, nyR, 2));
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            // Left-click on empty space in label mode: mark as potential click-to-add; don't start panning yet
+            if (isLeft && isLabelMode)
+            {
+                _pendingAddLabelLeft = true;
+                _pressOverlayPos = posOverlay;
+                _lastClickPoint = e.GetPosition(this);
                 return;
             }
         }
 
+        // Browse mode panning and dragging fallback
         // Only respond to left button for drag/pan (Browse mode behavior)
-        var pt2 = e.GetCurrentPoint(this);
-        if (!pt2.Properties.IsLeftButtonPressed)
+        if (!isLeft)
             return;
 
-        int hit = -1;
-        if (Labels is { } labels && _overlay is { })
+        // Try start dragging if hit in non-label mode
+        if (_overlay is { })
         {
-            var list = labels.ToList();
-            var cw = ContentWidth;
-            var ch = ContentHeight;
-            var side = LabelOverlay.LabelSideLength(cw, ch);
             var pos = e.GetPosition(_overlay);
-            for (int idx = 0; idx < list.Count; idx++)
-            {
-                var label = list[idx];
-                var centerX = label.XPercent * cw;
-                var centerY = label.YPercent * ch;
-                var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
-                if (rect.Contains(pos)) { hit = idx; break; }
-            }
+            int hit = HitTestLabelIndex(pos);
             if (hit >= 0)
             {
                 e.Pointer.Capture(this);
                 _draggingLabelIndex = hit;
                 HighlightIndex = hit;
-                SelectedLabel = list[hit];
+                if (Labels is { } labelsList)
+                {
+                    var list = labelsList.ToList();
+                    if (hit < list.Count)
+                        SelectedLabel = list[hit];
+                }
                 _overlay?.InvalidateVisual();
                 return;
             }
         }
 
-        // Not hitting a label: start panning
+        // Not hitting a label: start panning immediately in browse mode
         e.Pointer.Capture(this);
         _lastClickPoint = e.GetPosition(this);
+        _lastLocation = new Point(TranslateX, TranslateY);
         _panning = true;
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+
+        // If this was a pending left-click in label mode with no drag, add a label (category 1) at release position
+        if (_pendingAddLabelLeft && _overlay is { } && (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0))
+        {
+            var cw = ContentWidth;
+            var ch = ContentHeight;
+            if (cw > 0 && ch > 0)
+            {
+                var rel = e.GetPosition(_overlay);
+                var dx = Math.Abs(rel.X - _pressOverlayPos.X);
+                var dy = Math.Abs(rel.Y - _pressOverlayPos.Y);
+                if (dx <= ClickThreshold && dy <= ClickThreshold)
+                {
+                    var nx = Math.Clamp(rel.X / cw, 0, 1);
+                    var ny = Math.Clamp(rel.Y / ch, 0, 1);
+                    AddLabelRequested?.Invoke(this, new AddLabelRequestedEventArgs(nx, ny, 1));
+                }
+            }
+        }
+
+        _pendingAddLabelLeft = false;
+
         if (Equals(e.Pointer.Captured, this))
             e.Pointer.Capture(null);
 
@@ -445,5 +546,31 @@ public class PicViewer : TemplatedControl
             YPercent = yPercent;
             Category = category;
         }
+    }
+
+    // Center view so that the given content percent (0..1) is in the middle of the control
+    public void CenterOnPercent(double xPercent, double yPercent)
+    {
+        if (_image is null) return;
+        // Ensure we have recent geometry
+        RecomputeContentGeometry();
+        var cw = ContentWidth;
+        var ch = ContentHeight;
+        if (cw <= 0 || ch <= 0) return;
+
+        // Target point in control coords (content offset + percent within content)
+        var targetX = ContentOffsetX + xPercent * cw;
+        var targetY = ContentOffsetY + yPercent * ch;
+        var centerX = Bounds.Width / 2.0;
+        var centerY = Bounds.Height / 2.0;
+
+        TranslateX = centerX - targetX;
+        TranslateY = centerY - targetY;
+    }
+
+    public void CenterOnLabel(LabelItem? item)
+    {
+        if (item is null) return;
+        CenterOnPercent(item.XPercent, item.YPercent);
     }
 }

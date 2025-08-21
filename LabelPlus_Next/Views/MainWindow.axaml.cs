@@ -13,7 +13,10 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Views.Pages; // add for AboutWindow
 using LabelPlus_Next.Views.Pages; // add for ImageManager
+using Ursa.Controls; // for MessageBox and enums
+using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 
 namespace LabelPlus_Next.Views
 {
@@ -23,10 +26,11 @@ namespace LabelPlus_Next.Views
         private PicViewer? picViewerControl;
         private DataGrid? labelsGrid;
         private INotifyPropertyChanged? vmNotify;
+        private bool _isCloseConfirmed; // guard to allow second Close after prompt
 
         public MainWindow()
         {
-            InitializeComponent(true, true);
+            InitializeComponent();
             langComboBox = this.FindControl<ComboBox>("LangComboBox");
             picViewerControl = this.FindControl<PicViewer>("Pic");
             labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
@@ -51,7 +55,42 @@ namespace LabelPlus_Next.Views
                 HookViewModel(npc);
             }
 
+            this.Closing += OnWindowClosing;
+
             this.Focus();
+        }
+
+        private void EnsureNotificationManager(MainWindowViewModel vm)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel is null) return;
+            if (vm.NotificationManager is not null) return; // already set
+
+            vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
+                ? manager
+                : new WindowNotificationManager(topLevel);
+
+            vm.NotificationManager.Position = Avalonia.Controls.Notifications.NotificationPosition.TopRight;
+            vm.NotificationManager.MaxItems = 5;
+            try
+            {
+                var type = vm.NotificationManager.GetType();
+                var topmostProp = type.GetProperty("Topmost");
+                topmostProp?.SetValue(vm.NotificationManager, true);
+                var zIndexProp = type.GetProperty("ZIndex");
+                if (zIndexProp != null && zIndexProp.PropertyType == typeof(int))
+                    zIndexProp.SetValue(vm.NotificationManager, 10000);
+            }
+            catch { }
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (DataContext is MainWindowViewModel vm)
+            {
+                EnsureNotificationManager(vm);
+            }
         }
 
         private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
@@ -80,8 +119,48 @@ namespace LabelPlus_Next.Views
             }
         }
 
+        private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+        {
+            var vm = DataContext as MainWindowViewModel;
+            if (vm is null)
+                return;
+
+            // If we've already confirmed, allow closing to proceed
+            if (_isCloseConfirmed)
+            {
+                _isCloseConfirmed = false;
+                return;
+            }
+
+            if (vm.HasUnsavedChanges)
+            {
+                // Cancel now to keep the window alive while awaiting the dialog
+                e.Cancel = true;
+
+                var res = await MessageBox.ShowAsync("是否保存更改?", "确认关闭", MessageBoxIcon.Question, MessageBoxButton.YesNoCancel);
+                if (res == MessageBoxResult.Cancel)
+                {
+                    return; // keep window open
+                }
+                if (res == MessageBoxResult.Yes && !string.IsNullOrEmpty(vm.OpenTranslationFilePath))
+                {
+                    await vm.FileSave(vm.OpenTranslationFilePath);
+                }
+
+                // Allow closing on the next attempt
+                _isCloseConfirmed = true;
+                Close();
+            }
+        }
+
         private void ProcessKeyGesture(KeyEventArgs e)
         {
+            // Don't handle global shortcuts while editing text
+            if (this.FocusManager?.GetFocusedElement() is TextBox || this.FocusManager?.GetFocusedElement() is LabeledTextBox)
+            {
+                return;
+            }
+
             var vm = ViewModel;
 
             // Quick access to viewer
@@ -106,6 +185,40 @@ namespace LabelPlus_Next.Views
                         return;
                     case Key.R: // 审效
                         if (pic != null) pic.Mode = ViewerMode.Check;
+                        e.Handled = true;
+                        return;
+                    case Key.D1:
+                    case Key.NumPad1:
+                        vm?.SetSelectedCategory(1);
+                        e.Handled = true;
+                        return;
+                    case Key.D2:
+                    case Key.NumPad2:
+                        vm?.SetSelectedCategory(2);
+                        e.Handled = true;
+                        return;
+                }
+            }
+
+            // Ctrl+Shift shortcuts
+            if ((e.KeyModifiers & KeyModifiers.Control) != 0 )
+            {
+                switch (e.Key)
+                {
+                    case Key.Up:
+                        MoveSelection(-1);
+                        e.Handled = true;
+                        return;
+                    case Key.Down:
+                        MoveSelection(1);
+                        e.Handled = true;
+                        return;
+                    case Key.Left:
+                        MoveImageSelection(-1);
+                        e.Handled = true;
+                        return;
+                    case Key.Right:
+                        MoveImageSelection(1);
                         e.Handled = true;
                         return;
                 }
@@ -163,9 +276,20 @@ namespace LabelPlus_Next.Views
             }
             else if (e.Key == Key.Delete)
             {
-                (vm?.RemoveLabelCommandCommand as IAsyncRelayCommand)?.Execute(null);
+                _ = ConfirmDeleteAsync();
                 e.Handled = true;
                 return;
+            }
+        }
+
+        private async Task ConfirmDeleteAsync()
+        {
+            var vm = ViewModel;
+            if (vm?.SelectedLabel == null || string.IsNullOrEmpty(vm.SelectedImageFile)) return;
+            var res = await MessageBox.ShowAsync("确认删除所选标签?", "删除", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+            if (res == MessageBoxResult.Yes)
+            {
+                (vm?.RemoveLabelCommandCommand as IAsyncRelayCommand)?.Execute(null);
             }
         }
 
@@ -190,6 +314,7 @@ namespace LabelPlus_Next.Views
             if (DataContext is MainWindowViewModel mvm)
             {
                 mvm.InitializeServices(new AvaloniaFileDialogService(this));
+                EnsureNotificationManager(mvm);
             }
         }
 
@@ -248,6 +373,17 @@ namespace LabelPlus_Next.Views
             ScrollSelectedIntoView();
         }
 
+        private void MoveImageSelection(int delta)
+        {
+            var vm = DataContext as MainWindowViewModel;
+            if (vm == null || vm.ImageFileNames == null || vm.ImageFileNames.Count == 0)
+                return;
+            var list = vm.ImageFileNames;
+            var idx = vm.SelectedImageFile != null ? list.IndexOf(vm.SelectedImageFile) : -1;
+            var newIdx = idx < 0 ? 0 : Math.Clamp(idx + delta, 0, list.Count - 1);
+            vm.SelectedImageFile = list[newIdx];
+        }
+
         private void BrowseMode_OnClick(object? sender, RoutedEventArgs e)
         {
             var pic = this.FindControl<PicViewer>("Pic");
@@ -276,6 +412,38 @@ namespace LabelPlus_Next.Views
         private void ExitMenuItem_OnClick(object? sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        private void CategoryInner_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.SetSelectedCategory(1);
+            }
+        }
+
+        private void CategoryOuter_OnClick(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.SetSelectedCategory(2);
+            }
+        }
+
+        private void PrevImage_OnClick(object? sender, RoutedEventArgs e)
+        {
+            MoveImageSelection(-1);
+        }
+
+        private void NextImage_OnClick(object? sender, RoutedEventArgs e)
+        {
+            MoveImageSelection(1);
+        }
+
+        private async void OnAboutClick(object? sender, RoutedEventArgs e)
+        {
+            var dlg = new AboutWindow();
+            await dlg.ShowDialog(this);
         }
     }
 }

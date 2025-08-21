@@ -50,7 +50,8 @@
         <Style Selector="customControls|LabeledTextBox">
             <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}"/>
             <Setter Property="IndexBackgroundBrush" Value="{DynamicResource BackgroundBrush}"/>
-            <Setter Property="TextBrush" Value="{DynamicResource LabeledTextBrush}"/>
+            <Setter Property="IndexForegroundBrush" Value="{DynamicResource LabeledTextBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource LabeledTextBrush}"/>
         </Style>
 
         <Style Selector="customControls|PicViewer">

@@ -34,7 +34,8 @@
             Grid.Row="2"
             ItemsSource="{Binding GroupList, Mode=TwoWay}"
             MinHeight="215" />
-        <TextBox
+		<TextBox
+            VerticalContentAlignment="Top"
             AcceptsReturn="True"
             Grid.Column="1"
             Grid.Row="2"

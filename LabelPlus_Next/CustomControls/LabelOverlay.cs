@@ -183,10 +183,10 @@ public class LabelOverlay : Control
 
             context.DrawRectangle(null, pen, rrect);
 
-            // 居中显示加粗编号
+            // 居中显示加粗编号（使用更粗字体）
             var head = i.ToString();
-            var boldTf = new Typeface(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.SemiBold);
-            var indexFontSize = side / 1.8;
+            var boldTf = new Typeface(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.Bold);
+            var indexFontSize = side / 1.6; // 稍微增大字号
             var layout = new TextLayout(head, boldTf, indexFontSize, brush, TextAlignment.Center, TextWrapping.NoWrap, maxWidth: rect.Width);
             var yTop = rect.Y + (rect.Height - indexFontSize) / 2;
             layout.Draw(context, new Avalonia.Point(rect.X, yTop));

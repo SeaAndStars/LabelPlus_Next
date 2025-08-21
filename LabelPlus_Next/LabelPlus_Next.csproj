@@ -5,6 +5,7 @@
     <LangVersion>latest</LangVersion>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AssemblyName>LabelPlus_Next</AssemblyName>
+    <ApplicationIcon>Assets\LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <IsAotCompatible>True</IsAotCompatible>
@@ -15,6 +16,15 @@
   
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <AvaloniaResource Remove="Assets\20210801绿茶汉化组logo.ico" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Assets\LabelPlus_Next_rounded_icon_transparent.ico" />
+    <Content Include="Assets\20210801绿茶汉化组logo.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +41,8 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Irihi.Ursa" />
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+    <PackageReference Include="NLog" />
+    <PackageReference Include="NLog.Extensions.Logging" />
     <PackageReference Include="ReactiveUI" />
     <PackageReference Include="Semi.Avalonia" />
   </ItemGroup>
