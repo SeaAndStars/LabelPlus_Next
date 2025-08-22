@@ -39,6 +39,7 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="GeneralUpdate.ClientCore" />
     <PackageReference Include="Irihi.Ursa" />
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
     <PackageReference Include="NLog" />

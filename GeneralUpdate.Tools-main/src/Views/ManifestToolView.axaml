@@ -1,0 +1,39 @@
+    <UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:GeneralUpdate.Tool"
+             mc:Ignorable="d"
+             x:Class="GeneralUpdate.Tool.Avalonia.Views.ManifestToolView"
+             x:DataType="vm:ManifestToolViewModel"> 
+  <StackPanel Spacing="8" Margin="16">
+    <TextBlock Text="文件级增量清单生成" FontSize="18" FontWeight="Bold"/>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="旧版本目录:" VerticalAlignment="Center"/>
+      <TextBox Width="420" Text="{Binding OldDir}"/>
+      <Button Content="浏览" Command="{Binding BrowseOldCommand}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="新版本目录:" VerticalAlignment="Center"/>
+      <TextBox Width="420" Text="{Binding NewDir}"/>
+      <Button Content="浏览" Command="{Binding BrowseNewCommand}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="输出目录:" VerticalAlignment="Center"/>
+      <TextBox Width="420" Text="{Binding OutputDir}"/>
+      <Button Content="浏览" Command="{Binding BrowseOutCommand}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="包名称(PacketName):" VerticalAlignment="Center"/>
+      <TextBox Width="300" Text="{Binding PacketName}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="版本号:" VerticalAlignment="Center"/>
+      <TextBox Width="200" Text="{Binding TargetVersion}"/>
+      <TextBlock Text="基线版本:" VerticalAlignment="Center" Margin="16,0,0,0"/>
+      <TextBox Width="200" Text="{Binding BaseVersion}"/>
+    </StackPanel>
+    <Button Content="生成清单并拷贝变更文件" Command="{Binding GenerateCommand}"/>
+    <ScrollViewer Height="260"><TextBlock Text="{Binding Log}" TextWrapping="Wrap"/></ScrollViewer>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,179 @@
+﻿<UserControl
+    x:Class="LabelPlus_Next.Views.Pages.TranslateView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+    xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:local="clr-namespace:LabelPlus_Next.Converters"
+    xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+    mc:Ignorable="d"
+    d:DesignWidth="1000"
+    d:DesignHeight="650"
+    x:DataType="viewModels:TranslateViewModel">
+
+    <UserControl.Resources>
+        <local:CategoryToColorConverter x:Key="CategoryToColorConverter" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto Auto *" ColumnDefinitions="* 2 *" >
+        <!-- 顶部主工具栏 -->
+        <u:ToolBar Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+            <Button Content="{I18N {x:Static lang:LangKeys.fileToolStripMenuItem}}">
+                <Button.Flyout>
+                    <MenuFlyout HorizontalOffset="5">
+                        <MenuItem Command="{Binding NewTranslationCommandCommand}" Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}" />
+                        <MenuItem Header="-" />
+                        <MenuItem Command="{Binding OpenTranslationFileCommandCommand}" Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}" />
+                        <MenuItem Header="-" />
+                        <MenuItem Command="{Binding SaveCurrentCommandCommand}" Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}" />
+                        <MenuItem Header="-" />
+                        <MenuItem Command="{Binding SaveAsCommandCommand}" Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+            <u:ToolBarSeparator/>
+            <Button Click="Imagine_manager_OnClick" Content="{I18N {x:Static lang:LangKeys.imageToolStripMenuItem}}" />
+            <u:ToolBarSeparator/>
+            <Button Content="{I18N {x:Static lang:LangKeys.outputPToolStripMenuItem}}">
+                <Button.Flyout>
+                    <MenuFlyout>
+                        <MenuItem Header="{I18N {x:Static lang:LangKeys.outputAllToolStripMenuItem}}" />
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+            <u:ToolBarSeparator/>
+            <Button Content="{I18N {x:Static lang:LangKeys.helpAToolStripMenuItem}}" Click="OnAboutClick"/>
+            <u:ToolBarSeparator/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,0,0,0">
+                <TextBlock Margin="0,10,0,0" FontSize="16" Text="{I18N {x:Static lang:LangKeys.languageblock}}" />
+                <ComboBox Name="LangComboBox"
+                          MinWidth="100"
+                          Margin="10,5,0,0"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding LangList}"
+                          SelectedItem="default"
+                          SelectionChanged="LangComboBox_OnSelectionChanged" />
+                <u:ThemeToggleButton Margin="50,0,0,0" HorizontalAlignment="Right" IsThreeState="True" />
+            </StackPanel>
+        </u:ToolBar>
+
+        <!-- 分隔线 -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Height="2" Margin="0,0,0,16" Background="{DynamicResource AccentButtonBackground}" />
+
+        <!-- 左侧模式工具栏 -->
+        <u:ToolBar Grid.Row="1" Grid.Column="0" Margin="0,18,0,0">
+            <Button Click="BrowseMode_OnClick" Content="{I18N {x:Static lang:LangKeys.toolStripButton_BrowseMode}}" />
+            <u:ToolBarSeparator />
+            <Button Click="LabelMode_OnClick" Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditLabelMode}}" />
+            <u:ToolBarSeparator />
+            <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_InputMode}}" />
+            <u:ToolBarSeparator />
+            <Button Content="{I18N {x:Static lang:LangKeys.toolStripButton_CheckMode}}" />
+            <u:ToolBarSeparator />
+        </u:ToolBar>
+
+        <!-- 右上分类快捷 -->
+        <u:ToolBar Grid.Row="1" Grid.Column="2" Margin="0,18,0,0" HorizontalAlignment="Left">
+            <Button Click="CategoryInner_OnClick" Content="框内(1)" Foreground="Red" />
+            <u:ToolBarSeparator />
+            <Button Click="CategoryOuter_OnClick" Content="框外(2)" Foreground="Blue" />
+        </u:ToolBar>
+
+        <!-- 主内容：图片 + 标签 -->
+        <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" ColumnDefinitions="1* 2 1*" >
+            <!-- 图片区域 -->
+            <Grid Name="PictureView" Grid.Column="0" RowDefinitions="* Auto">
+                <customControls:PicViewer x:Name="Pic"
+                                          Grid.Row="0"
+                                          Labels="{Binding CurrentLabels}"
+                                          SelectedLabel="{Binding SelectedLabel, Mode=TwoWay}"
+                                          RenderOptions.BitmapInterpolationMode="HighQuality"
+                                          Source="{Binding PicImageSource, Mode=TwoWay}" />
+                <Grid Grid.Row="1" Margin="6,4,6,6" ColumnDefinitions="* Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                        <TextBlock VerticalAlignment="Center" Text="缩放:" />
+                        <ComboBox Width="90" SelectedItem="{Binding ElementName=Pic, Path=Scale, Mode=TwoWay}">
+                            <ComboBox.Items>
+                                <x:Double>0.25</x:Double>
+                                <x:Double>0.5</x:Double>
+                                <x:Double>1.0</x:Double>
+                                <x:Double>1.5</x:Double>
+                                <x:Double>2.0</x:Double>
+                                <x:Double>3.0</x:Double>
+                            </ComboBox.Items>
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding StringFormat={}{0:P0}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <u:ToolBar Grid.Column="1">
+                        <ComboBox Name="ImageFileNamesComboBox"
+                                  MinWidth="160"
+                                  HorizontalAlignment="Right"
+                                  ItemsSource="{Binding ImageFileNames}"
+                                  SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
+                        <u:ToolBarSeparator/>
+                        <Button Content="←" Click="PrevImage_OnClick" />
+                        <u:ToolBarSeparator/>
+                        <Button Content="→" Click="NextImage_OnClick" />
+                    </u:ToolBar>
+                </Grid>
+            </Grid>
+            <!-- 分隔 -->
+            <Border Grid.Column="1" Width="2" Background="{DynamicResource AccentButtonBackground}" />
+            <!-- 标签列表 + 文本 -->
+            <Grid Grid.Column="2" RowDefinitions="Auto 40* 15 40*" Name="LabelView">
+                <u:ToolBar Grid.Row="0">
+                    <u:IconButton HorizontalAlignment="Left" Background="{DynamicResource MenuFlyoutItemBackground}" Command="{Binding AddLabelCommand}" Icon="✚" />
+                    <u:ToolBarSeparator />
+                    <u:IconButton HorizontalAlignment="Left" Background="{DynamicResource MenuFlyoutItemBackground}" Command="{Binding RemoveLabelCommand}" Foreground="Red" Icon="🗙" />
+                    <u:ToolBarSeparator />
+                    <u:IconButton Background="{DynamicResource MenuFlyoutItemBackground}" Command="{Binding UndoRemoveLabelCommand}" Icon="↺" />
+                    <u:ToolBarSeparator />
+                    <Button Click="FileSetting_OnClick" Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
+                </u:ToolBar>
+                <dataGrid:DataGrid x:Name="LabelsGrid"
+                                   Grid.Row="1"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   AutoGenerateColumns="False"
+                                   FontSize="14"
+                                   ItemsSource="{Binding CurrentLabels}"
+                                   SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
+                                   SelectionMode="Single">
+                    <dataGrid:DataGrid.Columns>
+                        <dataGrid:DataGridTextColumn Binding="{Binding Index}" Header="编号" IsReadOnly="True" />
+                        <dataGrid:DataGridTextColumn MinWidth="280" Binding="{Binding Text}" Header="文本" IsReadOnly="True" />
+                        <dataGrid:DataGridTemplateColumn Header="分类" SortMemberPath="CategoryString">
+                            <dataGrid:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Foreground="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}" Text="{Binding CategoryString}" />
+                                </DataTemplate>
+                            </dataGrid:DataGridTemplateColumn.CellTemplate>
+                        </dataGrid:DataGridTemplateColumn>
+                    </dataGrid:DataGrid.Columns>
+                </dataGrid:DataGrid>
+                <Border Grid.Row="2" Height="2" Margin="-2,0,0,32" Background="{DynamicResource AccentButtonBackground}" />
+                <TextBox x:Name="LabelTextBox"
+                         Grid.Row="3"
+                         MinWidth="400"
+                         MinHeight="280"
+                         Margin="-2,0,0,0"
+                         HorizontalAlignment="Stretch"
+                         HorizontalContentAlignment="Left"
+                         VerticalContentAlignment="Top"
+                         AcceptsReturn="True"
+                         FontSize="20"
+                         Text="{Binding CurrentText, Mode=TwoWay}"
+                         TextAlignment="Start"
+                         TextWrapping="Wrap" />
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
