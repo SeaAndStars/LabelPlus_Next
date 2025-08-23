@@ -1,0 +1,49 @@
+<UserControl x:Class="LabelPlus_Next.Views.Pages.SettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+             x:DataType="vm:SettingsViewModel" MinHeight="300" MinWidth="600">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16">
+      <TextBlock Text="设置" FontSize="20" FontWeight="SemiBold"/>
+
+      <!-- WebDAV 更新配置 -->
+      <Border BorderThickness="1" CornerRadius="4" BorderBrush="Gray" Margin="0,8,0,0">
+        <StackPanel Spacing="8" Margin="8">
+          <TextBlock Text="WebDAV 更新配置" FontWeight="SemiBold"/>
+          <TextBlock Text="Base Url"/>
+          <TextBox Text="{Binding BaseUrl}"/>
+          <TextBlock Text="Manifest 路径"/>
+          <TextBox Text="{Binding ManifestPath}"/>
+          <TextBlock Text="用户名 (可选)"/>
+          <TextBox Text="{Binding Username}"/>
+          <TextBlock Text="密码 (可选)"/>
+          <TextBox Text="{Binding Password}"/>
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <Button Content="保存" Command="{Binding SaveCommand}"/>
+            <Button Content="检查更新" Command="{Binding CheckUpdateCommand}"/>
+            <Button Content="验证 WebDAV" Click="OnVerifyClick"/>
+          </StackPanel>
+          <TextBlock Text="{Binding Status}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- 更新信息 -->
+      <Border BorderThickness="1" CornerRadius="4" BorderBrush="Gray">
+        <StackPanel Spacing="6" Margin="8">
+          <TextBlock Text="更新信息" FontWeight="SemiBold"/>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="当前版本:"/>
+            <TextBlock Text="{Binding CurrentVersion}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="最新版本:"/>
+            <TextBlock Text="{Binding LatestVersion}"/>
+          </StackPanel>
+          <TextBlock Text="更新说明" FontWeight="SemiBold"/>
+          <TextBox TextWrapping="Wrap" AcceptsReturn="True" MinHeight="100" IsReadOnly="True" Text="{Binding UpdateNotes}"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

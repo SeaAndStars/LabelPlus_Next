@@ -33,6 +33,7 @@
     <PackageVersion Include="Nlnet.Avalonia.MessageBox" Version="1.0.2" />
     <PackageVersion Include="ReactiveUI" Version="20.4.1" />
     <PackageVersion Include="Semi.Avalonia" Version="11.2.1.9" />
+    <PackageVersion Include="WebDav.Client" Version="2.9.0" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <!-- Config -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.0" />

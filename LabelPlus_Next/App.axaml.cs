@@ -13,6 +13,7 @@ using NLog.Config;
 using NLog.Targets;
 using NLog.Layouts;
 using NLog.Targets.Wrappers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LabelPlus_Next;
 
@@ -116,6 +117,7 @@ public partial class App : Application
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Accessing Avalonia BindingPlugins.DataValidators only to remove DataAnnotationsValidationPlugin; safe for trimming.")]
     private void DisableAvaloniaDataAnnotationValidation()
     {
         // Get an array of plugins to remove

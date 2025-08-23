@@ -10,7 +10,7 @@ using Ursa.Controls;
 
 namespace LabelPlus_Next.Views
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : UrsaWindow
     {
         private ContentControl? _navHost;
         private NavMenu? _menuMain;
@@ -92,7 +92,7 @@ namespace LabelPlus_Next.Views
                     host.Content = new SimpleTextPage("Ωª∏∂“≥√Ê");
                     break;
                 case "settings":
-                    host.Content = new SimpleTextPage("…Ë÷√");
+                    host.Content = new SettingsPage { DataContext = new SettingsViewModel() };
                     break;
                 default:
                     host.Content = new SimpleTextPage("ª∂”≠");

@@ -6,7 +6,7 @@ namespace LabelPlus_Next.Models;
 
 public class LabelFileHeaderManager
 {
-    public static async Task<(string[] fileHead, List<string> groupList, string comment)> ParseHeaderAsync(
+    public static Task<(string[] fileHead, List<string> groupList, string comment)> ParseHeaderAsync(
         string headerText)
     {
         // 使用 Environment.NewLine 兼容所有平台
@@ -33,10 +33,10 @@ public class LabelFileHeaderManager
         // 注释部分（允许多行）
         var comment = blocks[2].Trim();
 
-        return (fileHead, groupList, comment);
+        return Task.FromResult((fileHead, groupList, comment));
     }
 
-    public static async Task<string> GenerateHeaderAsync(string[] fileHead, List<string> groupList, string comment)
+    public static Task<string> GenerateHeaderAsync(string[] fileHead, List<string> groupList, string comment)
     {
         var nl = Environment.NewLine;
         var result = string.Join(",", fileHead) + nl + "-" + nl;
@@ -44,6 +44,6 @@ public class LabelFileHeaderManager
             result += str + nl;
         result += "-" + nl;
         result += comment + nl;
-        return result;
+        return Task.FromResult(result);
     }
 }

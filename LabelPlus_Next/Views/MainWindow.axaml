@@ -15,16 +15,16 @@
     Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     mc:Ignorable="d">
 
-    <!-- Ursa NavMenu on the left, content on the right -->
+
     <Grid ColumnDefinitions="220,*" RowDefinitions="*">
-        <!-- Left navigation area -->
+
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Main items (Ursa NavMenu) -->
+            
             <u:NavMenu x:Name="NavMenuMain" Grid.Row="0" SelectionChanged="OnNavSelectionChanged">
                 <u:NavMenuItem Header="翻译" Tag="translate" />
                 <u:NavMenuItem Header="校对" Tag="proof" />
@@ -33,13 +33,13 @@
                 <u:NavMenuItem Header="交付" Tag="deliver" />
             </u:NavMenu>
 
-            <!-- Footer: settings (separate NavMenu for bottom area) -->
+          
             <u:NavMenu x:Name="NavMenuFooter" Grid.Row="1" SelectionChanged="OnNavSelectionChanged">
                 <u:NavMenuItem Header="设置" Tag="settings" />
             </u:NavMenu>
         </Grid>
 
-        <!-- Content area -->
+
         <Border Grid.Column="1" Margin="8" BorderThickness="0">
             <ContentControl x:Name="NavContent" />
         </Border>

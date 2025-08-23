@@ -1,0 +1,51 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Tools.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
+    xmlns:m="clr-namespace:LabelPlus_Next.Tools.Models"
+    Title="WebDAV Tools"
+    Width="1500"
+    Height="900"
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    x:DataType="vm:MainWindowViewModel"
+    Icon="avares://LabelPlus_Next.Tools/Assets/avalonia-logo.ico"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="0 35 0 0 ">
+        <!-- Connection form -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock VerticalAlignment="Center" Text="BaseUrl"/>
+            <TextBox Width="420" Text="{Binding BaseUrl}"/>
+            <TextBlock VerticalAlignment="Center" Text="User"/>
+            <TextBox Width="160" Text="{Binding Username}"/>
+            <TextBlock VerticalAlignment="Center" Text="Password"/>
+            <TextBox Width="160" Text="{Binding Password}"/>
+            <Button Content="Connect" Command="{Binding ConnectCommand}"/>
+            <Button Content="Upload to selected" Click="OnUploadToFolderClick"/>
+            <Button Content="Upload (root)" Click="OnUploadClick"/>
+        </StackPanel>
+
+        <TreeView Grid.Row="1" ItemsSource="{Binding Nodes}" x:Name="Tree">
+            <TreeView.DataTemplates>
+                <TreeDataTemplate x:DataType="m:DavNode" ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Name}"/>
+                        <TextBlock Text="{Binding Uri}" Foreground="Gray" Opacity="0.6"/>
+                    </StackPanel>
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+        </TreeView>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="2" Text="{Binding Status}"/>
+    </Grid>
+</u:UrsaWindow>
