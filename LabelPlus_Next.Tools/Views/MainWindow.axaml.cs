@@ -1,11 +1,12 @@
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Ursa.Controls;
 using LabelPlus_Next.Tools.ViewModels;
 using LabelPlus_Next.Tools.Models;
+using Avalonia;
+using Avalonia.Interactivity;
+using LabelPlus_Next.Tools.Views;
 
 namespace LabelPlus_Next.Tools.Views
 {
@@ -14,6 +15,26 @@ namespace LabelPlus_Next.Tools.Views
         public MainWindow()
         {
             InitializeComponent();
+
+            var tree = this.FindControl<TreeView>("Tree");
+            if (tree != null)
+            {
+                tree.AddHandler(TreeViewItem.ExpandedEvent, OnTreeItemExpanded, RoutingStrategies.Bubble);
+            }
+        }
+
+        private async void OnOpenPackWindow(object? sender, RoutedEventArgs e)
+        {
+            var win = new PackWindow();
+            win.Show(this);
+        }
+
+        private async void OnTreeItemExpanded(object? sender, RoutedEventArgs e)
+        {
+            if (e.Source is not TreeViewItem tvi) return;
+            if (tvi.DataContext is not DavNode node) return;
+            if (DataContext is not MainWindowViewModel vm) return;
+            await vm.RefreshNodeAsync(node);
         }
 
         private async void OnUploadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

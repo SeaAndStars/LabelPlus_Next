@@ -56,4 +56,10 @@
     <PackageReference Include="Semi.Avalonia" />
     <PackageReference Include="WebDav.Client" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Client.version.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

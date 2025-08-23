@@ -8,12 +8,12 @@
     xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
     xmlns:m="clr-namespace:LabelPlus_Next.Tools.Models"
     Title="WebDAV Tools"
-    Width="1500"
+    Width="1400"
     Height="900"
     d:DesignHeight="600"
-    d:DesignWidth="1000"
+    d:DesignWidth="1400"
     x:DataType="vm:MainWindowViewModel"
-    Icon="avares://LabelPlus_Next.Tools/Assets/avalonia-logo.ico"
+    Icon="avares://LabelPlus_Next.Tools/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     mc:Ignorable="d">
 
     <Design.DataContext>
@@ -21,17 +21,28 @@
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="0 35 0 0 ">
-        <!-- Connection form -->
-        <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBlock VerticalAlignment="Center" Text="BaseUrl"/>
-            <TextBox Width="420" Text="{Binding BaseUrl}"/>
-            <TextBlock VerticalAlignment="Center" Text="User"/>
-            <TextBox Width="160" Text="{Binding Username}"/>
-            <TextBlock VerticalAlignment="Center" Text="Password"/>
-            <TextBox Width="160" Text="{Binding Password}"/>
-            <Button Content="Connect" Command="{Binding ConnectCommand}"/>
-            <Button Content="Upload to selected" Click="OnUploadToFolderClick"/>
-            <Button Content="Upload (root)" Click="OnUploadClick"/>
+        <!-- Top controls (two lines) -->
+        <StackPanel Spacing="6">
+            <!-- Line 1 -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock VerticalAlignment="Center" Text="BaseUrl"/>
+                <TextBox Width="420" Text="{Binding BaseUrl}"/>
+
+                <Button Content="Connect" Command="{Binding ConnectCommand}"/>
+                <Button Content="⭮" Command="{Binding RefreshCommand}"/>
+            </StackPanel>
+            <!-- Line 2 -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+				<TextBlock VerticalAlignment="Center" Text="User"/>
+				<TextBox Width="160" Text="{Binding Username}"/>
+				<TextBlock VerticalAlignment="Center" Text="Password"/>
+				<TextBox Width="160" Text="{Binding Password}"/>
+				<TextBlock VerticalAlignment="Center" Text="TargetPath"/>
+				<TextBox Width="240" Text="{Binding TargetPath}"/>
+                <Button Content="打包并上传" Click="OnOpenPackWindow"/>
+                <Button Content="Upload to selected" Click="OnUploadToFolderClick"/>
+                <Button Content="Upload (root)" Click="OnUploadClick"/>
+            </StackPanel>
         </StackPanel>
 
         <TreeView Grid.Row="1" ItemsSource="{Binding Nodes}" x:Name="Tree">

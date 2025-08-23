@@ -1,0 +1,54 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Tools.Views.PackWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
+    x:DataType="vm:PackWindowViewModel"
+    Title="Build &amp; Upload Package"
+    Width="720"
+    Height="480"
+    Icon="avares://LabelPlus_Next.Tools/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <vm:PackWindowViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="16" Spacing="12">
+        <TextBlock Text="选择要打包的目录 (内含 Client.version.json / settings.json)"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Width="520" Text="{Binding SelectedFolder}"/>
+            <Button Content="浏览" Click="OnBrowseClick"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Text="Project:"/>
+            <TextBlock Text="{Binding Project}"/>
+            <TextBlock Text="Version:" Margin="24 0 0 0"/>
+            <TextBlock Text="{Binding Version}"/>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="生成并上传" Command="{Binding BuildAndUploadCommand}"/>
+            <TextBlock Text="{Binding Status}"/>
+        </StackPanel>
+
+        <!-- Progress -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="{Binding CurrentTask}"/>
+            <ProgressBar Minimum="0" Maximum="100" Value="{Binding CurrentProgress}" Height="10"/>
+        </StackPanel>
+
+        <StackPanel>
+            <TextBlock Text="Zip:"/>
+            <TextBlock TextWrapping="Wrap" Text="{Binding ZipPath}"/>
+            <TextBlock Text="Manifest:" Margin="0 8 0 0"/>
+            <TextBlock TextWrapping="Wrap" Text="{Binding ManifestPath}"/>
+            <TextBlock Text="URL:" Margin="0 8 0 0"/>
+            <TextBlock TextWrapping="Wrap" Text="{Binding ManifestUrl}"/>
+        </StackPanel>
+    </StackPanel>
+</u:UrsaWindow>

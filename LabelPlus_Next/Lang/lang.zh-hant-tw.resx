@@ -209,7 +209,7 @@
         <value>確認刪除選取的標籤嗎?</value>
     </data>
   <data name="tip_setting_comment" xml:space="preserve">
-        <value>備註裡不能以'-'作為單獨一行</value>
+        <value>備註裡不能以'-'作為單獨一行!</value>
     </data>
   <data name="default_file_name" xml:space="preserve">
         <value>翻譯</value>

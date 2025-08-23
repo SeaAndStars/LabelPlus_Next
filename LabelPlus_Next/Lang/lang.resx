@@ -310,7 +310,8 @@
     <value>确认删除选中的标签吗?</value>
   </data>
   <data name="tip_setting_comment" xml:space="preserve">
-    <value>备注里不能以'-'作为单独一行</value>
+    <value>备注里不能以'-'作为单独一行!</value>
+    <comment>@Invariant</comment>
   </data>
   <data name="default_file_name" xml:space="preserve">
     <value>翻译</value>

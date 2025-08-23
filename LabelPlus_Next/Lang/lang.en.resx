@@ -196,14 +196,13 @@
     <value>Output labels(1,2,3...)</value>
   </data>
   <data name="notLabelNumCheckBox" xml:space="preserve">
-    <value>
-Add start and end flags (startN, endN) to facilitate the use of actions</value>
+    <value>Add start and end flags (startN, endN) to facilitate the use of actions</value>
   </data>
   <data name="checkBoxMakeUnLabeledFile" xml:space="preserve">
     <value>Deal file without label</value>
   </data>
   <data name="checkBoxSetFont" xml:space="preserve">
-    <value>Set Font:</value>
+    <value>Set Font</value>
   </data>
   <data name="checkBoxSetFontSize" xml:space="preserve">
     <value>Set Font Size</value>
@@ -275,10 +274,10 @@ Add start and end flags (startN, endN) to facilitate the use of actions</value>
     <value>File changed, save？</value>
   </data>
   <data name="save_complete" xml:space="preserve">
-    <value>Save Complete!</value>
+    <value>Save Complete</value>
   </data>
   <data name="input_images_need_save" xml:space="preserve">
-    <value>File did not saved, you should save it first.</value>
+    <value>File did not saved, you should save it first!</value>
   </data>
   <data name="clear_all_label_question" xml:space="preserve">
     <value>Sure to DELETE all labels！？</value>
@@ -287,10 +286,10 @@ Add start and end flags (startN, endN) to facilitate the use of actions</value>
     <value>Could not output the file：</value>
   </data>
   <data name="output_complete" xml:space="preserve">
-    <value>Output complete!</value>
+    <value>Output complete</value>
   </data>
   <data name="output_fail" xml:space="preserve">
-    <value>Failed to output the file!</value>
+    <value>Failed to output the file</value>
   </data>
   <data name="output_aborted" xml:space="preserve">
     <value>Output progress is aborted</value>
@@ -311,19 +310,19 @@ Add start and end flags (startN, endN) to facilitate the use of actions</value>
     <value>Sure to delete the selected labels?</value>
   </data>
   <data name="tip_setting_comment" xml:space="preserve">
-    <value>'-' cannot be alone a line in the comment.</value>
+    <value>The "-" cannot be alone a line in the comment!</value>
   </data>
   <data name="default_file_name" xml:space="preserve">
     <value>translation</value>
   </data>
   <data name="error_openfilefail" xml:space="preserve">
-    <value>Fail to open the file.</value>
+    <value>Fail to open the file</value>
   </data>
   <data name="error_file_version_over" xml:space="preserve">
     <value>Version too high!</value>
   </data>
   <data name="error_file_startblocks_lost" xml:space="preserve">
-    <value>Start Blocks lost.</value>
+    <value>Start Blocks lost</value>
   </data>
   <data name="listview_menustrip_del" xml:space="preserve">
     <value>Del(_D)</value>
