@@ -7,6 +7,7 @@ using LabelPlus_Next.Tools.Models;
 using Avalonia;
 using Avalonia.Interactivity;
 using LabelPlus_Next.Tools.Views;
+using System.Threading.Tasks;
 
 namespace LabelPlus_Next.Tools.Views
 {
@@ -23,7 +24,7 @@ namespace LabelPlus_Next.Tools.Views
             }
         }
 
-        private async void OnOpenPackWindow(object? sender, RoutedEventArgs e)
+        private void OnOpenPackWindow(object? sender, RoutedEventArgs e)
         {
             var win = new PackWindow();
             win.Show(this);

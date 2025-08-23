@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -58,6 +59,9 @@ public class PackWindowViewModel : ObservableObject
     private double currentProgress;
     public double CurrentProgress { get => currentProgress; set => SetProperty(ref currentProgress, value); }
 
+    // Keep all project-version pairs detected from version files
+    private List<(string Project, string Version)> versionEntries = new();
+
     public IAsyncRelayCommand BrowseCommand { get; }
     public IAsyncRelayCommand BuildAndUploadCommand { get; }
 
@@ -81,6 +85,7 @@ public class PackWindowViewModel : ObservableObject
 
     private async Task LoadClientVersionAsync()
     {
+        versionEntries.Clear();
         if (string.IsNullOrEmpty(SelectedFolder)) return;
         try
         {
@@ -89,23 +94,51 @@ public class PackWindowViewModel : ObservableObject
             var pClient = Path.Combine(SelectedFolder!, "Client.version.json");
             var pClientTypo = Path.Combine(SelectedFolder!, "Clietn.version.json");
 
-            string? path = null;
-            if (File.Exists(pUpdate)) path = pUpdate; // prefer Update.version.json
-            else if (File.Exists(pClient)) path = pClient;
-            else if (File.Exists(pClientTypo)) path = pClientTypo;
+            var found = new List<(string path, ClientVersion cv)>();
+            if (File.Exists(pUpdate))
+            {
+                await using var fs = File.OpenRead(pUpdate);
+                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                if (cv is not null) found.Add((pUpdate, cv));
+            }
+            if (File.Exists(pClient))
+            {
+                await using var fs = File.OpenRead(pClient);
+                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                if (cv is not null) found.Add((pClient, cv));
+            }
+            if (!File.Exists(pClient) && File.Exists(pClientTypo))
+            {
+                await using var fs = File.OpenRead(pClientTypo);
+                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                if (cv is not null) found.Add((pClientTypo, cv));
+            }
 
-            if (path is null)
+            if (found.Count == 0)
             {
                 Status = "未找到 Update.version.json 或 Client.version.json";
                 return;
             }
 
-            await using var fs = File.OpenRead(path);
-            var doc = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-            Project = doc?.Project;
-            Version = doc?.Version;
-            ManifestUrl = doc?.Manifest;
-            Status = $"版本: {Version}, 项目: {Project} ({Path.GetFileName(path)})";
+            // Deduplicate by project name, keep order preferring Update.version.json first
+            foreach (var item in found)
+            {
+                if (!string.IsNullOrWhiteSpace(item.cv.Project) && !string.IsNullOrWhiteSpace(item.cv.Version))
+                {
+                    if (!versionEntries.Exists(e => string.Equals(e.Project, item.cv.Project, StringComparison.OrdinalIgnoreCase)))
+                        versionEntries.Add((item.cv.Project!, item.cv.Version!));
+                }
+                // Take first non-empty manifest url as hint
+                if (string.IsNullOrEmpty(ManifestUrl) && !string.IsNullOrEmpty(item.cv.Manifest))
+                    ManifestUrl = item.cv.Manifest;
+            }
+
+            // Primary display uses the first entry
+            Project = versionEntries[0].Project;
+            Version = versionEntries[0].Version;
+
+            var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
+            Status = $"版本: {Version}, 项目: {Project}（{filesUsed}）";
         }
         catch (Exception ex)
         {
@@ -119,48 +152,39 @@ public class PackWindowViewModel : ObservableObject
         try
         {
             if (string.IsNullOrEmpty(SelectedFolder)) { Status = "请先选择目录"; return; }
-            if (string.IsNullOrEmpty(Project) || string.IsNullOrEmpty(Version)) await LoadClientVersionAsync();
-            if (string.IsNullOrEmpty(Project) || string.IsNullOrEmpty(Version)) { Status = "版本或项目为空"; return; }
+            if (versionEntries.Count == 0) await LoadClientVersionAsync();
+            if (versionEntries.Count == 0) { Status = "版本或项目为空"; return; }
 
-            // Build zip name -> Project(Version)_yyyyMMdd_HHmmss.zip
             var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var fileName = $"{Project}({Version})_{ts}.zip";
-            // Output zip to a dedicated packages folder to avoid locking/recursion
             var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
             Directory.CreateDirectory(outDir);
             var outZip = Path.Combine(outDir, fileName);
             if (File.Exists(outZip)) File.Delete(outZip);
 
-            // Create zip (UTF-8 by default)
             ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, includeBaseDirectory: false, entryNameEncoding: Encoding.UTF8);
             ZipPath = outZip;
 
-            // Compute hash and size for manifest files entry
             var zipInfo = new FileInfo(outZip);
             var sha256 = await ComputeSha256Async(outZip);
 
-            // Load upload settings from tools app root settings.json
             var settingsPath = Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
             if (!File.Exists(settingsPath)) { Status = "未在程序根目录找到 tools.settings.json"; return; }
             var uploadSettings = await LoadSettingsAsync(settingsPath);
             if (uploadSettings is null) { Status = "读取 tools.settings.json 失败"; return; }
 
-            // Prefer UI target path if set; otherwise from settings
             TargetPath ??= uploadSettings.TargetPath;
 
-            // Build absolute URLs
             var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
             var targetDir = NormalizePath(TargetPath);
             var destBase = new Uri(new Uri(baseDir), targetDir);
             var zipUrl = new Uri(destBase, fileName).ToString();
 
-            // Prepare manifest paths
             var davManifestUrl = new Uri(destBase, "manifest.json");
             var manifestDownloadUrlFromProject = ManifestUrl;
 
             var client = CreateWebDavClient(uploadSettings);
 
-            // Upload package with progress
             CurrentTask = "上传包...";
             CurrentProgress = 0;
             await UploadFileWithRetryAsync(client, outZip, zipUrl, "包", (sent, total) =>
@@ -168,7 +192,6 @@ public class PackWindowViewModel : ObservableObject
                 if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
             });
 
-            // Build file entry for manifest
             var fileEntry = new ReleaseFile
             {
                 Name = Path.GetFileName(outZip),
@@ -177,16 +200,15 @@ public class PackWindowViewModel : ObservableObject
                 Sha256 = sha256
             };
 
-            // Fetch existing manifest (DAV first), merge entry and upload
-            var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, Project!, Version!, zipUrl, davManifestUrl, fileEntry);
+            // Merge for all detected project-version pairs
+            CurrentTask = "合并清单...";
+            var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, davManifestUrl, fileEntry);
 
-            // Write merged manifest locally (for record) and upload
             var manifestFile = Path.Combine(outDir, "manifest.json");
             await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Encoding.UTF8);
             ManifestPath = manifestFile;
             ManifestUrl = davManifestUrl.ToString();
 
-            // Upload manifest with progress
             CurrentTask = "上传清单...";
             CurrentProgress = 0;
             await UploadFileWithRetryAsync(client, manifestFile, ManifestUrl, "manifest", (sent, total) =>
@@ -476,7 +498,7 @@ public class PackWindowViewModel : ObservableObject
         return manifest;
     }
 
-    private async Task<string> BuildMergedManifestV1JsonAsync(WebDavClient davClient, ToolsSettings s, string? downloadUrl, string project, string version, string zipUrl, Uri davManifestUrl, ReleaseFile fileEntry)
+    private async Task<string> BuildMergedManifestV1JsonAsync(WebDavClient davClient, ToolsSettings s, string? downloadUrl, IReadOnlyList<(string Project, string Version)> entries, string zipUrl, Uri davManifestUrl, ReleaseFile fileEntry)
     {
         string? json = null;
 
@@ -515,14 +537,7 @@ public class PackWindowViewModel : ObservableObject
                 var httpJson = await http.GetStringAsync(downloadUrl);
                 Logger.Info("已从下载地址获取 manifest.json: {url}", downloadUrl);
                 LogFetchedJson("HTTP", downloadUrl!, httpJson);
-                if (LooksLikeManifestJson(httpJson))
-                {
-                    json = httpJson;
-                }
-                else
-                {
-                    Logger.Warn("HTTP 返回的 JSON 不像 manifest（可能为错误响应），已忽略");
-                }
+                if (LooksLikeManifestJson(httpJson)) json = httpJson; else Logger.Warn("HTTP 返回的 JSON 不像 manifest（可能为错误响应），已忽略");
             }
             catch (Exception ex)
             {
@@ -542,14 +557,12 @@ public class PackWindowViewModel : ObservableObject
                     manifest = null;
                 }
             }
-            catch
-            {
-                manifest = null;
-            }
+            catch { manifest = null; }
         }
-        manifest ??= MigrateOldToV1(project, json);
+        manifest ??= MigrateOldToV1(entries[0].Project, json);
 
-        UpsertV1(manifest, project, version, zipUrl, fileEntry);
+        foreach (var (proj, ver) in entries)
+            UpsertV1(manifest, proj, ver, zipUrl, fileEntry);
 
         var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
         return JsonSerializer.Serialize(manifest, opts);
