@@ -11,14 +11,10 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AvaloniaResource Remove="Assets\LabelPlus_Next_rounded_icon_transparent.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Assets\LabelPlus_Next_rounded_icon_transparent.ico" />
+    <!-- Link icon from Tools project into this project's Assets -->
+    <AvaloniaResource Include="..\LabelPlus_Next.Tools\Assets\LabelPlus_Next_rounded_icon_transparent.ico">
+      <Link>Assets\LabelPlus_Next_rounded_icon_transparent.ico</Link>
+    </AvaloniaResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -26,6 +22,7 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="WebDav.Client" />
     <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
     <PackageReference Include="Avalonia.Diagnostics">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>

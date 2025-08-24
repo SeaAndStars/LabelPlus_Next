@@ -191,16 +191,7 @@ public class PicViewer : TemplatedControl
     private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
     {
         UpdateHighlightFromSelection();
-        // Try center on the newly selected label
-        if (SelectedLabel is { })
-        {
-            // Post to UI thread to ensure geometry is up-to-date
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (SelectedLabel is { } l)
-                    CenterOnPercent(l.XPercent, l.YPercent);
-            });
-        }
+        // Removed auto-centering here; centering is now controlled by the host view when DataGrid has focus.
     }
 
     private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)

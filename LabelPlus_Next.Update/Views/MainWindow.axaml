@@ -1,20 +1,114 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:LabelPlus_Next.Update.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="LabelPlus_Next.Update.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="LabelPlus_Next.Update">
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Update.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="using:LabelPlus_Next.Update.ViewModels"
+    Title="LabelPlus_Next.Update"
+    Width="800"
+    Height="450"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    x:DataType="vm:MainWindowViewModel"
+    Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
+    mc:Ignorable="d">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
+        <!--
+            This only sets the DataContext for the previewer in an IDE,
+            to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs)
+        -->
+        <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid RowDefinitions="30,*">
+        <!-- Top spacer to push content down by 30 -->
+        <Border Height="30" Background="Transparent"/>
 
-</Window>
+        <StackPanel
+            Grid.Row="1"
+            MinWidth="550"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="10">
+            <Panel>
+                <ProgressBar
+                    Width="220"
+                    Height="220"
+                    Value="{Binding ProgressPercentage}">
+                    <ProgressBar.Styles>
+                        <Style Selector="ProgressBar">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition
+                                        Easing="CubicEaseInOut"
+                                        Property="Value"
+                                        Duration="0:0:0.2" />
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                    </ProgressBar.Styles>
+                </ProgressBar>
+                <u:Avatar
+                    Width="150"
+                    Height="150"
+                    Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+            </Panel>
+
+            <TextBlock
+                HorizontalAlignment="Center"
+                FontSize="20"
+                FontWeight="Bold">
+                <Run Text="LabelPlus_Next.Update " />
+                <Run Text="{Binding Version}" />
+                <Run Text=" 版本更新" />
+            </TextBlock>
+
+            <Grid Margin="0,4,0,0" ColumnDefinitions="*,*,*">
+                <TextBlock
+                    Grid.Column="0"
+                    HorizontalAlignment="Left"
+                    Text="{Binding Speed, StringFormat=下载速度：{0:F2} MB/s}" />
+                <TextBlock Grid.Column="1" HorizontalAlignment="Center">
+                    <Run Text="已下载：" />
+                    <Run Text="{Binding BytesReceivedInMB, StringFormat=\{0:F2\}}" />
+                    <Run Text="/" />
+                    <Run Text="{Binding TotalBytesToReceiveInMB, StringFormat=\{0:F2\}}" />
+                    <Run Text=" MB" />
+                </TextBlock>
+                <TextBlock
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    Text="{Binding Remaining, StringFormat=剩余时间：{0:mm\:ss}}" />
+            </Grid>
+
+            <Border Padding="10">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <u:IconButton
+                        Classes="Danger"
+                        Command="{Binding StopCommand}"
+                        Icon="{StaticResource SemiIconStop}"
+                        Theme="{StaticResource BorderlessIconButton}"
+                        ToolTip.Tip="停止" />
+                    <u:IconButton
+                        Classes="Primary"
+                        Command="{Binding StartCommand}"
+                        Icon="{StaticResource SemiIconPlay}"
+                        Theme="{StaticResource BorderlessIconButton}"
+                        ToolTip.Tip="开始/暂停" />
+                    <u:IconButton
+                        Classes="Tertiary"
+                        Command="{Binding RestartCommand}"
+                        Icon="{StaticResource SemiIconRefresh}"
+                        Theme="{StaticResource BorderlessIconButton}"
+                        ToolTip.Tip="重新下载" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</u:UrsaWindow>

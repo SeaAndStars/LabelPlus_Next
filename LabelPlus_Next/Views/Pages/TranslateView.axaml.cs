@@ -1,11 +1,25 @@
-﻿using System;using System.Globalization;using System.Threading.Tasks;using Avalonia;using Avalonia.Controls;using Avalonia.Input;using Avalonia.Interactivity;using Avalonia.Markup.Xaml;using Avalonia.Markup.Xaml.MarkupExtensions; // for I18NExtension
-using LabelPlus_Next.CustomControls;using LabelPlus_Next.Services;using LabelPlus_Next.ViewModels;using Ursa.Controls;using LabelPlus_Next.Views.Pages; 
+﻿using System;
+using System.Globalization;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.MarkupExtensions; // for I18NExtension
+using LabelPlus_Next.CustomControls;
+using LabelPlus_Next.Services;
+using LabelPlus_Next.ViewModels;
+using Ursa.Controls;
+using LabelPlus_Next.Models;
 
 namespace LabelPlus_Next.Views.Pages;
 
 public partial class TranslateView : UserControl
 {
     private PicViewer? _picViewer; private DataGrid? _labelsGrid; private bool _initialized;
+    private LabelItem? _lastCentered;
+
     public TranslateView(){ InitializeComponent(); }
     private void InitializeComponent(){ AvaloniaXamlLoader.Load(this); }
 
@@ -17,8 +31,33 @@ public partial class TranslateView : UserControl
         _labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
         this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
         if (DataContext is TranslateViewModel vm) InitServices(vm);
-        if (_labelsGrid is not null) _labelsGrid.SelectionChanged += (_, _) => ScrollSelectedIntoView();
+        if (_labelsGrid is not null)
+        {
+            _labelsGrid.SelectionChanged += OnGridSelectionChanged;
+            _labelsGrid.GotFocus += OnGridGotFocus;
+        }
         if (_picViewer is not null) _picViewer.AddLabelRequested += OnAddLabelRequested;
+    }
+
+    private void OnGridGotFocus(object? sender, GotFocusEventArgs e)
+    {
+        // reset last-centered so the next selection change while grid focused will center
+        _lastCentered = null;
+    }
+
+    private void OnGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_labelsGrid is null || _picViewer is null) return;
+        // only center if grid currently has focus
+        if (!_labelsGrid.IsKeyboardFocusWithin) return;
+        if (_labelsGrid.SelectedItem is LabelItem item)
+        {
+            if (!ReferenceEquals(item, _lastCentered))
+            {
+                _picViewer.CenterOnLabel(item);
+                _lastCentered = item;
+            }
+        }
     }
 
     private void InitServices(TranslateViewModel vm)

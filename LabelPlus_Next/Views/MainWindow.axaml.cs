@@ -7,6 +7,11 @@ using Avalonia.Interactivity;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Pages;
 using Ursa.Controls;
+using Avalonia.Threading;
+using Avalonia.Controls.Notifications;
+using Notification = Ursa.Controls.Notification;
+using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
+using LabelPlus_Next.Views.Windows;
 
 namespace LabelPlus_Next.Views
 {
@@ -15,6 +20,7 @@ namespace LabelPlus_Next.Views
         private ContentControl? _navHost;
         private NavMenu? _menuMain;
         private NavMenu? _menuFooter;
+        private bool _didStartupCheck;
 
         public MainWindow()
         {
@@ -27,17 +33,74 @@ namespace LabelPlus_Next.Views
             SetContent("translate");
             SelectMenuItemByTag(_menuMain, "translate");
             ClearMenuSelection(_menuFooter);
+
+            Opened += OnOpened;
+        }
+
+        private async void OnOpened(object? sender, EventArgs e)
+        {
+            if (_didStartupCheck) return; _didStartupCheck = true;
+
+            // Build notification manager once
+            WindowNotificationManager manager = WindowNotificationManager.TryGetNotificationManager(this, out var existing) && existing is not null
+                ? existing
+                : new WindowNotificationManager(this) { Position = NotificationPosition.TopRight };
+
+            try
+            {
+                // Load settings first to ensure WebDAV params are present
+                var vm = new SettingsViewModel();
+                await vm.LoadAsync();
+                var (ok, hasUpdate, msg) = await vm.ProbeUpdateAsync();
+
+                if (!ok)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", msg ?? "未知错误"), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+                }
+                else if (hasUpdate)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("发现新版本", "请前往 设置 -> 检查更新 执行更新。"), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
+                }
+                else
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("提示", "当前已是最新版本。"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+                }
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+            }
         }
 
         private void OnNavSelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            // Ignore events that only clear selection (no new item added)
             if (e.AddedItems is not { Count: > 0 }) return;
-
-            // For Ursa NavMenu, items are Controls with Tag
             string? tag = null;
             if (e.AddedItems[0] is Control ctrl)
                 tag = ctrl.Tag as string;
+
+            // Intercept settings: open modal and restore previous selection
+            if (string.Equals(tag, "settings", StringComparison.Ordinal))
+            {
+                var win = new SettingsWindow { DataContext = new SettingsViewModel() };
+                if (this.IsVisible) win.ShowDialog(this); else win.Show();
+
+                if (sender is NavMenu menu)
+                {
+                    var previous = e.RemovedItems is { Count: > 0 } ? e.RemovedItems[0] : null;
+                    // Restore previous selected item; if none, select translate in main menu and clear footer
+                    if (previous != null)
+                    {
+                        menu.SelectedItem = previous;
+                    }
+                    else
+                    {
+                        SelectMenuItemByTag(_menuMain, "translate");
+                        ClearMenuSelection(_menuFooter);
+                    }
+                }
+                return;
+            }
 
             // Keep main/footer selections mutually exclusive and fully clear highlight
             if (sender == _menuMain)
@@ -92,7 +155,13 @@ namespace LabelPlus_Next.Views
                     host.Content = new SimpleTextPage("交付页面");
                     break;
                 case "settings":
-                    host.Content = new SettingsPage { DataContext = new SettingsViewModel() };
+                    // Open as dialog window and keep current content
+                    var win = new SettingsWindow { DataContext = new SettingsViewModel() };
+                    if (this.IsVisible)
+                        win.ShowDialog(this);
+                    else
+                        win.Show();
+                    // Keep current page; do not change host.Content
                     break;
                 default:
                     host.Content = new SimpleTextPage("欢迎");

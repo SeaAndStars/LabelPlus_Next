@@ -2,7 +2,8 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-             x:DataType="vm:SettingsViewModel" MinHeight="300" MinWidth="600">
+			 
+             x:DataType="vm:SettingsViewModel" MinHeight="350" MinWidth="600">
   <ScrollViewer>
     <StackPanel Spacing="12" Margin="16">
       <TextBlock Text="设置" FontSize="20" FontWeight="SemiBold"/>
@@ -32,16 +33,32 @@
       <Border BorderThickness="1" CornerRadius="4" BorderBrush="Gray">
         <StackPanel Spacing="6" Margin="8">
           <TextBlock Text="更新信息" FontWeight="SemiBold"/>
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="当前版本:"/>
-            <TextBlock Text="{Binding CurrentVersion}"/>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="当前 Client:"/>
+              <TextBlock Text="{Binding CurrentClientVersion}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="当前 Update:"/>
+              <TextBlock Text="{Binding CurrentUpdaterVersion}"/>
+            </StackPanel>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="最新版本:"/>
-            <TextBlock Text="{Binding LatestVersion}"/>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="最新 Client:"/>
+              <TextBlock Text="{Binding LatestClientVersion}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="最新 Update:"/>
+              <TextBlock Text="{Binding LatestUpdaterVersion}"/>
+            </StackPanel>
           </StackPanel>
-          <TextBlock Text="更新说明" FontWeight="SemiBold"/>
-          <TextBox TextWrapping="Wrap" AcceptsReturn="True" MinHeight="100" IsReadOnly="True" Text="{Binding UpdateNotes}"/>
+			<TextBlock Text="{Binding UpdateTask}"/>
+			<ProgressBar Minimum="0" Maximum="100" IsIndeterminate="{Binding IsProgressIndeterminate}" Value="{Binding UpdateProgress}" Height="10"/>
+         
+
+          
+
         </StackPanel>
       </Border>
     </StackPanel>

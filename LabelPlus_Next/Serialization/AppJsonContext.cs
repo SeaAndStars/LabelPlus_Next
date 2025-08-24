@@ -8,6 +8,7 @@ namespace LabelPlus_Next.Serialization;
 [JsonSerializable(typeof(UpdateSettings))]
 [JsonSerializable(typeof(UpdateManifest))]
 [JsonSerializable(typeof(UpdateFile))]
+[JsonSerializable(typeof(ManifestV1))]
 public partial class AppJsonContext : JsonSerializerContext
 {
 }
