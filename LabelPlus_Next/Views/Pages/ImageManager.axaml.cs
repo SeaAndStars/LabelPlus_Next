@@ -6,10 +6,11 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using NLog;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
-public partial class ImageManager : Window
+public partial class ImageManager : UrsaWindow
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 

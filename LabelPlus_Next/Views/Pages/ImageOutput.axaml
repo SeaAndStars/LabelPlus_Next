@@ -1,10 +1,11 @@
-﻿<Window
+﻿<u:UrsaWindow
     Height="250"
     Title="Image Output"
     Width="300"
     d:DesignHeight="250"
     d:DesignWidth="300"
     mc:Ignorable="d"
+	xmlns:u="https://irihi.tech/ursa"
     x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
     xmlns="https://github.com/avaloniaui"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -81,4 +82,4 @@
             Name="ProgressBar"
             ShowProgressText="True" />
     </Grid>
-</Window>
+</u:UrsaWindow>

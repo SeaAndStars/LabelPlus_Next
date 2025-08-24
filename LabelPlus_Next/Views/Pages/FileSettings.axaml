@@ -1,6 +1,7 @@
-﻿<Window
+﻿<u:UrsaWindow
     Title="File Settings"
     d:DesignHeight="350"
+	xmlns:u="https://irihi.tech/ursa"
     d:DesignWidth="600"
     mc:Ignorable="d"
     x:Class="LabelPlus_Next.Views.Pages.FileSettings"
@@ -56,4 +57,4 @@
             MinWidth="100" />
 
     </Grid>
-</Window>
+</u:UrsaWindow>

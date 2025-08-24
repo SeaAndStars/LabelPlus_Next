@@ -1,9 +1,10 @@
-﻿<Window
+﻿<u:UrsaWindow
     Height="500"
     Title="Manage Images"
     Width="650"
     d:DesignHeight="500"
     d:DesignWidth="650"
+	xmlns:u="https://irihi.tech/ursa"
     mc:Ignorable="d"
     x:Class="LabelPlus_Next.Views.Pages.ImageManager"
     x:DataType="viewModels:ImageManagerViewModel"
@@ -90,4 +91,4 @@
     </Grid>
 
 
-</Window>
+</u:UrsaWindow>

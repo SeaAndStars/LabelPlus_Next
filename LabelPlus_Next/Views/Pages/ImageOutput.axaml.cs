@@ -1,8 +1,9 @@
 using Avalonia.Controls;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
-public partial class ImageOutput : Window
+public partial class ImageOutput : UrsaWindow
 {
     public ImageOutput()
     {

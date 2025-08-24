@@ -2,24 +2,48 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
-public partial class AboutWindow : Window
+public partial class AboutWindow : UrsaWindow
 {
     public AboutWindow()
     {
         InitializeComponent();
-#if NET9_0
-        VersionText.Text = $"°æ±¾£º{typeof(App).Assembly.GetName().Version}";
-#endif
+        SetVersionText();
+    }
+
+    private void SetVersionText()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Client.version.json");
+            if (File.Exists(path))
+            {
+                using var fs = File.OpenRead(path);
+                using var doc = JsonDocument.Parse(fs);
+                if (doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String)
+                {
+                    VersionText.Text = $"°æ±¾: {v.GetString()}";
+                    return;
+                }
+            }
+        }
+        catch { }
+
+        // Fallback: assembly version
+        var ver = typeof(App).Assembly.GetName().Version?.ToString() ?? "";
+        VersionText.Text = $"°æ±¾: {ver}";
     }
 
     private void OnProjectLinkPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
         try
         {
-            var url = "https://github.com/SeaStar/LabelPlus_Next";
+            var url = "https://github.com/SeaAndStars/LabelPlus_Next";
             Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
         catch { }

@@ -16,7 +16,7 @@
     mc:Ignorable="d">
 
 
-    <Grid ColumnDefinitions="220,*" RowDefinitions="*">
+    <Grid ColumnDefinitions="220,*" RowDefinitions="*" Margin="0,30,0,0">
 
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>

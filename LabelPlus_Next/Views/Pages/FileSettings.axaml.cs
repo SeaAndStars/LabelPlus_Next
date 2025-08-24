@@ -3,10 +3,11 @@ using Avalonia.Interactivity;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Models;
 using System.Linq;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
-public partial class FileSettings : Window
+public partial class FileSettings : UrsaWindow
 {
     public FileSettings()
     {
