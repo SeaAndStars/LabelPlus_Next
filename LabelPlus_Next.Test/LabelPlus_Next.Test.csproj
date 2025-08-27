@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Downloader" />
     <PackageReference Include="RestSharp" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>

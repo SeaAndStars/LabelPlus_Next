@@ -19,6 +19,7 @@
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.3.2" />
     <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.2.0.1" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="Downloader" Version="4.0.3" />
     <PackageVersion Include="GeneralUpdate.Bowl" Version="9.1.6" />
     <PackageVersion Include="GeneralUpdate.ClientCore" Version="9.1.6" />
     <PackageVersion Include="GeneralUpdate.Common" Version="9.1.6" />

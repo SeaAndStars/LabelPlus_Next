@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Downloader;
 
 namespace LabelPlus_Next.Services.Api;
 
@@ -128,6 +129,89 @@ public interface IFileSystemApi
         string token,
         string filePath,
         byte[] content,
+        bool asTask = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 并发上传多个文件，受 maxConcurrency 控制。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="items">要上传的文件集合。</param>
+    /// <param name="maxConcurrency">最大并发度（默认 4）。</param>
+    /// <param name="asTask">是否以任务上传（默认 false）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按输入顺序返回各上传结果。</returns>
+    Task<IReadOnlyList<FsPutResponse>> PutManyAsync(
+        string token,
+        IEnumerable<FileUploadItem> items,
+        int maxConcurrency = 4,
+        bool asTask = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 下载单个文件（先 Get 拿 raw_url，再 HTTP 下载）。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="filePath">文件绝对路径。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>下载结果，包含状态码与内容。</returns>
+    Task<DownloadResult> DownloadAsync(
+        string token,
+        string filePath,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 并发下载多个文件，受 maxConcurrency 控制。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="filePaths">文件路径集合。</param>
+    /// <param name="maxConcurrency">最大并发度（默认 4）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按输入顺序返回各下载结果。</returns>
+    Task<IReadOnlyList<DownloadResult>> DownloadManyAsync(
+        string token,
+        IEnumerable<string> filePaths,
+        int maxConcurrency = 4,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 使用 Downloader 支持多线程与断点续传下载单个文件到本地路径。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="filePath">远端文件路径（用于 Get 获取 raw_url）。</param>
+    /// <param name="localPath">本地保存完整文件路径。</param>
+    /// <param name="config">Downloader 的下载配置（可选），未提供则使用默认推荐配置。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<DownloadResult> DownloadToFileAsync(
+        string token,
+        string filePath,
+        string localPath,
+        DownloadConfiguration? config = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 使用 Downloader 并发下载多个文件（带断点续传），受 maxConcurrency 控制。
+    /// </summary>
+    Task<IReadOnlyList<DownloadResult>> DownloadManyToFilesAsync(
+        string token,
+        IEnumerable<(string remotePath, string localPath)> items,
+        int maxConcurrency = 4,
+        DownloadConfiguration? config = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 统一的安全上传入口，支持单文件、多文件及目录上传。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="request">上传请求。</param>
+    /// <param name="maxConcurrency">最大并发度（默认 4）。</param>
+    /// <param name="asTask">是否以任务上传（默认 false）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>按输入顺序返回各上传结果。</returns>
+    Task<IReadOnlyList<FsPutResponse>> SafeUploadAsync(
+        string token,
+        UploadRequest request,
+        int maxConcurrency = 4,
         bool asTask = false,
         CancellationToken cancellationToken = default);
 }

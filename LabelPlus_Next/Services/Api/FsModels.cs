@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace LabelPlus_Next.Services.Api;
@@ -113,4 +115,78 @@ public sealed class FsItem
     /// 类型（由服务端定义的数值）。
     /// </summary>
     [JsonProperty("type")] public long Type { get; set; }
+}
+
+/// <summary>
+/// 批量上传条目。
+/// </summary>
+public sealed class FileUploadItem
+{
+    /// <summary>
+    /// 目标文件绝对路径。
+    /// </summary>
+    public string FilePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 文件字节内容。
+    /// </summary>
+    public byte[] Content { get; set; } = Array.Empty<byte>();
+}
+
+/// <summary>
+/// 下载结果。
+/// </summary>
+public sealed class DownloadResult
+{
+    /// <summary>
+    /// 业务状态码（200 代表成功，或 401 未授权）。
+    /// </summary>
+    public int Code { get; set; }
+
+    /// <summary>
+    /// 文件内容（成功时）。
+    /// </summary>
+    public byte[]? Content { get; set; }
+
+    /// <summary>
+    /// 错误消息（失败时）。
+    /// </summary>
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// 统一上传请求：支持 单文件、多文件、目录 三种模式。
+/// </summary>
+public sealed class UploadRequest
+{
+    public UploadMode Mode { get; private set; }
+
+    // Single file
+    public string? RemotePath { get; private set; }
+    public byte[]? Content { get; private set; }
+
+    // Multiple files
+    public IReadOnlyList<FileUploadItem>? Items { get; private set; }
+
+    // Directory
+    public string? LocalDirectory { get; private set; }
+    public string? RemoteBasePath { get; private set; }
+
+    private UploadRequest() { }
+
+    public static UploadRequest FromFile(string remotePath, byte[] content)
+        => new UploadRequest { Mode = UploadMode.Single, RemotePath = remotePath, Content = content };
+
+    public static UploadRequest FromFiles(IEnumerable<FileUploadItem> items)
+        => new UploadRequest { Mode = UploadMode.Multiple, Items = new List<FileUploadItem>(items ?? Array.Empty<FileUploadItem>()) };
+
+    public static UploadRequest FromDirectory(string localDirectory, string remoteBasePath)
+        => new UploadRequest { Mode = UploadMode.Directory, LocalDirectory = localDirectory, RemoteBasePath = remoteBasePath };
+}
+
+public enum UploadMode
+{
+    Single,
+    Multiple,
+    Directory
 }
