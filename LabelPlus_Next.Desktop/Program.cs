@@ -1,5 +1,6 @@
 ﻿using System;
 using Avalonia;
+using Avalonia.Media;
 
 namespace LabelPlus_Next.Desktop;
 
@@ -17,5 +18,19 @@ sealed class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .With(new FontManagerOptions
+            {
+                // Keep Inter for Latin, but provide fallbacks for CJK/Emoji to avoid tofu on Linux
+                FontFallbacks = new[]
+                {
+                    new FontFallback { FontFamily = new FontFamily("Noto Sans CJK SC") },
+                    new FontFallback { FontFamily = new FontFamily("Noto Sans CJK TC") },
+                    new FontFallback { FontFamily = new FontFamily("Noto Sans CJK JP") },
+                    new FontFallback { FontFamily = new FontFamily("WenQuanYi Zen Hei") },
+                    new FontFallback { FontFamily = new FontFamily("WenQuanYi Micro Hei") },
+                    new FontFallback { FontFamily = new FontFamily("Microsoft YaHei") },
+                    new FontFallback { FontFamily = new FontFamily("Noto Color Emoji") }
+                }
+            })
             .LogToTrace();
 }
