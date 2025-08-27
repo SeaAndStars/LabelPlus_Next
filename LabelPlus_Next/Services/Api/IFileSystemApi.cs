@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,5 +47,87 @@ public interface IFileSystemApi
         int perPage = 0,
         bool refresh = true,
         string password = "",
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 搜索指定父目录下的内容。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="parent">父目录路径，例如 /local。</param>
+    /// <param name="keywords">关键字。</param>
+    /// <param name="scope">搜索范围（由服务端定义，0 为默认）。</param>
+    /// <param name="page">页码。</param>
+    /// <param name="perPage">每页条目数量。</param>
+    /// <param name="password">访问密码（如需要）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>返回搜索结果。</returns>
+    Task<FsSearchResponse> SearchAsync(
+        string token,
+        string parent,
+        string keywords,
+        int scope = 0,
+        int page = 1,
+        int perPage = 1,
+        string password = "",
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 创建目录。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="path">要创建的目标目录绝对路径，例如 /tt。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>返回标准响应，code=200 表示成功。</returns>
+    Task<ApiResponse<object>> MkdirAsync(
+        string token,
+        string path,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 复制条目：从 srcDir 复制 names 指定的文件/目录到 dstDir。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="srcDir">源目录绝对路径，例如 /test/a。</param>
+    /// <param name="dstDir">目标目录绝对路径，例如 /test/b。</param>
+    /// <param name="names">要复制的条目名称集合（相对于 srcDir）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>返回标准响应。</returns>
+    Task<ApiResponse<object>> CopyAsync(
+        string token,
+        string srcDir,
+        string dstDir,
+        IEnumerable<string> names,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 上传文件到指定路径（PUT /api/fs/put）。默认不以任务上传，便于上层并发控制。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="filePath">目标文件绝对路径（File-Path 头）。</param>
+    /// <param name="content">文件字节内容。</param>
+    /// <param name="asTask">是否以任务形式上传（As-Task 头）。默认 false。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>返回任务信息或结果描述。</returns>
+    Task<FsPutResponse> PutAsync(
+        string token,
+        string filePath,
+        byte[] content,
+        bool asTask = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 安全上传：若远端已存在同名文件，则先通过 raw_url 备份为“_yyyyMMddHHmmss”后缀的新文件，再上传用户文件，避免覆盖。
+    /// </summary>
+    /// <param name="token">授权令牌。</param>
+    /// <param name="filePath">目标文件绝对路径。</param>
+    /// <param name="content">用户文件内容。</param>
+    /// <param name="asTask">是否以任务形式上传（默认 false）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>返回最终上传（用户文件）的响应。</returns>
+    Task<FsPutResponse> SafePutAsync(
+        string token,
+        string filePath,
+        byte[] content,
+        bool asTask = false,
         CancellationToken cancellationToken = default);
 }
