@@ -47,14 +47,15 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
     <PackageReference Include="CommunityToolkit.Mvvm" />
-    <PackageReference Include="GeneralUpdate.ClientCore" />
     <PackageReference Include="Irihi.Ursa" />
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
     <PackageReference Include="NLog" />
     <PackageReference Include="NLog.Extensions.Logging" />
     <PackageReference Include="ReactiveUI" />
-    <PackageReference Include="Semi.Avalonia" />
+    <PackageReference Include="RestSharp" />
     <PackageReference Include="WebDav.Client" />
+    <PackageReference Include="Semi.Avalonia" />
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>

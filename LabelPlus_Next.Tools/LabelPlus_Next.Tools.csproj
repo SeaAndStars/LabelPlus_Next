@@ -28,6 +28,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Irihi.Ursa" />
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+    <PackageReference Include="RestSharp" />
     <PackageReference Include="Semi.Avalonia" />
     <PackageReference Include="WebDav.Client" />
     <PackageReference Include="NLog" />
