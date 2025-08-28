@@ -3,16 +3,19 @@ using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
 using Avalonia.Markup.Xaml;
-using LabelPlus_Next.Models;
 using LabelPlus_Next.ViewModels;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Ursa.Controls;
+using NLog;
+using System;
 
 namespace LabelPlus_Next.Views.Windows;
 
-public partial class ProjectMetaDataWindow : Ursa.Controls.UrsaWindow
+public partial class ProjectMetaDataWindow : UrsaWindow
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private TreeDataGrid? _tree;
     private ObservableCollection<Node>? _roots;
 
@@ -31,7 +34,11 @@ public partial class ProjectMetaDataWindow : Ursa.Controls.UrsaWindow
     {
         InitializeComponent();
         _tree = this.FindControl<TreeDataGrid>("EpisodeTree");
-        this.Opened += (_, __) => BuildTree();
+        this.Opened += (_, __) =>
+        {
+            try { BuildTree(); Logger.Info("Meta window opened and tree built."); }
+            catch (Exception ex) { Logger.Error(ex, "BuildTree failed on open."); }
+        };
     }
 
     private void InitializeComponent()
@@ -41,7 +48,12 @@ public partial class ProjectMetaDataWindow : Ursa.Controls.UrsaWindow
 
     private void BuildTree()
     {
-        if (_tree is null || DataContext is not UploadViewModel vm) return;
+        if (_tree is null || DataContext is not UploadViewModel vm)
+        {
+            Logger.Warn("BuildTree: Tree or ViewModel missing.");
+            return;
+        }
+        Logger.Debug("Building episode tree: {count}", vm.PendingEpisodes.Count);
         _roots = new ObservableCollection<Node>(vm.PendingEpisodes.Select(ep =>
         {
             var root = new Node
@@ -73,60 +85,57 @@ public partial class ProjectMetaDataWindow : Ursa.Controls.UrsaWindow
             Columns =
             {
                 new HierarchicalExpanderColumn<Node>(
-                    new TemplateColumn<Node>("名称", BuildTextTemplate(n => n.Name ?? string.Empty)),
+                    new TextColumn<Node, string>("名称", x => x.Name ?? string.Empty),
                     n => n.Children,
                     n => !n.IsFile),
-                new TemplateColumn<Node>("上传", BuildCheckTemplate()),
-                new TemplateColumn<Node>("话数", BuildTextTemplate(n => n.Number.ToString())),
-                new TemplateColumn<Node>("状态", BuildStatusTemplate()),
-                new TemplateColumn<Node>("本地文件数", BuildTextTemplate(n => n.LocalFileCount.ToString()))
+                new CheckBoxColumn<Node>("上传", x => x.Include, (x, v) => x.Include = v),
+                new TextColumn<Node, int>("话数", x => x.Number),
+                new TemplateColumn<Node>("状态", BuildStatusCellTemplate()),
+                new TextColumn<Node, int>("本地文件数", x => x.LocalFileCount)
             }
         };
         _tree.Source = source;
     }
 
-    private static IDataTemplate BuildTextTemplate(System.Func<Node, string> selector)
+    private static IDataTemplate BuildStatusCellTemplate()
     {
-        return new FuncTreeDataTemplate<Node>((n, _) => new TextBlock { Text = selector(n) }, (o, _) => o is Node);
-    }
-
-    private static IDataTemplate BuildCheckTemplate()
-    {
-        return new FuncTreeDataTemplate<Node>((n, _) =>
-        {
-            var cb = new CheckBox { IsEnabled = !n.IsFile };
-            cb.IsChecked = n.Include;
-            cb.Checked += (_, __) => n.Include = true;
-            cb.Unchecked += (_, __) => n.Include = false;
-            return cb;
-        }, (o, _) => o is Node);
-    }
-
-    private static IDataTemplate BuildStatusTemplate()
-    {
-        return new FuncTreeDataTemplate<Node>((n, _) =>
+        return new FuncDataTemplate<Node>((n, _) =>
         {
             var box = new ComboBox { IsEnabled = !n.IsFile };
-            box.Items = new[] { "立项", "翻译", "校对", "嵌字" };
+            box.ItemsSource = new[] { "立项", "翻译", "校对", "嵌字" };
             box.SelectedItem = n.Status;
             box.SelectionChanged += (_, __) => { if (box.SelectedItem is string s) n.Status = s; };
             return box;
-        }, (o, _) => o is Node);
+        }, true);
     }
 
     private async void OnConfirmClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is not UploadViewModel vm || _roots is null) { Close(false); return; }
-        // write back Include/Status to VM.PendingEpisodes
-        foreach (var ep in vm.PendingEpisodes)
+        try
         {
-            var node = _roots.FirstOrDefault(n => !n.IsFile && n.Number == ep.Number);
-            if (node is null) continue;
-            ep.Include = node.Include;
-            ep.Status = node.Status;
+            if (DataContext is not UploadViewModel vm || _roots is null)
+            {
+                Logger.Warn("Confirm: ViewModel or roots missing.");
+                Close(false);
+                return;
+            }
+            foreach (var ep in vm.PendingEpisodes)
+            {
+                var node = _roots.FirstOrDefault(n => !n.IsFile && n.Number == ep.Number);
+                if (node is null) continue;
+                ep.Include = node.Include;
+                ep.Status = node.Status;
+            }
+            Logger.Info("Confirm: starting upload for {count} episodes", vm.PendingEpisodes.Count(e1 => e1.Include));
+            var ok = await vm.UploadPendingAsync();
+            await MessageBox.ShowAsync(ok ? "上传完成" : "上传失败", ok ? "成功" : "失败");
+            Logger.Info("Upload result: {result}", ok);
+            Close(ok);
         }
-        var ok = await vm.UploadPendingAsync();
-        await MessageBox.ShowAsync(ok ? "上传完成" : "上传失败", ok ? "成功" : "失败");
-        Close(ok);
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Confirm click failed.");
+            await MessageBox.ShowAsync(ex.Message, "错误");
+        }
     }
 }

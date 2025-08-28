@@ -12,11 +12,14 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using NLog;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class UploadViewModel : ObservableObject
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     [ObservableProperty] private string? status;
     [ObservableProperty] private string? searchText;
 
@@ -57,9 +60,10 @@ public partial class UploadViewModel : ObservableObject
         PickUploadFilesCommand = new AsyncRelayCommand(PickUploadFilesAsync);
         OpenSettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
         _ = RefreshAsync(); // auto refresh when page opens
+        Logger.Info("UploadViewModel created.");
     }
 
-    public void InitializeServices(IFileDialogService dialogs) => _dialogs ??= dialogs;
+    public void InitializeServices(IFileDialogService dialogs) { _dialogs ??= dialogs; Logger.Debug("Dialogs service injected."); }
 
     public static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
 
@@ -69,20 +73,24 @@ public partial class UploadViewModel : ObservableObject
         {
             if (!File.Exists(UploadSettingsPath))
             {
-                // Create default file with baseUrl preset
                 var def = new UploadSettings { BaseUrl = "https://alist1.seastarss.cn" };
                 await using var fw = File.Create(UploadSettingsPath);
                 await JsonSerializer.SerializeAsync(fw, def, AppJsonContext.Default.UploadSettings);
+                Logger.Info("Created default upload settings at {path}", UploadSettingsPath);
                 return def;
             }
             await using var fs = File.OpenRead(UploadSettingsPath);
             var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
+            Logger.Debug("Upload settings loaded: base={base}", s?.BaseUrl);
             return s;
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "LoadUploadSettingsAsync failed.");
+            return null;
+        }
     }
 
-    // New: pick folder via dialog service
     private async Task PickUploadFolderAsync()
     {
         if (_dialogs is null) return;
@@ -91,13 +99,12 @@ public partial class UploadViewModel : ObservableObject
         LastSelectedFolderPath = folder;
         var name = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         Status = $"已选择文件夹：{name}";
+        Logger.Info("Picked upload folder: {folder}", folder);
     }
 
-    // New: pick files via dialog service (only update status for now)
     private async Task PickUploadFilesAsync()
     {
         if (_dialogs is null) return;
-        // Reuse image chooser as a simple multi-pick from folder if desired. Here just prompt for a folder and count image files.
         var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
         if (string.IsNullOrEmpty(folder)) return;
         try
@@ -105,16 +112,18 @@ public partial class UploadViewModel : ObservableObject
             var exts = new HashSet<string>(new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".txt", ".zip", ".7z", ".rar" }, StringComparer.OrdinalIgnoreCase);
             var count = Directory.EnumerateFiles(folder).Count(f => exts.Contains(Path.GetExtension(f)));
             Status = $"已选择文件：{count} 个";
+            Logger.Info("Picked files in folder {folder}: {count}", folder, count);
         }
-        catch
+        catch (Exception ex)
         {
             Status = "未能读取文件";
+            Logger.Error(ex, "PickUploadFilesAsync failed for {folder}", folder);
         }
     }
 
-    // New: request open settings; view will handle UI
     private Task OpenSettingsAsync()
     {
+        Logger.Debug("OpenSettings requested.");
         OpenSettingsRequested?.Invoke(this, EventArgs.Empty);
         return Task.CompletedTask;
     }
@@ -123,33 +132,42 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
+            if ((string.IsNullOrWhiteSpace(LastSelectedFolderPath) || !Directory.Exists(LastSelectedFolderPath)) && _dialogs is not null)
+            {
+                var picked = await _dialogs.PickFolderAsync("选择要上传的文件夹");
+                if (!string.IsNullOrEmpty(picked))
+                {
+                    LastSelectedFolderPath = picked;
+                    Logger.Info("AddProject: folder selected interactively: {folder}", picked);
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(LastSelectedFolderPath) || !Directory.Exists(LastSelectedFolderPath))
             {
                 Status = "请先选择上传文件夹";
+                Logger.Warn("AddProject aborted: no valid folder.");
                 return;
             }
+
             var localDir = LastSelectedFolderPath!;
             var projectName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             PendingProjectName = projectName;
+            Logger.Info("AddProject for {project} at {dir}", projectName, localDir);
 
-            // Load upload settings and auth
             var us = await LoadUploadSettingsAsync();
-            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; return; }
+            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; Logger.Warn("No server baseUrl."); return; }
             var baseUrl = us.BaseUrl!.TrimEnd('/');
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
-            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; return; }
+            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; Logger.Warn("Login failed: {code} {msg}", login.Code, login.Message); return; }
             var token = login.Data.Token!;
 
-            // Ensure latest root projects manifest
             await RefreshAsync();
 
-            // Determine project json remote path
             string projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
                 ? path
                 : $"/{projectName}/{projectName}_project.json";
 
-            // Fetch existing episodes from remote project json if exists
             var fsApi = new FileSystemApi(baseUrl);
             var existingEpisodeNums = new HashSet<int>();
             var get = await fsApi.GetAsync(token, projectJsonPath);
@@ -164,7 +182,6 @@ public partial class UploadViewModel : ObservableObject
                     try
                     {
                         using var doc = JsonDocument.Parse(json);
-                        // Try parse episodes from "episodes" object keys
                         if (doc.RootElement.TryGetProperty("episodes", out var eps) && eps.ValueKind == JsonValueKind.Object)
                         {
                             foreach (var prop in eps.EnumerateObject())
@@ -174,43 +191,56 @@ public partial class UploadViewModel : ObservableObject
                         }
                         else
                         {
-                            // Fallback: try top-level number keys
                             foreach (var prop in doc.RootElement.EnumerateObject())
                             {
                                 if (TryParseEpisodeNumber(prop.Name, out var n)) existingEpisodeNums.Add(n);
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "Parse remote project json failed: {path}", projectJsonPath);
+                    }
                 }
             }
 
-            // Scan local folder for episodes
             var episodes = ScanEpisodes(localDir);
-
-            // Check duplicates
             HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
+            Logger.Info("Local episodes found: {count}, duplicates with remote: {dup}", episodes.Count, HasDuplicates);
 
-            // Sort desc by number
             var sorted = episodes.OrderByDescending(e => e.Number).ToList();
 
             PendingEpisodes.Clear();
             foreach (var e in sorted) PendingEpisodes.Add(e);
 
-            // Raise event for UI to confirm metadata and proceed upload later
             MetadataReady?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
             Status = $"新增项目失败: {ex.Message}";
+            Logger.Error(ex, "AddProjectAsync failed.");
         }
     }
 
+    private static int StatusRank(string status)
+    {
+        return status switch
+        {
+            "嵌字" => 3,
+            "校对" => 2,
+            "翻译" => 1,
+            _ => 0
+        };
+    }
+
+    private static string PickHigherStatus(string a, string b) => StatusRank(b) > StatusRank(a) ? b : a;
+
     private static List<EpisodeEntry> ScanEpisodes(string localDir)
     {
-        var result = new List<EpisodeEntry>();
         var archives = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".7z", ".rar" };
         var allEntries = Directory.EnumerateFileSystemEntries(localDir, "*", SearchOption.TopDirectoryOnly).ToList();
+
+        var map = new Dictionary<int, EpisodeEntry>();
 
         foreach (var entry in allEntries)
         {
@@ -218,8 +248,18 @@ public partial class UploadViewModel : ObservableObject
             {
                 var name = Path.GetFileName(entry);
                 if (!TryParseEpisodeNumber(name, out var num)) continue;
-                var ep = BuildEpisodeFromFolder(entry, num);
-                result.Add(ep);
+                var folderEp = BuildEpisodeFromFolder(entry, num);
+                if (!map.TryGetValue(num, out var existing))
+                {
+                    map[num] = folderEp;
+                }
+                else
+                {
+                    var set = new HashSet<string>(existing.LocalFiles, StringComparer.OrdinalIgnoreCase);
+                    foreach (var f in folderEp.LocalFiles)
+                        if (set.Add(f)) existing.LocalFiles.Add(f);
+                    existing.Status = PickHigherStatus(existing.Status, folderEp.Status);
+                }
             }
             else if (File.Exists(entry))
             {
@@ -228,13 +268,23 @@ public partial class UploadViewModel : ObservableObject
                 {
                     var name = Path.GetFileNameWithoutExtension(entry);
                     if (!TryParseEpisodeNumber(name, out var num)) continue;
-                    var ep = new EpisodeEntry { Number = num, Status = "立项" };
-                    ep.LocalFiles.Add(entry);
-                    result.Add(ep);
+                    if (!map.TryGetValue(num, out var existing))
+                    {
+                        var ep = new EpisodeEntry { Number = num, Status = "立项" };
+                        ep.LocalFiles.Add(entry);
+                        map[num] = ep;
+                    }
+                    else
+                    {
+                        if (!existing.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase))
+                            existing.LocalFiles.Add(entry);
+                        existing.Status = PickHigherStatus(existing.Status, "立项");
+                    }
                 }
             }
         }
-        return result;
+        Logger.Debug("ScanEpisodes: merged into {count} episodes", map.Count);
+        return map.Values.ToList();
     }
 
     private static EpisodeEntry BuildEpisodeFromFolder(string folder, int number)
@@ -260,10 +310,8 @@ public partial class UploadViewModel : ObservableObject
 
     private static bool TryParseEpisodeNumber(string name, out int number)
     {
-        // Extract Arabic digits first
         var digits = new string(name.Where(char.IsDigit).ToArray());
         if (!string.IsNullOrEmpty(digits) && int.TryParse(digits, out number)) return true;
-        // Try Chinese numerals (up to 9999 basic)
         number = ParseChineseNumeral(name);
         return number > 0;
     }
@@ -303,18 +351,19 @@ public partial class UploadViewModel : ObservableObject
             if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
             {
                 Status = "未配置服务器地址";
+                Logger.Warn("Refresh aborted: missing baseUrl.");
                 return;
             }
 
             var baseUrl = us.BaseUrl!.TrimEnd('/');
-            var filePath = "/project.json"; // 根目录的 project.json
+            var filePath = "/project.json";
 
-            // 登录并下载
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
             if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
             {
                 Status = $"登录失败: {login.Code} {login.Message}";
+                Logger.Warn("Refresh login failed: {code} {msg}", login.Code, login.Message);
                 return;
             }
             var token = login.Data!.Token!;
@@ -324,6 +373,7 @@ public partial class UploadViewModel : ObservableObject
             if (result.Code != 200 || result.Content is null)
             {
                 Status = $"下载失败: {result.Code} {result.Message}";
+                Logger.Warn("Download project.json failed: {code} {msg}", result.Code, result.Message);
                 return;
             }
 
@@ -335,6 +385,7 @@ public partial class UploadViewModel : ObservableObject
             if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
             {
                 Status = "清单格式错误（缺少 projects）";
+                Logger.Warn("Invalid manifest: projects missing.");
                 return;
             }
 
@@ -353,10 +404,12 @@ public partial class UploadViewModel : ObservableObject
             }
 
             Status = $"已加载 {Projects.Count} 个项目";
+            Logger.Info("Projects loaded: {count}", Projects.Count);
         }
         catch (Exception ex)
         {
             Status = $"刷新失败: {ex.Message}";
+            Logger.Error(ex, "RefreshAsync failed.");
         }
     }
 
@@ -364,44 +417,52 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(PendingProjectName)) { Status = "无项目"; return false; }
+            if (string.IsNullOrWhiteSpace(PendingProjectName)) { Status = "无项目"; Logger.Warn("Upload aborted: no project name."); return false; }
             var us = await LoadUploadSettingsAsync();
-            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; return false; }
+            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; Logger.Warn("Upload aborted: no baseUrl."); return false; }
             var baseUrl = us.BaseUrl!.TrimEnd('/');
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
-            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; return false; }
+            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; Logger.Warn("Upload login failed: {code} {msg}", login.Code, login.Message); return false; }
             var token = login.Data!.Token!;
             var fsApi = new FileSystemApi(baseUrl);
 
-            // Ensure project directory exists
             var projectDir = "/" + PendingProjectName!.Trim('/') + "/";
             await fsApi.MkdirAsync(token, projectDir);
 
-            // Build uploads for episodes marked Include
             var toUpload = PendingEpisodes.Where(e => e.Include).ToList();
+            Logger.Info("Uploading {count} episodes to {dir}", toUpload.Count, projectDir);
             foreach (var ep in toUpload)
             {
                 var epDir = projectDir + ep.Number + "/";
                 await fsApi.MkdirAsync(token, epDir);
                 foreach (var file in ep.LocalFiles)
                 {
-                    if (!File.Exists(file)) continue;
-                    var name = Path.GetFileName(file);
-                    var remote = epDir + name;
-                    var bytes = await File.ReadAllBytesAsync(file);
-                    var res = await fsApi.SafePutAsync(token, remote, bytes);
-                    if (res.Code != 200) { Status = $"上传失败: {remote} -> {res.Message}"; return false; }
+                    try
+                    {
+                        if (!File.Exists(file)) { Logger.Warn("File missing: {file}", file); continue; }
+                        var name = Path.GetFileName(file);
+                        var remote = epDir + name;
+                        var bytes = await File.ReadAllBytesAsync(file);
+                        var res = await fsApi.SafePutAsync(token, remote, bytes);
+                        if (res.Code != 200) { Status = $"上传失败: {remote} -> {res.Message}"; Logger.Warn("Upload failed: {remote} {code} {msg}", remote, res.Code, res.Message); return false; }
+                        Logger.Debug("Uploaded: {remote}", remote);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(ex, "Upload single file failed: {file}", file);
+                        Status = $"上传失败: {file}";
+                        return false;
+                    }
                 }
             }
 
-            // Update project json
             string projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var path) && !string.IsNullOrWhiteSpace(path)
                 ? path
                 : projectDir + PendingProjectName + "_project.json";
 
-            Dictionary<string, object> root;
-            // Load existing if any
+            // Load existing project json strongly-typed
+            ProjectJson root;
             var get = await fsApi.GetAsync(token, projectJsonPath);
             if (get.Code == 200 && get.Data is { IsDir: false })
             {
@@ -411,41 +472,43 @@ public partial class UploadViewModel : ObservableObject
                     var text = Encoding.UTF8.GetString(dl.Content).TrimStart('\uFEFF');
                     try
                     {
-                        root = JsonSerializer.Deserialize(text, AppJsonContext.Default.DictionaryStringObject) ?? new();
+                        root = JsonSerializer.Deserialize(text, AppJsonContext.Default.ProjectJson) ?? new ProjectJson();
                     }
-                    catch { root = new(); }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "Deserialize existing project json failed");
+                        root = new ProjectJson();
+                    }
                 }
-                else root = new();
+                else root = new ProjectJson();
             }
-            else root = new();
+            else root = new ProjectJson();
 
-            if (!root.TryGetValue("episodes", out var epsObj) || epsObj is not JsonElement)
-            {
-                root.Remove("episodes");
-                root["episodes"] = new Dictionary<string, object>();
-            }
-            var epsDict = root["episodes"] as Dictionary<string, object> ?? new();
-
+            // Merge episodes
             foreach (var ep in toUpload)
             {
-                epsDict[ep.Number.ToString()] = new Dictionary<string, object> { { "status", ep.Status } };
+                root.Episodes[ep.Number.ToString()] = new EpisodeInfo { Status = ep.Status };
             }
-            root["episodes"] = epsDict
+
+            // Order desc by numeric key
+            root.Episodes = root.Episodes
                 .OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0)
                 .ToDictionary(k => k.Key, v => v.Value);
 
-            var jsonOut = JsonSerializer.Serialize(root, AppJsonContext.Default.DictionaryStringObject);
+            var jsonOut = JsonSerializer.Serialize(root, AppJsonContext.Default.ProjectJson);
             var bytesOut = Encoding.UTF8.GetBytes(jsonOut);
             var put = await fsApi.SafePutAsync(token, projectJsonPath, bytesOut);
-            if (put.Code != 200) { Status = $"更新项目JSON失败: {put.Message}"; return false; }
+            if (put.Code != 200) { Status = $"更新项目JSON失败: {put.Message}"; Logger.Warn("Update project json failed: {code} {msg}", put.Code, put.Message); return false; }
 
             Status = "上传完成";
+            Logger.Info("Upload completed successfully.");
             await RefreshAsync();
             return true;
         }
         catch (Exception ex)
         {
             Status = $"上传异常: {ex.Message}";
+            Logger.Error(ex, "UploadPendingAsync failed.");
             return false;
         }
     }

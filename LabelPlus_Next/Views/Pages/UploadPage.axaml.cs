@@ -7,22 +7,35 @@ using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Windows;
 using System;
 using Ursa.Controls;
+using NLog;
 
 namespace LabelPlus_Next.Views.Pages;
 
 public partial class UploadPage : UserControl
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private UploadViewModel? _vm;
+    private bool _servicesInitialized;
 
     public UploadPage()
     {
-        InitializeComponent();
-        if (Design.IsDesignMode)
+        try
         {
-            DataContext = new UploadViewModel();
+            InitializeComponent();
+            if (Design.IsDesignMode)
+            {
+                DataContext = new UploadViewModel();
+            }
+            this.DataContextChanged += OnDataContextChanged;
+            TryHookVm(DataContext as UploadViewModel);
+            Logger.Info("UploadPage constructed.");
         }
-        this.DataContextChanged += OnDataContextChanged;
-        TryHookVm(DataContext as UploadViewModel);
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "UploadPage constructor failed.");
+            throw;
+        }
     }
 
     private void InitializeComponent()
@@ -30,57 +43,126 @@ public partial class UploadPage : UserControl
         AvaloniaXamlLoader.Load(this);
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Logger.Debug("UploadPage attached to visual tree.");
+        EnsureServices();
+    }
+
+    private void EnsureServices()
+    {
+        if (_servicesInitialized) return;
+        try
+        {
+            var top = TopLevel.GetTopLevel(this);
+            if (top is null)
+            {
+                Logger.Warn("EnsureServices: TopLevel is null, will retry later.");
+                return;
+            }
+            if (_vm is not null)
+            {
+                _vm.InitializeServices(new AvaloniaFileDialogService(top));
+                _servicesInitialized = true;
+                Logger.Info("UploadPage services initialized.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "EnsureServices failed.");
+        }
+    }
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        Logger.Debug("DataContext changed: {type}", DataContext?.GetType().FullName);
         TryHookVm(DataContext as UploadViewModel);
+        EnsureServices();
     }
 
     private void TryHookVm(UploadViewModel? vm)
     {
         if (ReferenceEquals(_vm, vm)) return;
-        if (_vm is not null)
+        try
         {
-            _vm.MetadataReady -= VmOnMetadataReadyAsync;
-            _vm.OpenSettingsRequested -= VmOnOpenSettingsRequestedAsync;
-        }
-        _vm = vm;
-        if (_vm is not null)
-        {
-            // provide services
-            var top = TopLevel.GetTopLevel(this);
-            if (top is not null)
+            if (_vm is not null)
             {
-                _vm.InitializeServices(new AvaloniaFileDialogService(top));
+                _vm.MetadataReady -= VmOnMetadataReadyAsync;
+                _vm.OpenSettingsRequested -= VmOnOpenSettingsRequestedAsync;
+                Logger.Debug("Unhooked previous UploadViewModel events.");
             }
-            // wire events
-            _vm.MetadataReady += VmOnMetadataReadyAsync;
-            _vm.OpenSettingsRequested += VmOnOpenSettingsRequestedAsync;
+            _vm = vm;
+            if (_vm is not null)
+            {
+                _vm.MetadataReady += VmOnMetadataReadyAsync;
+                _vm.OpenSettingsRequested += VmOnOpenSettingsRequestedAsync;
+                Logger.Debug("Hooked UploadViewModel events.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "TryHookVm failed.");
         }
     }
 
     private async void VmOnOpenSettingsRequestedAsync(object? sender, EventArgs e)
     {
-        if (VisualRoot is not Window win) return;
-        var dlg = new UploadSettingsWindow();
-        await dlg.ShowDialog(win);
-        if (_vm is not null)
+        try
         {
-            await _vm.RefreshCommand.ExecuteAsync(null);
+            if (VisualRoot is not Window win)
+            {
+                Logger.Warn("OpenSettingsRequested: VisualRoot window is null.");
+                return;
+            }
+            var dlg = new UploadSettingsWindow();
+            await dlg.ShowDialog(win);
+            if (_vm is not null)
+            {
+                await _vm.RefreshCommand.ExecuteAsync(null);
+                Logger.Info("Settings dialog closed, refresh triggered.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Error while opening settings dialog.");
         }
     }
 
     private async void VmOnMetadataReadyAsync(object? sender, EventArgs e)
     {
-        if (_vm is null) return;
-        if (_vm.HasDuplicates)
+        try
         {
-            var res = await MessageBox.ShowAsync("检测到与远端存在相同话数，是否继续?", "提示", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
-            if (res != MessageBoxResult.Yes) return;
+            if (_vm is null)
+            {
+                Logger.Warn("MetadataReady: ViewModel is null.");
+                return;
+            }
+            if (_vm.HasDuplicates)
+            {
+                Logger.Info("Duplicate episodes detected, asking for confirmation.");
+                var res = await MessageBox.ShowAsync("检测到与远端存在相同话数，是否继续?", "提示", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                if (res != MessageBoxResult.Yes)
+                {
+                    Logger.Info("User cancelled due to duplicates.");
+                    return;
+                }
+            }
+            var dlg = new ProjectMetaDataWindow { DataContext = _vm };
+            if (VisualRoot is Window owner)
+            {
+                Logger.Debug("Opening ProjectMetaDataWindow as dialog.");
+                await dlg.ShowDialog(owner);
+            }
+            else
+            {
+                Logger.Debug("Opening ProjectMetaDataWindow as window.");
+                dlg.Show();
+            }
         }
-        var dlg = new ProjectMetaDataWindow { DataContext = _vm };
-        if (VisualRoot is Window owner)
-            await dlg.ShowDialog(owner);
-        else
-            dlg.Show();
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Error while handling MetadataReady.");
+        }
     }
 }
