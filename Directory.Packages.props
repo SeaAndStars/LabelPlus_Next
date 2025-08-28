@@ -9,6 +9,7 @@
     <PackageVersion Include="Antelcat.I18N.Avalonia" Version="1.1.2" />
     <PackageVersion Include="Avalonia" Version="11.3.2" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="11.3.2" />
+    <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="11.1.1" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.2" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.2" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.2" />
@@ -34,6 +35,8 @@
     <PackageVersion Include="Nlnet.Avalonia.MessageBox" Version="1.0.2" />
     <PackageVersion Include="ReactiveUI" Version="20.4.1" />
     <PackageVersion Include="Semi.Avalonia" Version="11.2.1.9" />
+    <PackageVersion Include="Semi.Avalonia.DataGrid" Version="11.2.1.9" />
+    <PackageVersion Include="Semi.Avalonia.TreeDataGrid" Version="11.0.10.4" />
     <PackageVersion Include="WebDav.Client" Version="2.9.0" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <!-- Config -->

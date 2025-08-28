@@ -1,0 +1,25 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.Windows.ProjectMetaDataWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    x:DataType="vm:UploadViewModel"
+    Title="确认上传话数"
+    Width="720" Height="520">
+  <Grid Margin="25" RowDefinitions="Auto * Auto">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="项目：" />
+      <TextBlock FontWeight="SemiBold" Text="{Binding PendingProjectName}" />
+    </StackPanel>
+
+    <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" Margin="0,8,0,8" />
+
+    <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+      <Button Content="取消" IsCancel="True" />
+      <Button Click="OnConfirmClick" Content="开始上传" IsDefault="True" />
+    </StackPanel>
+  </Grid>
+</u:UrsaWindow>

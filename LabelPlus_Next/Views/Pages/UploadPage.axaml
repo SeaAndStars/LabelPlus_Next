@@ -1,0 +1,70 @@
+<UserControl
+    x:Class="LabelPlus_Next.Views.Pages.UploadPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    d:DesignHeight="600"
+    d:DesignWidth="960"
+    x:DataType="vm:UploadViewModel"
+    mc:Ignorable="d">
+    <Grid ColumnDefinitions="*" RowDefinitions="Auto Auto *">
+        <!--  Toolbar  -->
+        <u:ToolBar Grid.Row="0">
+            <Button Command="{Binding PickUploadFolderCommand}" Content="上传文件夹" />
+            <u:ToolBarSeparator />
+            <Button Command="{Binding PickUploadFilesCommand}" Content="上传文件" />
+            <u:ToolBarSeparator />
+            <Button Command="{Binding AddProjectCommand}" Content="新增项目" />
+            <u:ToolBarSeparator />
+            <Button Command="{Binding RefreshCommand}" Content="刷新" />
+            <u:ToolBarSeparator />
+            <Button Command="{Binding OpenSettingsCommand}" Content="设置" />
+        </u:ToolBar>
+
+        <!--  Search / Suggest  -->
+        <StackPanel
+            Grid.Row="1"
+            Margin="6,8,6,8"
+            Orientation="Horizontal"
+            Spacing="8">
+            <TextBlock VerticalAlignment="Center" Text="项目：" />
+            <u:AutoCompleteBox
+                Width="360"
+                ItemsSource="{Binding Suggestions}"
+                MinimumPrefixLength="1"
+                Text="{Binding SelectedProject, Mode=TwoWay}" />
+            <TextBlock
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Text="状态：" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding Status}" />
+        </StackPanel>
+
+        <!--  Content placeholder: projects list  -->
+        <Grid
+            Grid.Row="2"
+            Margin="6"
+            ColumnDefinitions="2* 3*"
+            ColumnSpacing="12">
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,6"
+                    FontWeight="SemiBold"
+                    Text="项目" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="420">
+                    <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}" />
+                </ScrollViewer>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+                <TextBlock
+                    Margin="0,0,0,6"
+                    FontWeight="SemiBold"
+                    Text="说明" />
+                <TextBlock Text="选择或新增增目，使用上方按钮上传文件或文件夹。设置中可配置用户名与密码。" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

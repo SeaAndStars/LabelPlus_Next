@@ -1,22 +1,23 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="using:LabelPlus_Next"
-             xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
-             xmlns:semi="https://irihi.tech/semi"
-             xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
-             x:Class="LabelPlus_Next.App"
-             RequestedThemeVariant="Default">
+<Application
+    x:Class="LabelPlus_Next.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:local="using:LabelPlus_Next"
+    xmlns:semi="https://irihi.tech/semi"
+    xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+    RequestedThemeVariant="Default">
     <Application.DataTemplates>
-        <local:ViewLocator/>
+        <local:ViewLocator />
     </Application.DataTemplates>
 
-    <!-- Fallback resources and theme-aware brushes -->
+    <!--  Fallback resources and theme-aware brushes  -->
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Provide a sensible default if the theme doesn't register this token at runtime -->
+            <!--  Provide a sensible default if the theme doesn't register this token at runtime  -->
             <Color x:Key="SemiColorText2">#FF202020</Color>
 
-            <!-- Theme-specific brush for LabeledTextBox text/index -->
+            <!--  Theme-specific brush for LabeledTextBox text/index  -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="LabeledTextBrush">Black</SolidColorBrush>
@@ -33,58 +34,61 @@
         <semi:SemiTheme Locale="zh-CN" />
         <u-semi:SemiTheme Locale="zh-CN" />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+		<StyleInclude
+	    Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml"/>
 
-        <!-- Keep TextBox global tweaks if any other TextBox is used elsewhere -->
+
+        <!--  Keep TextBox global tweaks if any other TextBox is used elsewhere  -->
         <Style Selector="TextBox">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="CornerRadius" Value="0"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="0" />
         </Style>
         <Style Selector="TextBox:pointerover /template/ Border#PART_RootBorder">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
         </Style>
         <Style Selector="TextBox:focus /template/ Border#PART_RootBorder">
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <!-- default styling for custom LabeledTextBox: separator and index capsule background -->
+        <!--  default styling for custom LabeledTextBox: separator and index capsule background  -->
         <Style Selector="customControls|LabeledTextBox">
-            <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}"/>
-            <Setter Property="IndexBackgroundBrush" Value="{DynamicResource BackgroundBrush}"/>
-            <Setter Property="IndexForegroundBrush" Value="{DynamicResource LabeledTextBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource LabeledTextBrush}"/>
+            <Setter Property="SeparatorBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="IndexBackgroundBrush" Value="{DynamicResource BackgroundBrush}" />
+            <Setter Property="IndexForegroundBrush" Value="{DynamicResource LabeledTextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LabeledTextBrush}" />
         </Style>
 
         <Style Selector="customControls|PicViewer">
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Grid ClipToBounds="True" Background="Transparent">
+                    <Grid Background="Transparent" ClipToBounds="True">
                         <Grid x:Name="PART_Viewport">
                             <Grid.RenderTransform>
                                 <TransformGroup>
-                                    <!-- Scale first, then translate: x' = S*x + T  -->
-                                    <ScaleTransform ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}"
-                                                    ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
-                                    <TranslateTransform X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}"
-                                                        Y="{Binding TranslateY, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    <!--  Scale first, then translate: x' = S*x + T  -->
+                                    <ScaleTransform ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    <TranslateTransform X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}" Y="{Binding TranslateY, RelativeSource={RelativeSource TemplatedParent}}" />
                                 </TransformGroup>
                             </Grid.RenderTransform>
-                            <Image x:Name="PART_Image"
-                                   HorizontalAlignment="Stretch"
-                                   VerticalAlignment="Stretch"
-                                   Source="{TemplateBinding Source}"
-                                   Stretch="{TemplateBinding Stretch}" />
-                            <!-- Overlay centered and sized to the image content rect -->
-                            <customControls:LabelOverlay x:Name="PART_Overlay"
-                                IsHitTestVisible="False"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
+                            <Image
+                                x:Name="PART_Image"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Source="{TemplateBinding Source}"
+                                Stretch="{TemplateBinding Stretch}" />
+                            <!--  Overlay centered and sized to the image content rect  -->
+                            <customControls:LabelOverlay
+                                x:Name="PART_Overlay"
                                 Width="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                 Height="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
                                 ClipToBounds="True"
-                                Labels="{Binding Labels, RelativeSource={RelativeSource TemplatedParent}}"
-                                HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}"
+                                ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
                                 ContentWidth="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}" />
+                                HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}"
+                                IsHitTestVisible="False"
+                                Labels="{Binding Labels, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Grid>
                     </Grid>
                 </ControlTemplate>

@@ -179,7 +179,7 @@ namespace LabelPlus_Next.Views
                     host.Content = new SimpleTextPage("协作页面");
                     break;
                 case "upload":
-                    host.Content = new SimpleTextPage("上传页面");
+                    host.Content = new UploadPage { DataContext = new UploadViewModel() };
                     break;
                 case "deliver":
                     host.Content = new SimpleTextPage("交付页面");
