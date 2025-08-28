@@ -9,11 +9,15 @@ public class AppSettings
 
 public class UpdateSettings
 {
+    // Default, hard-coded configuration for update checking (used by main app when needed)
+    public const string DefaultBaseUrl = "https://alist.seastarss.cn";
+    public const string DefaultManifestPath = "/OneDrive/Update/manifest.json";
+
     // e.g. https://webdav.example.com/updates/
-    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; }
+    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; } = DefaultBaseUrl;
 
     // e.g. app/manifest.json (relative to base)
-    [JsonPropertyName("manifestPath")] public string? ManifestPath { get; set; }
+    [JsonPropertyName("manifestPath")] public string? ManifestPath { get; set; } = DefaultManifestPath;
 
     [JsonPropertyName("username")] public string? Username { get; set; }
 

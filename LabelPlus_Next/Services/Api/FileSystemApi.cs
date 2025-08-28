@@ -254,18 +254,27 @@ public sealed class FileSystemApi : IFileSystemApi
         return res;
     }
 
-    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, int maxConcurrency = 4, bool asTask = false, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
+    {
+        return await PutManyAsync(token, items, progress: null, maxConcurrency: maxConcurrency, asTask: asTask, cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, IProgress<UploadProgress>? progress, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
     {
         var list = items?.ToList() ?? new List<FileUploadItem>();
         Logger.Debug("PutMany count={count} concurrency={cc}", list.Count, maxConcurrency);
         var results = new FsPutResponse[list.Count];
         using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
+        int done = 0;
         var tasks = list.Select(async (item, idx) =>
         {
             await sem.WaitAsync(cancellationToken);
             try
             {
-                results[idx] = await PutAsync(token, item.FilePath, item.Content, asTask, cancellationToken);
+                var res = await PutAsync(token, item.FilePath, item.Content, asTask, cancellationToken);
+                results[idx] = res;
+                var d = Interlocked.Increment(ref done);
+                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
             }
             finally { sem.Release(); }
         });

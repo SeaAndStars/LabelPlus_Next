@@ -90,6 +90,7 @@ public partial class UploadPage : UserControl
             {
                 _vm.MetadataReady -= VmOnMetadataReadyAsync;
                 _vm.OpenSettingsRequested -= VmOnOpenSettingsRequestedAsync;
+                _vm.MultiMetadataReady -= VmOnMultiMetadataReady;
                 Logger.Debug("Unhooked previous UploadViewModel events.");
             }
             _vm = vm;
@@ -97,6 +98,7 @@ public partial class UploadPage : UserControl
             {
                 _vm.MetadataReady += VmOnMetadataReadyAsync;
                 _vm.OpenSettingsRequested += VmOnOpenSettingsRequestedAsync;
+                _vm.MultiMetadataReady += VmOnMultiMetadataReady;
                 Logger.Debug("Hooked UploadViewModel events.");
             }
         }
@@ -163,6 +165,24 @@ public partial class UploadPage : UserControl
         catch (Exception ex)
         {
             Logger.Error(ex, "Error while handling MetadataReady.");
+        }
+    }
+
+    private void VmOnMultiMetadataReady(object? sender, System.Collections.Generic.IReadOnlyList<UploadViewModel> vms)
+    {
+        try
+        {
+            var owner = VisualRoot as Window;
+            foreach (var vm in vms)
+            {
+                var win = new ProjectMetaDataWindow { DataContext = vm };
+                if (owner is not null) win.Show(owner); else win.Show();
+            }
+            Logger.Info("Opened {count} metadata windows for multi-folder selection.", vms.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Error while opening multiple metadata windows.");
         }
     }
 }

@@ -102,11 +102,17 @@ public partial class ProjectMetaDataWindow : UrsaWindow
         return new FuncDataTemplate<Node>((n, _) =>
         {
             var box = new ComboBox { IsEnabled = !n.IsFile };
-            box.ItemsSource = new[] { "立项", "翻译", "校对", "嵌字" };
+            box.ItemsSource = new[] { "立项", "翻译", "校对", "嵌字", "发布" };
             box.SelectedItem = n.Status;
             box.SelectionChanged += (_, __) => { if (box.SelectedItem is string s) n.Status = s; };
             return box;
         }, true);
+    }
+
+    private void OnCancelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Logger.Info("Meta window cancelled by user.");
+        Close(false);
     }
 
     private async void OnConfirmClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

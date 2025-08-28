@@ -30,24 +30,36 @@
     </Application.Resources>
 
     <Application.Styles>
+
+
         <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+        <StyleInclude Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml" />
+
+
         <semi:SemiTheme Locale="zh-CN" />
         <u-semi:SemiTheme Locale="zh-CN" />
-        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
-		<StyleInclude
-	    Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml"/>
-
 
         <!--  Keep TextBox global tweaks if any other TextBox is used elsewhere  -->
         <Style Selector="TextBox">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="CornerRadius" Value="0" />
         </Style>
+        <!--  Remove hover/focus background and border effects for TextBox root border  -->
+        <Style Selector="TextBox /template/ Border#PART_RootBorder">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
         <Style Selector="TextBox:pointerover /template/ Border#PART_RootBorder">
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
         <Style Selector="TextBox:focus /template/ Border#PART_RootBorder">
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
         <!--  default styling for custom LabeledTextBox: separator and index capsule background  -->

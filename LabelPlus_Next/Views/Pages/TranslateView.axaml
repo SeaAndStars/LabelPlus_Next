@@ -34,6 +34,7 @@
         <Style Selector="TextBox#LabelTextBox:focus:pointerover">
             <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
+
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="* 2 *" RowDefinitions="Auto Auto *">
@@ -253,16 +254,17 @@
                 <Border
                     Grid.Row="2"
                     Height="2"
-                    Margin="-2,0,0,32"
+                    Margin="-2,0,0,0"
                     Background="{DynamicResource AccentButtonBackground}" />
                 <TextBox
                     x:Name="LabelTextBox"
                     Grid.Row="3"
                     MinWidth="400"
-                    MinHeight="280"
+                    MinHeight="300"
                     Margin="-2,0,0,0"
                     HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
+					VerticalAlignment="Stretch"
                     VerticalContentAlignment="Top"
                     AcceptsReturn="True"
                     FontSize="20"

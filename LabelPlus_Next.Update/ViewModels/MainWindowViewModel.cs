@@ -60,14 +60,25 @@ namespace LabelPlus_Next.Update.ViewModels
                 UpdateSettings upd;
                 if (!File.Exists(settingsPath))
                 {
-                    await MessageBox.ShowOverlayAsync("未找到 settings.json，无法更新", "提示");
-                    Logger.Warn("settings.json not found at {path}", settingsPath);
-                    return;
+                    // Use hard-coded defaults when settings.json is missing
+                    upd = new UpdateSettings
+                    {
+                        BaseUrl = UpdateSettings.DefaultBaseUrl,
+                        ManifestPath = UpdateSettings.DefaultManifestPath
+                    };
+                    Logger.Warn("settings.json not found at {path}, using defaults: {baseUrl}{manifest}", settingsPath, upd.BaseUrl, upd.ManifestPath);
                 }
-                await using (var fs = File.OpenRead(settingsPath))
+                else
                 {
-                    var s = await JsonSerializer.DeserializeAsync<AppSettings>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-                    upd = s?.Update ?? new UpdateSettings();
+                    await using (var fs = File.OpenRead(settingsPath))
+                    {
+                        var s = await JsonSerializer.DeserializeAsync<AppSettings>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                        upd = s?.Update ?? new UpdateSettings();
+                    }
+
+                    // Ensure defaults are applied if values are blank
+                    if (string.IsNullOrWhiteSpace(upd.BaseUrl)) upd.BaseUrl = UpdateSettings.DefaultBaseUrl;
+                    if (string.IsNullOrWhiteSpace(upd.ManifestPath)) upd.ManifestPath = UpdateSettings.DefaultManifestPath;
                 }
 
                 var manifestJson = await FetchManifestJsonAsync(upd, appDir);
@@ -193,19 +204,8 @@ namespace LabelPlus_Next.Update.ViewModels
                 Logger.Info("Downloading: {url}", url);
                 var cfg = new DownloadConfiguration
                 {
-                    BufferBlockSize = 10240,
-                    ChunkCount = 8,
-                    MaximumBytesPerSecond = 0,
-                    MaxTryAgainOnFailure = 5,
-                    MaximumMemoryBufferBytes = 50 * 1024 * 1024,
-                    ParallelDownload = true,
-                    ParallelCount = 4,
-                    Timeout = 10000,
-                    RangeDownload = false,
-                    MinimumSizeOfChunking = 102400,
-                    MinimumChunkSize = 10240,
-                    ReserveStorageSpaceBeforeStartingDownload = true,
-                    EnableLiveStreaming = false
+                    ChunkCount = 16, // Number of file parts, default is 1
+                    ParallelDownload = true // Download parts in parallel (default is false)
                 };
                 var service = new DownloadService(cfg);
                 service.DownloadProgressChanged += (s, e) =>

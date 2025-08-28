@@ -9,8 +9,12 @@ public class AppSettings
 
 public class UpdateSettings
 {
-    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; }
-    [JsonPropertyName("manifestPath")] public string? ManifestPath { get; set; }
+    // Default, hard-coded configuration for update checking
+    public const string DefaultBaseUrl = "https://alist.seastarss.cn";
+    public const string DefaultManifestPath = "/OneDrive/Update/manifest.json";
+
+    [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; } = DefaultBaseUrl;
+    [JsonPropertyName("manifestPath")] public string? ManifestPath { get; set; } = DefaultManifestPath;
     [JsonPropertyName("username")] public string? Username { get; set; }
     [JsonPropertyName("password")] public string? Password { get; set; }
 }

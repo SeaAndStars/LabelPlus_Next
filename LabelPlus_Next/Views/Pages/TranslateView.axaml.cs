@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions; // for I18NExtension
+using Avalonia.VisualTree;
 using LabelPlus_Next.CustomControls;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.ViewModels;
@@ -41,14 +42,12 @@ public partial class TranslateView : UserControl
 
     private void OnGridGotFocus(object? sender, GotFocusEventArgs e)
     {
-        // reset last-centered so the next selection change while grid focused will center
         _lastCentered = null;
     }
 
     private void OnGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_labelsGrid is null || _picViewer is null) return;
-        // only center if grid currently has focus
         if (!_labelsGrid.IsKeyboardFocusWithin) return;
         if (_labelsGrid.SelectedItem is LabelItem item)
         {
@@ -73,11 +72,46 @@ public partial class TranslateView : UserControl
 
     private TranslateViewModel? Vm => DataContext as TranslateViewModel;
 
+    private bool IsTypingContext(object? source)
+    {
+        if (source is TextBox) return true;
+        var top = TopLevel.GetTopLevel(this);
+        var focused = top?.FocusManager?.GetFocusedElement();
+        if (focused is TextBox) return true;
+        if (focused is Control ctrl)
+        {
+            var tb = ctrl.FindAncestorOfType<TextBox>();
+            if (tb is not null) return true;
+        }
+        if (source is Control sc)
+        {
+            var tb2 = sc.FindAncestorOfType<TextBox>();
+            if (tb2 is not null) return true;
+        }
+        return false;
+    }
+
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
         var vm = Vm; var pic = _picViewer ?? this.FindControl<PicViewer>("Pic");
         bool gridFocused = _labelsGrid?.IsKeyboardFocusWithin == true;
+
+        if (IsTypingContext(e.Source))
+        {
+            if ((e.KeyModifiers & KeyModifiers.Control) != 0)
+            {
+                switch (e.Key)
+                {
+                    case Key.Up: MoveSelection(-1); e.Handled = true; return;
+                    case Key.Down: MoveSelection(1); e.Handled = true; return;
+                    case Key.Left: MoveImageSelection(-1); e.Handled = true; return;
+                    case Key.Right: MoveImageSelection(1); e.Handled = true; return;
+                }
+            }
+            return;
+        }
+
         if (e.KeyModifiers == KeyModifiers.None)
         {
             switch (e.Key)

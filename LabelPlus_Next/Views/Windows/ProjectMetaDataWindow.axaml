@@ -8,17 +8,24 @@
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     x:DataType="vm:UploadViewModel"
     Title="确认上传话数"
-    Width="720" Height="520">
-  <Grid Margin="25" RowDefinitions="Auto * Auto">
+    Width="720" Height="560">
+  <Grid Margin="25" RowDefinitions="Auto * Auto Auto" RowSpacing="8">
     <StackPanel Orientation="Horizontal" Spacing="8">
       <TextBlock Text="项目：" />
       <TextBlock FontWeight="SemiBold" Text="{Binding PendingProjectName}" />
     </StackPanel>
 
-    <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" Margin="0,8,0,8" />
+    <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" />
 
-    <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-      <Button Content="取消" IsCancel="True" />
+    <!-- Progress area -->
+    <StackPanel Grid.Row="2" Orientation="Vertical" Spacing="6">
+      <TextBlock Text="{Binding Status}"/>
+      <ProgressBar Minimum="0" Maximum="{Binding UploadTotal}" Value="{Binding UploadCompleted}" Height="8"/>
+      <TextBlock FontSize="12" Foreground="#666" Text="{Binding CurrentUploadingPath}" TextTrimming="CharacterEllipsis"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+      <Button Content="取消" Click="OnCancelClick" />
       <Button Click="OnConfirmClick" Content="开始上传" IsDefault="True" />
     </StackPanel>
   </Grid>

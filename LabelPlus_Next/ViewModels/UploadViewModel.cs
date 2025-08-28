@@ -11,8 +11,12 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using NLog;
+using Avalonia.Controls;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -21,6 +25,11 @@ public partial class UploadViewModel : ObservableObject
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     [ObservableProperty] private string? status;
+
+    [ObservableProperty] private int uploadCompleted;
+    [ObservableProperty] private int uploadTotal;
+    [ObservableProperty] private string? currentUploadingPath;
+
     [ObservableProperty] private string? searchText;
 
     public ObservableCollection<string> Suggestions { get; } = new();
@@ -48,8 +57,12 @@ public partial class UploadViewModel : ObservableObject
     public string? PendingProjectName { get; private set; }
     public bool HasDuplicates { get; private set; }
 
+    // Track whether current flow is uploading to existing project (must merge existing JSON)
+    private bool _uploadToExistingProject;
+
     public event EventHandler? MetadataReady; // Raised after PendingEpisodes prepared
     public event EventHandler? OpenSettingsRequested; // Raised when settings should be shown
+    public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady; // New event for multiple VMs
 
     public UploadViewModel()
     {
@@ -96,29 +109,90 @@ public partial class UploadViewModel : ObservableObject
         if (_dialogs is null) return;
         var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
         if (string.IsNullOrEmpty(folder)) return;
+        _uploadToExistingProject = true;
         LastSelectedFolderPath = folder;
-        var name = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        Status = $"已选择文件夹：{name}";
+        var folderName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = folderName;
+        if (!string.Equals(SelectedProject, folderName, StringComparison.Ordinal))
+        {
+            await _dialogs.ShowMessageAsync($"所选文件夹名“{folderName}”与目标项目名“{SelectedProject}”不一致，请确认。");
+            Status = "项目名不一致";
+            Logger.Warn("Folder name mismatch: folder={folderName} selectedProject={selected}", folderName, SelectedProject);
+            return;
+        }
+        PendingProjectName = SelectedProject;
+        Status = $"已选择文件夹：{folderName}";
         Logger.Info("Picked upload folder: {folder}", folder);
+
+        try
+        {
+            // Prepare episodes from local folder and open metadata window
+            var episodes = ScanEpisodes(folder);
+            PendingEpisodes.Clear();
+            foreach (var e in episodes.OrderByDescending(e => e.Number)) PendingEpisodes.Add(e);
+            HasDuplicates = false; // duplicates will be handled inside UploadPendingAsync merge stage
+            MetadataReady?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            Status = "未能读取文件";
+            Logger.Error(ex, "PickUploadFolderAsync prepare failed for {folder}", folder);
+        }
     }
 
     private async Task PickUploadFilesAsync()
     {
         if (_dialogs is null) return;
-        var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
-        if (string.IsNullOrEmpty(folder)) return;
-        try
+        var files = await _dialogs.PickFilesAsync("选择要上传的文件（可多选）");
+        if (files is null || files.Count == 0) return;
+        _uploadToExistingProject = true;
+
+        // Infer project from SelectedProject or parent folder name of first file
+        var first = files[0];
+        var parentFolder = Path.GetFileName(Path.GetDirectoryName(first) ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = parentFolder;
+        if (!string.IsNullOrWhiteSpace(SelectedProject) && !string.Equals(SelectedProject, parentFolder, StringComparison.Ordinal))
         {
-            var exts = new HashSet<string>(new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".txt", ".zip", ".7z", ".rar" }, StringComparer.OrdinalIgnoreCase);
-            var count = Directory.EnumerateFiles(folder).Count(f => exts.Contains(Path.GetExtension(f)));
-            Status = $"已选择文件：{count} 个";
-            Logger.Info("Picked files in folder {folder}: {count}", folder, count);
+            await _dialogs.ShowMessageAsync($"所选文件所在文件夹名“{parentFolder}”与目标项目名“{SelectedProject}”不一致，请确认。");
+            Status = "项目名不一致";
+            Logger.Warn("PickUploadFilesAsync: parent folder mismatch. parent={parentFolder} selected={selected}", parentFolder, SelectedProject);
+            return;
         }
-        catch (Exception ex)
+        PendingProjectName = SelectedProject;
+
+        // Group files by episode number inferred from file/folder name
+        var byEpisode = new Dictionary<int, EpisodeEntry>();
+        foreach (var path in files)
         {
-            Status = "未能读取文件";
-            Logger.Error(ex, "PickUploadFilesAsync failed for {folder}", folder);
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (!TryParseEpisodeNumber(name, out var num))
+            {
+                // fallback: try parent folder
+                var folder = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
+                if (!TryParseEpisodeNumber(folder, out num)) continue;
+            }
+            if (!byEpisode.TryGetValue(num, out var ep))
+            {
+                ep = new EpisodeEntry { Number = num, Status = "立项" };
+                byEpisode[num] = ep;
+            }
+            ep.LocalFiles.Add(path);
+            // upgrade status depending on ext
+            var ext = Path.GetExtension(path);
+            if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase)) ep.Status = PickHigherStatus(ep.Status, "嵌字");
+            else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+            {
+                var lower = Path.GetFileName(path).ToLowerInvariant();
+                ep.Status = PickHigherStatus(ep.Status, lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check") ? "校对" : "翻译");
+            }
         }
+
+        PendingEpisodes.Clear();
+        foreach (var ep in byEpisode.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(ep);
+        LastSelectedFolderPath = Path.GetDirectoryName(first); // remember base folder
+        Status = $"已选择文件：{files.Count} 个";
+        HasDuplicates = false;
+        MetadataReady?.Invoke(this, EventArgs.Empty);
     }
 
     private Task OpenSettingsAsync()
@@ -132,28 +206,33 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            if ((string.IsNullOrWhiteSpace(LastSelectedFolderPath) || !Directory.Exists(LastSelectedFolderPath)) && _dialogs is not null)
+            _uploadToExistingProject = false;
+
+            List<string> candidateFolders = new();
+            if (!string.IsNullOrWhiteSpace(LastSelectedFolderPath) && Directory.Exists(LastSelectedFolderPath))
             {
-                var picked = await _dialogs.PickFolderAsync("选择要上传的文件夹");
-                if (!string.IsNullOrEmpty(picked))
+                candidateFolders.Add(LastSelectedFolderPath!);
+            }
+            else if (_dialogs is not null)
+            {
+                // let user pick multiple episode folders
+                var pickedMany = await _dialogs.PickFoldersAsync("选择要上传的话数文件夹（可多选）");
+                if (pickedMany is { Count: > 0 }) candidateFolders.AddRange(pickedMany);
+                else
                 {
-                    LastSelectedFolderPath = picked;
-                    Logger.Info("AddProject: folder selected interactively: {folder}", picked);
+                    var pickedSingle = await _dialogs.PickFolderAsync("选择要上传的文件夹");
+                    if (!string.IsNullOrEmpty(pickedSingle)) candidateFolders.Add(pickedSingle);
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(LastSelectedFolderPath) || !Directory.Exists(LastSelectedFolderPath))
+            if (candidateFolders.Count == 0)
             {
                 Status = "请先选择上传文件夹";
                 Logger.Warn("AddProject aborted: no valid folder.");
                 return;
             }
 
-            var localDir = LastSelectedFolderPath!;
-            var projectName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            PendingProjectName = projectName;
-            Logger.Info("AddProject for {project} at {dir}", projectName, localDir);
-
+            // Login once and refresh aggregate for map
             var us = await LoadUploadSettingsAsync();
             if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; Logger.Warn("No server baseUrl."); return; }
             var baseUrl = us.BaseUrl!.TrimEnd('/');
@@ -161,15 +240,104 @@ public partial class UploadViewModel : ObservableObject
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
             if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; Logger.Warn("Login failed: {code} {msg}", login.Code, login.Message); return; }
             var token = login.Data.Token!;
-
             await RefreshAsync();
-
-            string projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
-                ? path
-                : $"/{projectName}/{projectName}_project.json";
-
             var fsApi = new FileSystemApi(baseUrl);
-            var existingEpisodeNums = new HashSet<int>();
+
+            if (candidateFolders.Count == 1)
+            {
+                // Keep original single-folder flow
+                var folder = candidateFolders[0];
+                var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                PendingProjectName = projectName;
+                Logger.Info("AddProject(single) for {project} at {dir}", projectName, folder);
+
+                if (ProjectMap.ContainsKey(projectName))
+                {
+                    Logger.Warn("Aggregate already contains project {name}", projectName);
+                    await MessageBox.ShowAsync($"聚合清单中已存在项目“{projectName}”。建议使用‘上传到项目’以避免冲突。", "提示", MessageBoxIcon.Information, MessageBoxButton.OK);
+                    return;
+                }
+
+                // Episode duplicate check (optional)
+                var projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
+                    ? path
+                    : $"/{projectName}/{projectName}_project.json";
+                var existingEpisodeNums = await GetExistingEpisodeNumbersAsync(fsApi, token, projectJsonPath);
+                var episodes = ScanEpisodes(folder);
+                HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
+                if (HasDuplicates)
+                {
+                    await MessageBox.ShowAsync("检测到与远端项目存在相同话数。建议使用‘上传到项目’功能以避免覆盖。", "提示", MessageBoxIcon.Warning, MessageBoxButton.OK);
+                    return;
+                }
+                PendingEpisodes.Clear();
+                foreach (var e in episodes.OrderByDescending(e => e.Number)) PendingEpisodes.Add(e);
+                MetadataReady?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            // Multiple folders: create a VM per folder and raise multi event
+            var list = new List<UploadViewModel>();
+            foreach (var folder in candidateFolders)
+            {
+                try
+                {
+                    if (!Directory.Exists(folder)) continue;
+                    var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    if (ProjectMap.ContainsKey(projectName))
+                    {
+                        await _dialogs!.ShowMessageAsync($"聚合清单中已存在项目“{projectName}”，已跳过。");
+                        continue;
+                    }
+                    var projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
+                        ? path
+                        : $"/{projectName}/{projectName}_project.json";
+                    var existingEpisodeNums = await GetExistingEpisodeNumbersAsync(fsApi, token, projectJsonPath);
+                    var episodes = ScanEpisodes(folder).OrderByDescending(e => e.Number).ToList();
+                    var dup = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
+                    if (dup)
+                    {
+                        await _dialogs!.ShowMessageAsync($"项目“{projectName}”存在与远端相同话数，已跳过。请使用‘上传到项目’。");
+                        continue;
+                    }
+
+                    var vm = new UploadViewModel();
+                    vm.InitializeServices(_dialogs!);
+                    // copy project map for correct path resolution
+                    foreach (var kv in ProjectMap) vm.ProjectMap[kv.Key] = kv.Value;
+                    vm.PendingProjectName = projectName;
+                    vm.LastSelectedFolderPath = folder;
+                    vm.PendingEpisodes.Clear();
+                    foreach (var e in episodes) vm.PendingEpisodes.Add(e);
+                    vm.HasDuplicates = false;
+                    list.Add(vm);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn(ex, "Prepare child vm failed for {folder}", folder);
+                }
+            }
+
+            if (list.Count == 0)
+            {
+                Status = "没有可上传的项目";
+                return;
+            }
+
+            MultiMetadataReady?.Invoke(this, list);
+        }
+        catch (Exception ex)
+        {
+            Status = $"新增项目失败: {ex.Message}";
+            Logger.Error(ex, "AddProjectAsync failed.");
+        }
+    }
+
+    private static async Task<HashSet<int>> GetExistingEpisodeNumbersAsync(FileSystemApi fsApi, string token, string projectJsonPath)
+    {
+        var set = new HashSet<int>();
+        try
+        {
             var get = await fsApi.GetAsync(token, projectJsonPath);
             if (get.Code == 200 && get.Data is { IsDir: false })
             {
@@ -179,53 +347,29 @@ public partial class UploadViewModel : ObservableObject
                     var bytes = dl.Content;
                     if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) bytes = bytes[3..];
                     var json = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Trim();
-                    try
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("episodes", out var eps) && eps.ValueKind == JsonValueKind.Object)
                     {
-                        using var doc = JsonDocument.Parse(json);
-                        if (doc.RootElement.TryGetProperty("episodes", out var eps) && eps.ValueKind == JsonValueKind.Object)
-                        {
-                            foreach (var prop in eps.EnumerateObject())
-                            {
-                                if (TryParseEpisodeNumber(prop.Name, out var n)) existingEpisodeNums.Add(n);
-                            }
-                        }
-                        else
-                        {
-                            foreach (var prop in doc.RootElement.EnumerateObject())
-                            {
-                                if (TryParseEpisodeNumber(prop.Name, out var n)) existingEpisodeNums.Add(n);
-                            }
-                        }
+                        foreach (var prop in eps.EnumerateObject())
+                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
                     }
-                    catch (Exception ex)
+                    else if (doc.RootElement.TryGetProperty("项目", out var items) && items.ValueKind == JsonValueKind.Object)
                     {
-                        Logger.Warn(ex, "Parse remote project json failed: {path}", projectJsonPath);
+                        foreach (var prop in items.EnumerateObject())
+                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
                     }
                 }
             }
-
-            var episodes = ScanEpisodes(localDir);
-            HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
-            Logger.Info("Local episodes found: {count}, duplicates with remote: {dup}", episodes.Count, HasDuplicates);
-
-            var sorted = episodes.OrderByDescending(e => e.Number).ToList();
-
-            PendingEpisodes.Clear();
-            foreach (var e in sorted) PendingEpisodes.Add(e);
-
-            MetadataReady?.Invoke(this, EventArgs.Empty);
         }
-        catch (Exception ex)
-        {
-            Status = $"新增项目失败: {ex.Message}";
-            Logger.Error(ex, "AddProjectAsync failed.");
-        }
+        catch { }
+        return set;
     }
 
     private static int StatusRank(string status)
     {
         return status switch
         {
+            "发布" => 4,
             "嵌字" => 3,
             "校对" => 2,
             "翻译" => 1,
@@ -283,6 +427,39 @@ public partial class UploadViewModel : ObservableObject
                 }
             }
         }
+
+        // Robustness: any txt file with episode number in its file name marks that episode as 翻译 (lower priority than 校对)
+        try
+        {
+            var txtFiles = Directory.EnumerateFiles(localDir, "*.txt", SearchOption.AllDirectories).ToList();
+            foreach (var txt in txtFiles)
+            {
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(txt);
+                int num;
+                if (!TryParseEpisodeNumber(nameWithoutExt, out num))
+                {
+                    var parent = Path.GetFileName(Path.GetDirectoryName(txt) ?? string.Empty);
+                    if (!TryParseEpisodeNumber(parent, out num)) continue;
+                }
+                if (!map.TryGetValue(num, out var epEntry))
+                {
+                    epEntry = new EpisodeEntry { Number = num, Status = "立项" };
+                    map[num] = epEntry;
+                }
+                if (!epEntry.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase))
+                    epEntry.LocalFiles.Add(txt);
+
+                // Determine candidate status: prefer 校对 if keywords, else 翻译
+                var lower = nameWithoutExt.ToLowerInvariant();
+                var candidate = (lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check")) ? "校对" : "翻译";
+                epEntry.Status = PickHigherStatus(epEntry.Status, candidate);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "ScanEpisodes: txt pass failed");
+        }
+
         Logger.Debug("ScanEpisodes: merged into {count} episodes", map.Count);
         return map.Values.ToList();
     }
@@ -420,85 +597,199 @@ public partial class UploadViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(PendingProjectName)) { Status = "无项目"; Logger.Warn("Upload aborted: no project name."); return false; }
             var us = await LoadUploadSettingsAsync();
             if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "未配置服务器地址"; Logger.Warn("Upload aborted: no baseUrl."); return false; }
+
+            var toUpload = PendingEpisodes.Where(e => e.Include).ToList();
+            var episodesCount = toUpload.Count;
+            var plannedFilesCount = toUpload.Sum(e => e.LocalFiles.Count);
+            var includeAggregate = !_uploadToExistingProject; // only for new project
+            int preSteps = 0
+                + 1  // 登录
+                + 1  // 创建项目目录
+                + episodesCount // 创建各话目录
+                + plannedFilesCount // 读取与规划文件
+                + (includeAggregate ? 2 : 0) // 下载/上传根清单
+                + 1  // 下载项目JSON
+                + 1  // 合并JSON
+                + 1; // 上传项目JSON
+            int uploadSteps = plannedFilesCount;
+            int totalSteps = preSteps + uploadSteps;
+
+            UploadCompleted = 0;
+            UploadTotal = totalSteps;
+            CurrentUploadingPath = null;
+            void Step(string message, string? path = null)
+            {
+                Status = message;
+                CurrentUploadingPath = path;
+                UploadCompleted = Math.Min(UploadCompleted + 1, UploadTotal);
+            }
+
+            Status = "登录中...";
             var baseUrl = us.BaseUrl!.TrimEnd('/');
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
             if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; Logger.Warn("Upload login failed: {code} {msg}", login.Code, login.Message); return false; }
+            Step("登录完成");
             var token = login.Data!.Token!;
             var fsApi = new FileSystemApi(baseUrl);
 
             var projectDir = "/" + PendingProjectName!.Trim('/') + "/";
-            await fsApi.MkdirAsync(token, projectDir);
+            var mkProj = await fsApi.MkdirAsync(token, projectDir);
+            if (mkProj.Code is >= 400 and < 500) { Status = $"创建目录失败: {mkProj.Message}"; return false; }
+            Step("已创建项目目录", projectDir);
 
-            var toUpload = PendingEpisodes.Where(e => e.Include).ToList();
-            Logger.Info("Uploading {count} episodes to {dir}", toUpload.Count, projectDir);
             foreach (var ep in toUpload)
             {
                 var epDir = projectDir + ep.Number + "/";
-                await fsApi.MkdirAsync(token, epDir);
-                foreach (var file in ep.LocalFiles)
-                {
-                    try
-                    {
-                        if (!File.Exists(file)) { Logger.Warn("File missing: {file}", file); continue; }
-                        var name = Path.GetFileName(file);
-                        var remote = epDir + name;
-                        var bytes = await File.ReadAllBytesAsync(file);
-                        var res = await fsApi.SafePutAsync(token, remote, bytes);
-                        if (res.Code != 200) { Status = $"上传失败: {remote} -> {res.Message}"; Logger.Warn("Upload failed: {remote} {code} {msg}", remote, res.Code, res.Message); return false; }
-                        Logger.Debug("Uploaded: {remote}", remote);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex, "Upload single file failed: {file}", file);
-                        Status = $"上传失败: {file}";
-                        return false;
-                    }
-                }
+                var mk = await fsApi.MkdirAsync(token, epDir);
+                if (mk.Code is >= 400 and < 500) { Status = $"创建话数目录失败: {mk.Message}"; return false; }
+                Step($"目录就绪: {ep.Number}", epDir);
             }
 
-            string projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var path) && !string.IsNullOrWhiteSpace(path)
-                ? path
+            // Build items and map paths; count planning steps
+            var items = new List<FileUploadItem>();
+            var resultMap = new Dictionary<int, (string? source, string? translate, string? typeset)>();
+            foreach (var ep in toUpload)
+            {
+                var epDir = projectDir + ep.Number + "/";
+                string? sourcePath = null; string? translatePath = null; string? typesetPath = null;
+                foreach (var file in ep.LocalFiles)
+                {
+                    if (!File.Exists(file)) { Step("跳过缺失文件", file); continue; }
+                    var name = Path.GetFileName(file);
+                    var remote = epDir + name;
+                    var content = await File.ReadAllBytesAsync(file);
+                    items.Add(new FileUploadItem { FilePath = remote, Content = content });
+                    var ext = Path.GetExtension(name);
+                    if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase) || ext.Equals(".7z", StringComparison.OrdinalIgnoreCase) || ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
+                        sourcePath ??= remote;
+                    else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (translatePath is null) translatePath = remote;
+                        var lower = name.ToLowerInvariant();
+                        if (lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check")) translatePath = remote;
+                    }
+                    else if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase))
+                        typesetPath ??= remote;
+                    Step("已规划文件", remote);
+                }
+                resultMap[ep.Number] = (sourcePath, translatePath, typesetPath);
+            }
+
+            // Update aggregate /project.json if creating a new project
+            string projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var pj) && !string.IsNullOrWhiteSpace(pj)
+                ? pj
                 : projectDir + PendingProjectName + "_project.json";
 
-            // Load existing project json strongly-typed
-            ProjectJson root;
-            var get = await fsApi.GetAsync(token, projectJsonPath);
-            if (get.Code == 200 && get.Data is { IsDir: false })
+            if (includeAggregate)
+            {
+                const string aggregatePath = "/project.json";
+                var agg = await fsApi.DownloadAsync(token, aggregatePath);
+                if (agg.Code != 200 || agg.Content is null)
+                {
+                    Status = $"下载聚合清单失败: {agg.Code} {agg.Message}";
+                    return false;
+                }
+                Step("已下载聚合清单", aggregatePath);
+
+                Dictionary<string, string> map = new();
+                try
+                {
+                    using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(agg.Content).TrimStart('\uFEFF'));
+                    if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
+                    {
+                        Status = "聚合清单格式错误"; return false;
+                    }
+                    foreach (var prop in projects.EnumerateObject())
+                    {
+                        map[prop.Name] = prop.Value.GetString() ?? string.Empty;
+                    }
+                }
+                catch
+                {
+                    Status = "解析聚合清单失败"; return false;
+                }
+
+                // merge
+                map[PendingProjectName] = projectJsonPath;
+                var aggObj = new AggregateProjects { Projects = map };
+                var aggOut = System.Text.Json.JsonSerializer.Serialize(aggObj, AppJsonContext.Default.AggregateProjects);
+                var putAgg = await fsApi.SafePutAsync(token, aggregatePath, Encoding.UTF8.GetBytes(aggOut));
+                if (putAgg.Code != 200) { Status = $"更新聚合清单失败: {putAgg.Message}"; return false; }
+                Step("聚合清单已更新", aggregatePath);
+            }
+
+            // Download and merge per-project JSON
+            ProjectCn cn;
+            bool requireMergeExisting = _uploadToExistingProject;
+            var getMeta = await fsApi.GetAsync(token, projectJsonPath);
+            if (getMeta.Code == 200 && getMeta.Data is { IsDir: false })
             {
                 var dl = await fsApi.DownloadAsync(token, projectJsonPath);
                 if (dl.Code == 200 && dl.Content is { Length: > 0 })
                 {
-                    var text = Encoding.UTF8.GetString(dl.Content).TrimStart('\uFEFF');
                     try
                     {
-                        root = JsonSerializer.Deserialize(text, AppJsonContext.Default.ProjectJson) ?? new ProjectJson();
+                        var txt = Encoding.UTF8.GetString(dl.Content).TrimStart('\uFEFF');
+                        cn = JsonSerializer.Deserialize(txt, AppJsonContext.Default.ProjectCn) ?? new ProjectCn();
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Logger.Warn(ex, "Deserialize existing project json failed");
-                        root = new ProjectJson();
+                        if (requireMergeExisting) { Status = "无法读取项目JSON，已取消"; return false; }
+                        cn = new ProjectCn();
                     }
                 }
-                else root = new ProjectJson();
+                else
+                {
+                    if (requireMergeExisting) { Status = "未能下载项目JSON，已取消"; return false; }
+                    cn = new ProjectCn();
+                }
             }
-            else root = new ProjectJson();
+            else
+            {
+                if (requireMergeExisting) { Status = "未找到项目JSON，已取消"; return false; }
+                cn = new ProjectCn();
+            }
+            Step("已获取项目JSON", projectJsonPath);
 
-            // Merge episodes
             foreach (var ep in toUpload)
             {
-                root.Episodes[ep.Number.ToString()] = new EpisodeInfo { Status = ep.Status };
+                resultMap.TryGetValue(ep.Number, out var pmap);
+                var key = ep.Number.ToString("00");
+                cn.Items[key] = new EpisodeCn { Status = ep.Status, SourcePath = pmap.source, TranslatePath = pmap.translate, TypesetPath = pmap.typeset };
             }
+            cn.Items = cn.Items.OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0).ToDictionary(k => k.Key, v => v.Value);
+            Step("JSON 合并完成", projectJsonPath);
 
-            // Order desc by numeric key
-            root.Episodes = root.Episodes
-                .OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0)
-                .ToDictionary(k => k.Key, v => v.Value);
-
-            var jsonOut = JsonSerializer.Serialize(root, AppJsonContext.Default.ProjectJson);
+            var ctx = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
+            {
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+                WriteIndented = true
+            });
+            var jsonOut = JsonSerializer.Serialize(cn, ctx.ProjectCn);
             var bytesOut = Encoding.UTF8.GetBytes(jsonOut);
-            var put = await fsApi.SafePutAsync(token, projectJsonPath, bytesOut);
-            if (put.Code != 200) { Status = $"更新项目JSON失败: {put.Message}"; Logger.Warn("Update project json failed: {code} {msg}", put.Code, put.Message); return false; }
+            var putJson = await fsApi.SafePutAsync(token, projectJsonPath, bytesOut);
+            if (putJson.Code != 200) { Status = $"更新项目JSON失败: {putJson.Message}"; return false; }
+            Step("JSON 已上传", projectJsonPath);
+
+            // Offset for upload progress
+            var offset = UploadCompleted;
+            var progress = new Progress<UploadProgress>(p =>
+            {
+                UploadTotal = totalSteps; // keep total constant
+                UploadCompleted = Math.Min(offset + p.Completed, UploadTotal);
+                CurrentUploadingPath = p.CurrentRemotePath;
+                Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
+            });
+
+            var res = await fsApi.PutManyAsync(token, items, progress, maxConcurrency: 6, asTask: false);
+            if (res.Any(r => r.Code != 200))
+            {
+                var first = res.FirstOrDefault(r => r.Code != 200);
+                Status = $"上传失败: {first?.Message}";
+                return false;
+            }
 
             Status = "上传完成";
             Logger.Info("Upload completed successfully.");

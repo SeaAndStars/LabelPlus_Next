@@ -169,7 +169,7 @@ public class LabelOverlay : Control
             var rect = GetLabelRect(x, y, side);
             var brush = label.Category == 1 ? innerBrush : outerBrush;
             // Thinner borders
-            var penThickness = (i - 1) == HighlightIndex ? side / 10.0 : side / 18.0;
+            var penThickness = (i - 1) == HighlightIndex ? side / 14.0 : side / 24.0;
             var pen = new Pen(brush, penThickness);
 
             var rrect = new RoundedRect(rect, radius, radius);

@@ -8,6 +8,8 @@ namespace LabelPlus_Next.Services
         Task<string?> OpenTranslationFileAsync();
         Task<string?> SaveAsTranslationFileAsync(string suggestedFileName = "translation");
         Task<string?> PickFolderAsync(string title);
+        Task<IReadOnlyList<string>?> PickFoldersAsync(string title);
+        Task<IReadOnlyList<string>?> PickFilesAsync(string title);
         Task<System.Collections.Generic.IReadOnlyList<string>?> ChooseImagesAsync(string folderPath);
         Task ShowMessageAsync(string message);
     }

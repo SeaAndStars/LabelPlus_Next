@@ -14,6 +14,9 @@ namespace LabelPlus_Next.Serialization;
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(ProjectJson))]
 [JsonSerializable(typeof(EpisodeInfo))]
+[JsonSerializable(typeof(ProjectCn))]
+[JsonSerializable(typeof(EpisodeCn))]
+[JsonSerializable(typeof(AggregateProjects))]
 public partial class AppJsonContext : JsonSerializerContext
 {
 }

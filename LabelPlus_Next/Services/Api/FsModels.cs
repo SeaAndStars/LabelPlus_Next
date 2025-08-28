@@ -190,3 +190,13 @@ public enum UploadMode
     Multiple,
     Directory
 }
+
+/// <summary>
+/// 上传进度数据。
+/// </summary>
+public sealed class UploadProgress
+{
+    public int Completed { get; set; }
+    public int Total { get; set; }
+    public string? CurrentRemotePath { get; set; }
+}

@@ -6,7 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-    d:DesignHeight="600"
+    d:DesignHeight="800"
     d:DesignWidth="960"
     x:DataType="vm:UploadViewModel"
     mc:Ignorable="d">
@@ -35,7 +35,8 @@
                 Width="360"
                 ItemsSource="{Binding Suggestions}"
                 MinimumPrefixLength="1"
-                Text="{Binding SelectedProject, Mode=TwoWay}" />
+                Text="{Binding SelectedProject, Mode=TwoWay}"
+                Watermark="在此处键入或是在下方选择要上传到的项目" />
             <TextBlock
                 Margin="16,0,0,0"
                 VerticalAlignment="Center"
@@ -54,7 +55,10 @@
                     Margin="0,0,0,6"
                     FontWeight="SemiBold"
                     Text="项目" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="420">
+                <ScrollViewer
+                    MaxHeight="600"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
                     <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}" />
                 </ScrollViewer>
             </StackPanel>

@@ -21,7 +21,6 @@ namespace LabelPlus_Next.Services
         private static string? ToLocalPath(Uri? uri)
         {
             if (uri is null) return null;
-            // Prefer LocalPath to avoid leading '/' on Windows (e.g. "/C:/...")
             return uri.IsAbsoluteUri ? uri.LocalPath : uri.ToString();
         }
 
@@ -54,10 +53,42 @@ namespace LabelPlus_Next.Services
         {
             var folders = await _topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = title
+                Title = title,
+                AllowMultiple = false
             });
             if (folders is null || folders.Count == 0) return null;
             return ToLocalPath(folders[0]?.Path);
+        }
+
+        public async Task<IReadOnlyList<string>?> PickFoldersAsync(string title)
+        {
+            var folders = await _topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = true
+            });
+            if (folders is null || folders.Count == 0) return null;
+            return folders.Select(f => ToLocalPath(f.Path)!).Where(p => p is not null).ToList();
+        }
+
+        public async Task<IReadOnlyList<string>?> PickFilesAsync(string title)
+        {
+            var types = new List<FilePickerFileType>
+            {
+                new("常见类型") { Patterns = new List<string>{ "*.zip","*.7z","*.rar","*.txt","*.psd","*.jpg","*.jpeg","*.png","*.bmp","*.gif","*.webp" }},
+                new("压缩包") { Patterns = new List<string>{ "*.zip","*.7z","*.rar" }},
+                new("文本") { Patterns = new List<string>{ "*.txt" }},
+                new("图片") { Patterns = new List<string>{ "*.jpg","*.jpeg","*.png","*.bmp","*.gif","*.webp" }},
+                new("PSD") { Patterns = new List<string>{ "*.psd" }}
+            };
+            var files = await _topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = true,
+                FileTypeFilter = types
+            });
+            if (files is null || files.Count == 0) return null;
+            return files.Select(f => ToLocalPath(f.Path)!).Where(p => p is not null).ToList();
         }
 
         public async Task<System.Collections.Generic.IReadOnlyList<string>?> ChooseImagesAsync(string folderPath)
