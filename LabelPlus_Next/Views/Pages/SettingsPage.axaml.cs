@@ -21,7 +21,7 @@ public partial class SettingsPage : UserControl
     {
         if (DataContext is ViewModels.SettingsViewModel vm)
         {
-            await vm.VerifyWebDavAsync();
+            await vm.VerifyHttpAsync();
         }
     }
 }

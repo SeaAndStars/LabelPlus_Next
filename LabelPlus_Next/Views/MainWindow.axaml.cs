@@ -21,6 +21,7 @@ namespace LabelPlus_Next.Views
         private NavMenu? _menuMain;
         private NavMenu? _menuFooter;
         private bool _didStartupCheck;
+        private readonly SettingsViewModel _settingsVm = new();
 
         public MainWindow()
         {
@@ -48,27 +49,18 @@ namespace LabelPlus_Next.Views
 
             try
             {
-                // Load settings first to ensure WebDAV params are present
-                var vm = new SettingsViewModel();
-                await vm.LoadAsync();
-                var (ok, hasUpdate, msg) = await vm.ProbeUpdateAsync();
+                // Load settings and run startup update check using the same VM instance used by Settings page
+                await _settingsVm.LoadAsync();
+                await _settingsVm.CheckAndUpdateOnStartupAsync();
 
-                if (!ok)
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", msg ?? "未知错误"), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
-                }
-                else if (hasUpdate)
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("发现新版本", "请前往 设置 -> 检查更新 执行更新。"), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
-                }
-                else
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("提示", "当前已是最新版本。"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
-                }
+                // Optional: quick verify to show status
+                await _settingsVm.VerifyHttpAsync();
+
+                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("提示", _settingsVm.Status ?? string.Empty), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
             }
             catch (Exception ex)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检测失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
             }
         }
 
@@ -82,7 +74,7 @@ namespace LabelPlus_Next.Views
             // Intercept settings: open modal and restore previous selection
             if (string.Equals(tag, "settings", StringComparison.Ordinal))
             {
-                var win = new SettingsWindow { DataContext = new SettingsViewModel() };
+                var win = new SettingsWindow { DataContext = _settingsVm };
                 if (this.IsVisible) win.ShowDialog(this); else win.Show();
 
                 if (sender is NavMenu menu)
@@ -156,7 +148,7 @@ namespace LabelPlus_Next.Views
                     break;
                 case "settings":
                     // Open as dialog window and keep current content
-                    var win = new SettingsWindow { DataContext = new SettingsViewModel() };
+                    var win = new SettingsWindow { DataContext = _settingsVm };
                     if (this.IsVisible)
                         win.ShowDialog(this);
                     else

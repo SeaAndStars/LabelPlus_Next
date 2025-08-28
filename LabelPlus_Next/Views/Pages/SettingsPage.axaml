@@ -8,10 +8,10 @@
     <StackPanel Spacing="12" Margin="16">
       <TextBlock Text="设置" FontSize="20" FontWeight="SemiBold"/>
 
-      <!-- WebDAV 更新配置 -->
+      <!-- HTTP 更新配置 -->
       <Border BorderThickness="1" CornerRadius="4" BorderBrush="Gray" Margin="0,8,0,0">
         <StackPanel Spacing="8" Margin="8">
-          <TextBlock Text="WebDAV 更新配置" FontWeight="SemiBold"/>
+          <TextBlock Text="HTTP 更新配置" FontWeight="SemiBold"/>
           <TextBlock Text="Base Url"/>
           <TextBox Text="{Binding BaseUrl}"/>
           <TextBlock Text="Manifest 路径"/>
@@ -22,8 +22,8 @@
           <TextBox Text="{Binding Password}"/>
           <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
             <Button Content="保存" Command="{Binding SaveCommand}"/>
-            <Button Content="检查更新" Command="{Binding CheckUpdateCommand}"/>
-            <Button Content="验证 WebDAV" Click="OnVerifyClick"/>
+            <Button Content="检查更新" Command="{Binding VerifyHttpCommand}"/>
+            <Button Content="验证 HTTP" Click="OnVerifyClick"/>
           </StackPanel>
           <TextBlock Text="{Binding Status}"/>
         </StackPanel>

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Downloader;
 using LabelPlus_Next.Update.Models;
 using System;
 using System.IO;
@@ -7,12 +8,10 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
-using WebDav;
 using Ursa.Controls;
 using System.Diagnostics;
 
@@ -91,11 +90,36 @@ namespace LabelPlus_Next.Update.ViewModels
                 var clientLatest = cproj?.Latest ?? (cproj?.Releases.Count > 0 ? cproj.Releases[0].Version : null);
                 var updaterLatest = uproj?.Latest ?? (uproj?.Releases.Count > 0 ? uproj.Releases[0].Version : null);
 
-                if (IsGreater(updaterLatest, updaterLocal))
+                if (IsGreater(updaterLatest, updaterLocal) && uproj is not null)
                 {
-                    await MessageBox.ShowOverlayAsync($"更新程序需要先更新到 {updaterLatest}，请从主程序触发更新。即将退出。", "提示");
-                    (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
-                    return;
+                    var (fileUrl, fileSha) = GetReleaseFileInfo(uproj, updaterLatest!);
+                    if (!string.IsNullOrWhiteSpace(fileUrl))
+                    {
+                        // Multi-thread download with Downloader
+                        var tmpZip = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
+                        await DownloadWithDownloaderAsync(fileUrl!, tmpZip);
+
+                        if (!string.IsNullOrWhiteSpace(fileSha))
+                        {
+                            var actual = await ComputeSha256Async(tmpZip);
+                            if (!string.Equals(actual, fileSha, StringComparison.OrdinalIgnoreCase))
+                            {
+                                try { File.Delete(tmpZip); } catch { }
+                                Status = DownloadStatus.Error;
+                                await MessageBox.ShowAsync("SHA256 校验失败", "错误");
+                                return;
+                            }
+                        }
+
+                        // Extract selectively, skip any file under 'update/' folder
+                        await ExtractZipSelectiveAsync(tmpZip, appDir, relPath =>
+                        {
+                            var p = relPath.Replace('\\', '/');
+                            return p.StartsWith("update/", StringComparison.OrdinalIgnoreCase);
+                        });
+
+                        try { File.Delete(tmpZip); } catch { }
+                    }
                 }
 
                 if (IsGreater(clientLatest, clientLocal) && cproj is not null)
@@ -103,8 +127,6 @@ namespace LabelPlus_Next.Update.ViewModels
                     var (fileUrl, fileSha) = GetReleaseFileInfo(cproj, clientLatest!);
                     if (!string.IsNullOrWhiteSpace(fileUrl))
                     {
-                        await DownloadAndApplyAsync(fileUrl!, appDir, upd, fileSha);
-                        // Auto restart main app
                         await MessageBox.ShowOverlayAsync("更新完成，正在重启主程序...", "提示");
                         TryStartMainApp(appDir);
                         (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
@@ -129,6 +151,40 @@ namespace LabelPlus_Next.Update.ViewModels
             }
         }
 
+        private async Task DownloadWithDownloaderAsync(string url, string outPath)
+        {
+            Status = DownloadStatus.Downloading;
+            var cfg = new DownloadConfiguration
+            {
+                BufferBlockSize = 10240,
+                ChunkCount = 8,
+                MaximumBytesPerSecond = 0,
+                MaxTryAgainOnFailure = 5,
+                MaximumMemoryBufferBytes = 50 * 1024 * 1024,
+                ParallelDownload = true,
+                ParallelCount = 4,
+                Timeout = 10000,
+                RangeDownload = false,
+                MinimumSizeOfChunking = 102400,
+                MinimumChunkSize = 10240,
+                ReserveStorageSpaceBeforeStartingDownload = true,
+                EnableLiveStreaming = false
+            };
+            var service = new DownloadService(cfg);
+            service.DownloadProgressChanged += (s, e) =>
+            {
+                BytesReceivedInMB = e.ReceivedBytesSize / 1024d / 1024d;
+                TotalBytesToReceiveInMB = e.TotalBytesToReceive / 1024d / 1024d;
+                Speed = e.AverageBytesPerSecondSpeed / 1024d / 1024d;
+                ProgressPercentage = e.ProgressPercentage;
+                Remaining = TimeSpan.FromSeconds(e.TotalBytesToReceive > 0 && e.AverageBytesPerSecondSpeed > 0
+                    ? (e.TotalBytesToReceive - e.ReceivedBytesSize) / e.AverageBytesPerSecondSpeed
+                    : 0);
+            };
+            await service.DownloadFileTaskAsync(url, outPath);
+            Status = DownloadStatus.Completed;
+        }
+
         private (string? url, string? sha256) GetReleaseFileInfo(ProjectReleases prj, string version)
         {
             foreach (var r in prj.Releases)
@@ -146,165 +202,12 @@ namespace LabelPlus_Next.Update.ViewModels
             return (null, null);
         }
 
-        private async Task<string?> FetchManifestJsonAsync(UpdateSettings upd, string appDir)
+        private static async Task<string> ComputeSha256Async(string path)
         {
-            // Resolve manifest URL
-            Uri? manifestUri = null;
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(upd.BaseUrl) && !string.IsNullOrWhiteSpace(upd.ManifestPath))
-                {
-                    var baseUrl = AppendSlash(upd.BaseUrl!);
-                    var candidate = upd.ManifestPath!.Trim();
-                    manifestUri = Uri.TryCreate(candidate, UriKind.Absolute, out var abs) ? abs : new Uri(new Uri(baseUrl), candidate.TrimStart('/'));
-                }
-                if (manifestUri is null)
-                {
-                    // Fallback to Client.version.json -> manifest
-                    var verPath = Path.Combine(appDir, "Client.version.json");
-                    if (File.Exists(verPath))
-                    {
-                        using var fs = File.OpenRead(verPath);
-                        using var doc = JsonDocument.Parse(fs);
-                        if (doc.RootElement.TryGetProperty("manifest", out var m) && m.ValueKind == JsonValueKind.String)
-                        {
-                            var s = m.GetString();
-                            if (!string.IsNullOrWhiteSpace(s) && Uri.TryCreate(s, UriKind.Absolute, out var u)) manifestUri = u;
-                        }
-                    }
-                }
-            }
-            catch { }
-            if (manifestUri is null) return null;
-
-            try
-            {
-                var client = CreateWebDavClient(upd);
-                var resp = await client.GetRawFile(manifestUri);
-                if (resp.IsSuccessful && resp.Stream is not null)
-                {
-                    using var sr = new StreamReader(resp.Stream, Encoding.UTF8, true);
-                    return await sr.ReadToEndAsync();
-                }
-            }
-            catch { }
-
-            return null;
-        }
-
-        private static WebDavClient CreateWebDavClient(UpdateSettings upd)
-        {
-            var p = new WebDavClientParams();
-            if (!string.IsNullOrEmpty(upd.Username))
-                p.Credentials = new NetworkCredential(upd.Username, upd.Password ?? string.Empty);
-            return new WebDavClient(p);
-        }
-
-        private static string AppendSlash(string url) => url.EndsWith('/') ? url : url + '/';
-
-        private static string? ReadLocalVersion(string path)
-        {
-            try
-            {
-                if (!File.Exists(path)) return null;
-                using var fs = File.OpenRead(path);
-                using var doc = JsonDocument.Parse(fs);
-                if (doc.RootElement.TryGetProperty("version", out var v)) return v.GetString();
-                return null;
-            }
-            catch { return null; }
-        }
-
-        private static bool IsGreater(string? remote, string? local)
-        {
-            if (string.IsNullOrWhiteSpace(remote)) return false;
-            if (string.IsNullOrWhiteSpace(local)) return true;
-            if (System.Version.TryParse(remote, out var r) && System.Version.TryParse(local, out var l)) return r > l;
-            return string.Compare(remote, local, StringComparison.OrdinalIgnoreCase) > 0;
-        }
-
-        private static string? GetReleaseUrl(ProjectReleases prj, string version)
-        {
-            foreach (var r in prj.Releases)
-            {
-                if (string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase)) return r.Url ?? r.Files?.Find(f => !string.IsNullOrEmpty(f.Url))?.Url;
-            }
-            return null;
-        }
-
-        private async Task DownloadAndApplyAsync(string url, string appDir, UpdateSettings upd, string? expectedSha256)
-        {
-            var tmpZip = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
-
-            Status = DownloadStatus.Downloading;
-            ProgressPercentage = 0; BytesReceivedInMB = 0; Speed = 0; TotalBytesToReceiveInMB = 0; Remaining = TimeSpan.Zero;
-
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            var client = CreateWebDavClient(upd);
-            var uri = new Uri(url);
-
-            long total = 0;
-            try
-            {
-                var prop = await client.Propfind(uri);
-                if (prop.IsSuccessful)
-                {
-                    var r = prop.Resources.FirstOrDefault();
-                    if (r != null && r.ContentLength.HasValue) total = r.ContentLength.Value;
-                }
-            }
-            catch { }
-            TotalBytesToReceiveInMB = total > 0 ? total / 1024d / 1024d : 0;
-
-            var raw = await client.GetRawFile(uri);
-            if (!raw.IsSuccessful || raw.Stream is null)
-            {
-                Status = DownloadStatus.Error;
-                await MessageBox.ShowAsync("下载失败（WebDAV）", "错误");
-                return;
-            }
-
-            await using (var input = raw.Stream)
-            await using (var output = File.Create(tmpZip))
-            {
-                var buffer = new byte[128 * 1024];
-                long readTotal = 0;
-                int read;
-                while ((read = await input.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                {
-                    await output.WriteAsync(buffer, 0, read);
-                    readTotal += read;
-                    BytesReceivedInMB = readTotal / 1024d / 1024d;
-                    ProgressPercentage = total > 0 ? Math.Round(readTotal * 100.0 / total, 1) : 0;
-                    Speed = BytesReceivedInMB / Math.Max(0.001, sw.Elapsed.TotalSeconds);
-                    var remainingBytes = Math.Max(0, total - readTotal);
-                    var rate = readTotal / Math.Max(1, sw.Elapsed.TotalSeconds);
-                    Remaining = rate > 0 ? TimeSpan.FromSeconds(remainingBytes / rate) : TimeSpan.Zero;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                var actual = await ComputeSha256Async(tmpZip);
-                if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
-                {
-                    try { File.Delete(tmpZip); } catch { }
-                    Status = DownloadStatus.Error;
-                    await MessageBox.ShowAsync($"SHA256 校验失败\n期望: {expectedSha256}\n实际: {actual}", "错误");
-                    return;
-                }
-            }
-
-            // Extract selectively, skip any file under 'update/' folder
-            await ExtractZipSelectiveAsync(tmpZip, appDir, relPath =>
-            {
-                var p = relPath.Replace('\\', '/');
-                return p.StartsWith("update/", StringComparison.OrdinalIgnoreCase);
-            });
-
-            try { File.Delete(tmpZip); } catch { }
-            Status = DownloadStatus.Completed;
-            ProgressPercentage = 100;
+            await using var fs = File.OpenRead(path);
+            using var sha = SHA256.Create();
+            var bytes = await sha.ComputeHashAsync(fs);
+            return Convert.ToHexString(bytes).ToLowerInvariant();
         }
 
         private static async Task ExtractZipSelectiveAsync(string zipPath, string destDir, Func<string, bool> skipPredicate)
@@ -327,14 +230,6 @@ namespace LabelPlus_Next.Update.ViewModels
                 await using var outStream = File.Create(outPath);
                 await inStream.CopyToAsync(outStream);
             }
-        }
-
-        private static async Task<string> ComputeSha256Async(string path)
-        {
-            await using var fs = File.OpenRead(path);
-            using var sha = SHA256.Create();
-            var bytes = await sha.ComputeHashAsync(fs);
-            return Convert.ToHexString(bytes).ToLowerInvariant();
         }
 
         private static void TryStartMainApp(string appDir)
@@ -395,6 +290,54 @@ namespace LabelPlus_Next.Update.ViewModels
             }
             catch { }
             return null;
+        }
+
+        private static string AppendSlash(string url) => url.EndsWith('/') ? url : url + '/';
+
+        private static string? ReadLocalVersion(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+                using var fs = File.OpenRead(path);
+                using var doc = JsonDocument.Parse(fs);
+                if (doc.RootElement.TryGetProperty("version", out var v)) return v.GetString();
+                return null;
+            }
+            catch { return null; }
+        }
+
+        private static bool IsGreater(string? remote, string? local)
+        {
+            if (string.IsNullOrWhiteSpace(remote)) return false;
+            if (string.IsNullOrWhiteSpace(local)) return true;
+            if (System.Version.TryParse(remote, out var r) && System.Version.TryParse(local, out var l)) return r > l;
+            return string.Compare(remote, local, StringComparison.OrdinalIgnoreCase) > 0;
+        }
+
+        private async Task<string?> FetchManifestJsonAsync(UpdateSettings upd, string appDir)
+        {
+            // HTTP-only simple fetch: directly GET the manifest URL (since Update project must be independent)
+            Uri? manifestUri = null;
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(upd.BaseUrl) && !string.IsNullOrWhiteSpace(upd.ManifestPath))
+                {
+                    var baseUrl = AppendSlash(upd.BaseUrl!);
+                    var candidate = upd.ManifestPath!.Trim();
+                    manifestUri = Uri.TryCreate(candidate, UriKind.Absolute, out var abs) ? abs : new Uri(new Uri(baseUrl), candidate.TrimStart('/'));
+                }
+            }
+            catch { }
+            if (manifestUri is null) return null;
+
+            try
+            {
+                using var http = new System.Net.Http.HttpClient();
+                var json = await http.GetStringAsync(manifestUri);
+                return json;
+            }
+            catch { return null; }
         }
     }
 }
