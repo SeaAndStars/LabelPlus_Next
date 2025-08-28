@@ -10,7 +10,7 @@
     <Grid Margin="25" RowDefinitions="Auto * Auto Auto" RowSpacing="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="项目：" />
-            <TextBlock FontWeight="SemiBold" Text="{Binding PendingProjectName}" />
+            <TextBox Width="280" Text="{Binding PendingProjectName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
         </StackPanel>
 
         <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" />

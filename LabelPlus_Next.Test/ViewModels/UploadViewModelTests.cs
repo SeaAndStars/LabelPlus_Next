@@ -6,10 +6,13 @@ namespace LabelPlus_Next.Test.ViewModels;
 public class UploadViewModelTests
 {
     [TestMethod]
-    [Ignore("Constructor triggers async refresh that depends on network; this smoke test verifies type is present without side effects.")]
-    public void Smoke_Construct()
+    public void Smoke_Construct_NoAutoRefresh()
     {
-        var vm = new UploadViewModel();
+        var vm = new UploadViewModel(autoRefresh: false);
         Assert.IsNotNull(vm);
+        // Verify commands are initialized
+        Assert.IsNotNull(vm.RefreshCommand);
+        Assert.IsNotNull(vm.PickUploadFilesCommand);
+        Assert.IsNotNull(vm.PickUploadFolderCommand);
     }
 }

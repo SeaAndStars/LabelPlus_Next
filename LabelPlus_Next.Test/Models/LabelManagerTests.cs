@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 namespace LabelPlus_Next.Test.Models;
 
 [TestClass]
+[DoNotParallelize]
 public class LabelManagerTests
 {
     [TestMethod]

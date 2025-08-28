@@ -119,6 +119,11 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                 Close(false);
                 return;
             }
+            if (string.IsNullOrWhiteSpace(vm.PendingProjectName))
+            {
+                await MessageBox.ShowAsync("请填写项目名", "提示", MessageBoxIcon.Warning);
+                return;
+            }
             foreach (var ep in vm.PendingEpisodes)
             {
                 var node = _roots.FirstOrDefault(n => !n.IsFile && n.Number == ep.Number);

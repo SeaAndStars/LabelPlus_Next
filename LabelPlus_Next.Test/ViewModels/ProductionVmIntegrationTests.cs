@@ -7,6 +7,7 @@ using System.Text.Json;
 namespace LabelPlus_Next.Test.ViewModels;
 
 [TestClass]
+[DoNotParallelize]
 public class ProductionVmIntegrationTests
 {
     private sealed class TestConfig

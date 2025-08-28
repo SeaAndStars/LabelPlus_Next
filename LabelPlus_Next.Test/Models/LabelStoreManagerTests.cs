@@ -3,6 +3,7 @@ using LabelPlus_Next.Models;
 namespace LabelPlus_Next.Test.Models;
 
 [TestClass]
+[DoNotParallelize]
 public class LabelStoreManagerTests
 {
     [TestMethod]

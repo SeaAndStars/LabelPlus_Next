@@ -34,7 +34,9 @@ public partial class UploadViewModel : ObservableObject
     [ObservableProperty] private int uploadCompleted;
     [ObservableProperty] private int uploadTotal;
 
-    public UploadViewModel()
+    public UploadViewModel() : this(true) { }
+
+    public UploadViewModel(bool autoRefresh)
     {
         AddProjectCommand = new AsyncRelayCommand(AddProjectAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
@@ -42,7 +44,10 @@ public partial class UploadViewModel : ObservableObject
         PickUploadFolderCommand = new AsyncRelayCommand(PickUploadFolderAsync);
         PickUploadFilesCommand = new AsyncRelayCommand(PickUploadFilesAsync);
         OpenSettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
-        _ = RefreshAsync(); // auto refresh when page opens
+        if (autoRefresh)
+        {
+            _ = RefreshAsync(); // auto refresh when page opens
+        }
         Logger.Info("UploadViewModel created.");
     }
 
@@ -63,7 +68,12 @@ public partial class UploadViewModel : ObservableObject
     // For Add Project flow
     public string? LastSelectedFolderPath { get; set; }
     public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
-    public string? PendingProjectName { get; private set; }
+    private string? _pendingProjectName;
+    public string? PendingProjectName
+    {
+        get => _pendingProjectName;
+        set => SetProperty(ref _pendingProjectName, value);
+    }
     public bool HasDuplicates { get; private set; }
 
     public static string UploadSettingsPath
@@ -678,8 +688,14 @@ public partial class UploadViewModel : ObservableObject
             var mkProj = await fsApi.MkdirAsync(token, projectDir);
             if (mkProj.Code is >= 400 and < 500)
             {
-                Status = $"创建目录失败: {mkProj.Message}";
-                return false;
+                // Fallback: treat as ok if directory already exists
+                var chk = await fsApi.GetAsync(token, projectDir.TrimEnd('/'));
+                if (chk.Code != 200 || chk.Data is null || !chk.Data.IsDir)
+                {
+                    Status = $"创建目录失败: {mkProj.Message}";
+                    return false;
+                }
+                Logger.Info("Project directory already exists: {dir}", projectDir);
             }
             Step("已创建项目目录", projectDir);
 
@@ -689,8 +705,13 @@ public partial class UploadViewModel : ObservableObject
                 var mk = await fsApi.MkdirAsync(token, epDir);
                 if (mk.Code is >= 400 and < 500)
                 {
-                    Status = $"创建话数目录失败: {mk.Message}";
-                    return false;
+                    var chk = await fsApi.GetAsync(token, epDir.TrimEnd('/'));
+                    if (chk.Code != 200 || chk.Data is null || !chk.Data.IsDir)
+                    {
+                        Status = $"创建话数目录失败: {mk.Message}";
+                        return false;
+                    }
+                    Logger.Info("Episode directory already exists: {dir}", epDir);
                 }
                 Step($"目录就绪: {ep.Number}", epDir);
             }
@@ -732,12 +753,19 @@ public partial class UploadViewModel : ObservableObject
             }
 
             // Update aggregate /project.json if creating a new project
+            // Resolve project JSON path: if the (possibly edited) name exists in aggregate, use it to merge; otherwise default under projectDir
             var projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var pj) && !string.IsNullOrWhiteSpace(pj)
                 ? pj
                 : projectDir + PendingProjectName + "_project.json";
 
             if (includeAggregate)
             {
+                // If user edited project name to an existing one, prevent accidental conflict when creating a new project
+                if (ProjectMap.ContainsKey(PendingProjectName))
+                {
+                    Status = $"聚合清单中已存在项目“{PendingProjectName}”，请更换名称或改用‘上传到项目’。";
+                    return false;
+                }
                 const string aggregatePath = "/project.json";
                 var agg = await fsApi.DownloadAsync(token, aggregatePath);
                 if (agg.Code != 200 || agg.Content is null)
@@ -798,30 +826,42 @@ public partial class UploadViewModel : ObservableObject
                     {
                         if (requireMergeExisting)
                         {
-                            Status = "无法读取项目JSON，已取消";
-                            return false;
+                            Logger.Warn("Deserialize project JSON failed, continue with empty model.");
+                            Status = "项目JSON读取失败，已以空模板继续";
+                            cn = new ProjectCn();
                         }
-                        cn = new ProjectCn();
+                        else
+                        {
+                            cn = new ProjectCn();
+                        }
                     }
                 }
                 else
                 {
                     if (requireMergeExisting)
                     {
-                        Status = "未能下载项目JSON，已取消";
-                        return false;
+                        Logger.Warn("Download project JSON failed (code={code}), continue with empty model.", dl.Code);
+                        Status = "未能下载项目JSON，已以空模板继续";
+                        cn = new ProjectCn();
                     }
-                    cn = new ProjectCn();
+                    else
+                    {
+                        cn = new ProjectCn();
+                    }
                 }
             }
             else
             {
                 if (requireMergeExisting)
                 {
-                    Status = "未找到项目JSON，已取消";
-                    return false;
+                    Logger.Warn("Project JSON not found at {path}, continue with empty model.", projectJsonPath);
+                    Status = "未找到项目JSON，已以空模板继续";
+                    cn = new ProjectCn();
                 }
-                cn = new ProjectCn();
+                else
+                {
+                    cn = new ProjectCn();
+                }
             }
             Step("已获取项目JSON", projectJsonPath);
 

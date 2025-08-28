@@ -1,3 +1,54 @@
+# Normalize text files and handle EOLs consistently
+* text=auto
+
+# Enforce LF for config/docs/scripts commonly shared cross-platform
+*.md      text eol=lf
+*.txt     text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.editorconfig text eol=lf
+
+# .NET / Avalonia sources (normalize as text)
+*.cs      text
+*.csx     text
+*.axaml   text
+*.xaml    text
+*.xml     text
+*.resx    text
+*.csproj  text
+*.sln     text
+*.props   text
+*.targets text
+
+# Windows scripts keep CRLF for better tooling compatibility
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+# Inno Setup scripts are Windows-oriented
+*.iss     text eol=crlf
+
+# Shell scripts must be LF on all platforms
+*.sh      text eol=lf
+*.bash    text eol=lf
+
+# Binary assets
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.ttf     binary
+*.otf     binary
+*.ttc     binary
+*.zip     binary
+*.7z      binary
+*.rar     binary
+*.psd     binary
+*.pdf     binary
+
+# Favor union merges for changelog files to reduce conflicts
+CHANGELOG* merge=union
 ###############################################################################
 # Set default behavior to automatically normalize line endings.
 ###############################################################################

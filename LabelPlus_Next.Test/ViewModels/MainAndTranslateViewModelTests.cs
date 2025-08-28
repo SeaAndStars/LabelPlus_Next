@@ -1,9 +1,11 @@
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Models;
+using System.Collections.ObjectModel;
 
 namespace LabelPlus_Next.Test.ViewModels;
 
 [TestClass]
+[DoNotParallelize]
 public class MainAndTranslateViewModelTests
 {
     [TestMethod]
