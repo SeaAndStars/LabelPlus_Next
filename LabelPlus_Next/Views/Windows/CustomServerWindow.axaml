@@ -1,0 +1,32 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.Windows.CustomServerWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    Title="自定义更新服务器"
+    Width="520"
+    Height="420"
+    x:DataType="vm:SettingsViewModel">
+
+    <StackPanel Margin="16" Spacing="8">
+        <TextBlock FontWeight="SemiBold" Text="HTTP 更新配置" />
+        <TextBlock Text="Base Url" />
+        <TextBox Text="{Binding BaseUrl}" />
+        <TextBlock Text="Manifest 路径" />
+        <TextBox Text="{Binding ManifestPath}" />
+        <TextBlock Text="用户名 (可选)" />
+        <TextBox Text="{Binding Username}" />
+        <TextBlock Text="密码 (可选)" />
+        <TextBox Text="{Binding Password}" />
+
+        <StackPanel
+            Margin="0,8,0,0"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button Command="{Binding SaveCommand}" Content="保存到 settings.json" />
+            <Button Click="OnVerifyClick" Content="验证 HTTP" />
+        </StackPanel>
+        <TextBlock Text="{Binding Status}" />
+    </StackPanel>
+</u:UrsaWindow>

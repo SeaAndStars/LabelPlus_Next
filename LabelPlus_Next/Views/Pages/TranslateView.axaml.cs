@@ -76,18 +76,24 @@ public partial class TranslateView : UserControl
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
-        // 去除内部 FocusManager 调用避免编译错误，可按需要自行添加更安全的焦点判断
         var vm = Vm; var pic = _picViewer ?? this.FindControl<PicViewer>("Pic");
+        bool gridFocused = _labelsGrid?.IsKeyboardFocusWithin == true;
         if (e.KeyModifiers == KeyModifiers.None)
         {
             switch (e.Key)
             {
-                case Key.Q: if (pic!=null) pic.Mode = ViewerMode.Browse; e.Handled = true; return;
-                case Key.W: if (pic!=null) pic.Mode = ViewerMode.Label; e.Handled = true; return;
-                case Key.E: if (pic!=null) pic.Mode = ViewerMode.Input; e.Handled = true; return;
-                case Key.R: if (pic!=null) pic.Mode = ViewerMode.Check; e.Handled = true; return;
-                case Key.D1: case Key.NumPad1: vm?.SetSelectedCategory(1); e.Handled = true; return;
-                case Key.D2: case Key.NumPad2: vm?.SetSelectedCategory(2); e.Handled = true; return;
+                case Key.Q: if (pic!=null) { pic.Mode = ViewerMode.Browse; e.Handled = true; } return;
+                case Key.W: if (pic!=null) { pic.Mode = ViewerMode.Label; e.Handled = true; } return;
+                case Key.E: if (pic!=null) { pic.Mode = ViewerMode.Input; e.Handled = true; } return;
+                case Key.R: if (pic!=null) { pic.Mode = ViewerMode.Check; e.Handled = true; } return;
+                case Key.D1:
+                case Key.NumPad1:
+                    if (gridFocused) { vm?.SetSelectedCategory(1); e.Handled = true; }
+                    return;
+                case Key.D2:
+                case Key.NumPad2:
+                    if (gridFocused) { vm?.SetSelectedCategory(2); e.Handled = true; }
+                    return;
             }
         }
         if ((e.KeyModifiers & KeyModifiers.Control) != 0)

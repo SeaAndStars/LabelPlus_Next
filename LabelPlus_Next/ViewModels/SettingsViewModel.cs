@@ -24,10 +24,10 @@ public partial class SettingsViewModel : ViewModelBase
 
     private readonly ISettingsService _settingsService;
 
-    [ObservableProperty] private string? baseUrl;
-    [ObservableProperty] private string? manifestPath = "manifest.json";
-    [ObservableProperty] private string? username;
-    [ObservableProperty] private string? password;
+    [ObservableProperty] private string? baseUrl= "https://alist.seastarss.cn";
+    [ObservableProperty] private string? manifestPath = "/OneDrive/Update/manifest.json";
+    [ObservableProperty] private string? username= "Upgrade";
+    [ObservableProperty] private string? password= "91f158c48d6ab9c5373c992eb07426cad91da2befd437101b1c90797d8c9daf1";
 
     // Old single-field display (kept for compatibility)
     [ObservableProperty] private string? currentVersion;
@@ -66,12 +66,33 @@ public partial class SettingsViewModel : ViewModelBase
         {
             Logger.Info("Loading update settings...");
             var s = await _settingsService.LoadAsync();
-            BaseUrl = s.Update.BaseUrl;
-            ManifestPath = s.Update.ManifestPath ?? "manifest.json";
-            Username = s.Update.Username;
-            Password = s.Update.Password;
+
+            // Keep VM defaults as priority; only override when settings.json has non-empty values
+            var defBase = BaseUrl; var defPath = ManifestPath; var defUser = Username; var defPwd = Password;
+            var effBase = string.IsNullOrWhiteSpace(s.Update.BaseUrl) ? defBase : s.Update.BaseUrl;
+            var effPath = string.IsNullOrWhiteSpace(s.Update.ManifestPath) ? defPath : s.Update.ManifestPath;
+            var effUser = string.IsNullOrWhiteSpace(s.Update.Username) ? defUser : s.Update.Username;
+            var effPwd  = string.IsNullOrWhiteSpace(s.Update.Password) ? defPwd  : s.Update.Password;
+
+            BaseUrl = effBase;
+            ManifestPath = effPath;
+            Username = effUser;
+            Password = effPwd;
+
+            // Persist back if we had to fill missing values using defaults
+            bool needSave = false;
+            if (!string.Equals(s.Update.BaseUrl, effBase, StringComparison.Ordinal)) { s.Update.BaseUrl = effBase; needSave = true; }
+            if (!string.Equals(s.Update.ManifestPath, effPath, StringComparison.Ordinal)) { s.Update.ManifestPath = effPath; needSave = true; }
+            if (!string.Equals(s.Update.Username, effUser, StringComparison.Ordinal)) { s.Update.Username = effUser; needSave = true; }
+            if (!string.Equals(s.Update.Password, effPwd, StringComparison.Ordinal)) { s.Update.Password = effPwd; needSave = true; }
+            if (needSave)
+            {
+                Logger.Info("Settings missing values filled from VM defaults. Saving back to settings.json");
+                await _settingsService.SaveAsync(s);
+            }
+
             Status = "设置已加载";
-            Logger.Info("Settings loaded: baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
+            Logger.Info("Settings effective: baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
         }
         catch (Exception ex)
         {
@@ -208,10 +229,12 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
+            Status = "正在检查更新...";
             Logger.Info("Startup update check...");
             var manifestJson = await DownloadManifestViaApiAsync();
             if (manifestJson is null)
             {
+                Status = "获取清单失败";
                 Logger.Warn("Manifest download failed");
                 return;
             }
@@ -219,6 +242,7 @@ public partial class SettingsViewModel : ViewModelBase
             var manifest = JsonSerializer.Deserialize(manifestJson, AppJsonContext.Default.ManifestV1);
             if (manifest?.Projects is null)
             {
+                Status = "清单格式错误";
                 Logger.Warn("Manifest parse failed or projects missing");
                 return;
             }
@@ -239,6 +263,11 @@ public partial class SettingsViewModel : ViewModelBase
             bool needUpdater = IsGreater(updaterLatest, updaterLocal);
             bool needClient = IsGreater(clientLatest, clientLocal);
 
+            if (!needUpdater && !needClient)
+            {
+                Status = "已经是最新版本";
+            }
+
             // 1) 优先更新 Updater
             if (needUpdater && uproj is not null)
             {
@@ -246,29 +275,33 @@ public partial class SettingsViewModel : ViewModelBase
                 if (!string.IsNullOrWhiteSpace(upUrl))
                 {
                     UpdateTask = $"下载更新程序 {updaterLatest}..."; IsProgressIndeterminate = false; UpdateProgress = 0;
+                    Status = UpdateTask;
                     var zipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
                     var ok = await DownloadZipAutoAsync(upUrl!, zipPath);
                     if (!ok)
                     {
+                        Status = "下载更新程序失败";
                         Logger.Warn("Updater download failed");
                         return;
                     }
-                    if (!await EnsureFileReadyAsync(zipPath)) { Logger.Warn("Updater file not present after download"); return; }
+                    if (!await EnsureFileReadyAsync(zipPath)) { Status = "下载文件不存在"; Logger.Warn("Updater file not present after download"); return; }
 
                     if (!string.IsNullOrWhiteSpace(upSha))
                     {
                         var actual = await ComputeSha256Async(zipPath);
                         if (!string.Equals(actual, upSha, StringComparison.OrdinalIgnoreCase))
                         {
+                            Status = "更新程序校验失败";
                             Logger.Warn("Updater SHA256 mismatch. expected={exp} actual={act}", upSha, actual);
                             SafeDelete(zipPath);
                             return;
                         }
                     }
-                    UpdateTask = "解压更新程序..."; IsProgressIndeterminate = true; UpdateProgress = 0;
+                    UpdateTask = "解压更新程序..."; IsProgressIndeterminate = true; UpdateProgress = 0; Status = UpdateTask;
                     ZipFile.ExtractToDirectory(zipPath, updateDir, overwriteFiles: true);
                     SafeDelete(zipPath);
                     UpdateTask = null; IsProgressIndeterminate = false; UpdateProgress = 0;
+                    Status = $"更新程序已更新到 {updaterLatest}";
                     Logger.Info("Updater updated to {ver}", updaterLatest);
                 }
             }
@@ -305,11 +338,13 @@ public partial class SettingsViewModel : ViewModelBase
                     }
                     catch (Exception ex)
                     {
+                        Status = "启动更新程序失败";
                         Logger.Error(ex, "Failed to start updater for client update");
                     }
                 }
                 else
                 {
+                    Status = "未找到更新程序，无法启动客户端更新";
                     Logger.Warn("Updater exe not found to start client update");
                 }
             }
@@ -317,6 +352,7 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             Logger.Error(ex, "Startup update check failed");
+            Status = $"检查更新失败: {ex.Message}";
         }
     }
 

@@ -53,14 +53,13 @@ namespace LabelPlus_Next.Views
                 await _settingsVm.LoadAsync();
                 await _settingsVm.CheckAndUpdateOnStartupAsync();
 
-                // Optional: quick verify to show status
-                await _settingsVm.VerifyHttpAsync();
-
-                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("提示", _settingsVm.Status ?? string.Empty), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
+                // Only show update result status
+                var message = string.IsNullOrWhiteSpace(_settingsVm.Status) ? "更新检查完成" : _settingsVm.Status;
+                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新", message), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
             }
             catch (Exception ex)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检测失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+                await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
             }
         }
 
