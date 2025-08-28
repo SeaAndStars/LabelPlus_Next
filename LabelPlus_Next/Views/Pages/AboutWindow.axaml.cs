@@ -1,8 +1,6 @@
-using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Text.Json;
 using Ursa.Controls;
 
@@ -27,7 +25,7 @@ public partial class AboutWindow : UrsaWindow
                 using var doc = JsonDocument.Parse(fs);
                 if (doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String)
                 {
-                    VersionText.Text = $"�汾: {v.GetString()}";
+                    VersionText.Text = $"版本: {v.GetString()}";
                     return;
                 }
             }
@@ -36,10 +34,10 @@ public partial class AboutWindow : UrsaWindow
 
         // Fallback: assembly version
         var ver = typeof(App).Assembly.GetName().Version?.ToString() ?? "";
-        VersionText.Text = $"�汾: {ver}";
+        VersionText.Text = $"版本: {ver}";
     }
 
-    private void OnProjectLinkPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    private void OnProjectLinkPressed(object? sender, PointerPressedEventArgs e)
     {
         try
         {

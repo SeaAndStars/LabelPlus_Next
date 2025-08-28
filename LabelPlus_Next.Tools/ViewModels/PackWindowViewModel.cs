@@ -1,8 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LabelPlus_Next.Tools.Models;
 using NLog;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -19,57 +19,56 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using WebDav;
-using LabelPlus_Next.Tools.Models;
 
 namespace LabelPlus_Next.Tools.ViewModels;
 
 public class PackWindowViewModel : ObservableObject
 {
-    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private const string ManifestSchema = "labelplus-manifest/v1";
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private string? selectedFolder;
-    public string? SelectedFolder { get => selectedFolder; set => SetProperty(ref selectedFolder, value); }
+    // Keep all project-version pairs detected from version files
+    private readonly List<(string Project, string Version)> versionEntries = new();
 
-    private string? project;
-    public string? Project { get => project; set => SetProperty(ref project, value); }
+    private double currentProgress;
 
-    private string? version;
-    public string? Version { get => version; set => SetProperty(ref version, value); }
-
-    private string? status;
-    public string? Status { get => status; set => SetProperty(ref status, value); }
-
-    private string? zipPath;
-    public string? ZipPath { get => zipPath; set => SetProperty(ref zipPath, value); }
+    private string? currentTask;
 
     private string? manifestPath;
-    public string? ManifestPath { get => manifestPath; set => SetProperty(ref manifestPath, value); }
 
     // Note: during LoadClientVersionAsync this holds the download URL from project json; later in build it will hold DAV url
     private string? manifestUrl;
-    public string? ManifestUrl { get => manifestUrl; set => SetProperty(ref manifestUrl, value); }
+
+    private string? project;
+
+    private string? selectedFolder;
+
+    private string? status;
 
     private string? targetPath;
-    public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
 
-    private string? currentTask;
-    public string? CurrentTask { get => currentTask; set => SetProperty(ref currentTask, value); }
+    private string? version;
 
-    private double currentProgress;
-    public double CurrentProgress { get => currentProgress; set => SetProperty(ref currentProgress, value); }
-
-    // Keep all project-version pairs detected from version files
-    private List<(string Project, string Version)> versionEntries = new();
-
-    public IAsyncRelayCommand BrowseCommand { get; }
-    public IAsyncRelayCommand BuildAndUploadCommand { get; }
+    private string? zipPath;
 
     public PackWindowViewModel()
     {
         BrowseCommand = new AsyncRelayCommand(BrowseAsync);
         BuildAndUploadCommand = new AsyncRelayCommand(BuildAndUploadAsync);
     }
+    public string? SelectedFolder { get => selectedFolder; set => SetProperty(ref selectedFolder, value); }
+    public string? Project { get => project; set => SetProperty(ref project, value); }
+    public string? Version { get => version; set => SetProperty(ref version, value); }
+    public string? Status { get => status; set => SetProperty(ref status, value); }
+    public string? ZipPath { get => zipPath; set => SetProperty(ref zipPath, value); }
+    public string? ManifestPath { get => manifestPath; set => SetProperty(ref manifestPath, value); }
+    public string? ManifestUrl { get => manifestUrl; set => SetProperty(ref manifestUrl, value); }
+    public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
+    public string? CurrentTask { get => currentTask; set => SetProperty(ref currentTask, value); }
+    public double CurrentProgress { get => currentProgress; set => SetProperty(ref currentProgress, value); }
+
+    public IAsyncRelayCommand BrowseCommand { get; }
+    public IAsyncRelayCommand BuildAndUploadCommand { get; }
 
     private async Task BrowseAsync()
     {
@@ -116,7 +115,7 @@ public class PackWindowViewModel : ObservableObject
 
             if (found.Count == 0)
             {
-                Status = "Î´ÕÒµ½ Update.version.json »ò Client.version.json";
+                Status = "æœªæ‰¾åˆ° Update.version.json æˆ– Client.version.json";
                 return;
             }
 
@@ -138,12 +137,12 @@ public class PackWindowViewModel : ObservableObject
             Version = versionEntries[0].Version;
 
             var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
-            Status = $"°æ±¾: {Version}, ÏîÄ¿: {Project}£¨{filesUsed}£©";
+            Status = $"ç‰ˆæœ¬: {Version}, é¡¹ç›®: {Project}ï¼ˆ{filesUsed}ï¼‰";
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "¶ÁÈ¡°æ±¾ÎÄ¼þÊ§°Ü");
-            Status = $"¶ÁÈ¡°æ±¾Ê§°Ü: {ex.Message}";
+            Logger.Error(ex, "è¯»å–ç‰ˆæœ¬æ–‡ä»¶å¤±è´¥");
+            Status = $"è¯»å–ç‰ˆæœ¬å¤±è´¥: {ex.Message}";
         }
     }
 
@@ -151,9 +150,17 @@ public class PackWindowViewModel : ObservableObject
     {
         try
         {
-            if (string.IsNullOrEmpty(SelectedFolder)) { Status = "ÇëÏÈÑ¡ÔñÄ¿Â¼"; return; }
+            if (string.IsNullOrEmpty(SelectedFolder))
+            {
+                Status = "è¯·å…ˆé€‰æ‹©ç›®å½•";
+                return;
+            }
             if (versionEntries.Count == 0) await LoadClientVersionAsync();
-            if (versionEntries.Count == 0) { Status = "°æ±¾»òÏîÄ¿Îª¿Õ"; return; }
+            if (versionEntries.Count == 0)
+            {
+                Status = "ç‰ˆæœ¬æˆ–é¡¹ç›®ä¸ºç©º";
+                return;
+            }
 
             var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var fileName = $"{Project}({Version})_{ts}.zip";
@@ -162,20 +169,28 @@ public class PackWindowViewModel : ObservableObject
             var outZip = Path.Combine(outDir, fileName);
             if (File.Exists(outZip)) File.Delete(outZip);
 
-            ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, includeBaseDirectory: false, entryNameEncoding: Encoding.UTF8);
+            ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, false, Encoding.UTF8);
             ZipPath = outZip;
 
             var zipInfo = new FileInfo(outZip);
             var sha256 = await ComputeSha256Async(outZip);
 
             var settingsPath = Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
-            if (!File.Exists(settingsPath)) { Status = "Î´ÔÚ³ÌÐò¸ùÄ¿Â¼ÕÒµ½ tools.settings.json"; return; }
+            if (!File.Exists(settingsPath))
+            {
+                Status = "æœªåœ¨ç¨‹åºæ ¹ç›®å½•æ‰¾åˆ° tools.settings.json";
+                return;
+            }
             var uploadSettings = await LoadSettingsAsync(settingsPath);
-            if (uploadSettings is null) { Status = "¶ÁÈ¡ tools.settings.json Ê§°Ü"; return; }
+            if (uploadSettings is null)
+            {
+                Status = "è¯»å– tools.settings.json å¤±è´¥";
+                return;
+            }
 
             TargetPath ??= uploadSettings.TargetPath;
 
-            var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl Îª¿Õ"));
+            var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl ä¸ºç©º"));
             var targetDir = NormalizePath(TargetPath);
             var destBase = new Uri(new Uri(baseDir), targetDir);
             var zipUrl = new Uri(destBase, fileName).ToString();
@@ -185,9 +200,9 @@ public class PackWindowViewModel : ObservableObject
 
             var client = CreateWebDavClient(uploadSettings);
 
-            CurrentTask = "ÉÏ´«°ü...";
+            CurrentTask = "ä¸Šä¼ åŒ…...";
             CurrentProgress = 0;
-            await UploadFileWithRetryAsync(client, outZip, zipUrl, "°ü", (sent, total) =>
+            await UploadFileWithRetryAsync(client, outZip, zipUrl, "åŒ…", (sent, total) =>
             {
                 if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
             });
@@ -201,7 +216,7 @@ public class PackWindowViewModel : ObservableObject
             };
 
             // Merge for all detected project-version pairs
-            CurrentTask = "ºÏ²¢Çåµ¥...";
+            CurrentTask = "åˆå¹¶æ¸…å•...";
             var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, davManifestUrl, fileEntry);
 
             var manifestFile = Path.Combine(outDir, "manifest.json");
@@ -209,7 +224,7 @@ public class PackWindowViewModel : ObservableObject
             ManifestPath = manifestFile;
             ManifestUrl = davManifestUrl.ToString();
 
-            CurrentTask = "ÉÏ´«Çåµ¥...";
+            CurrentTask = "ä¸Šä¼ æ¸…å•...";
             CurrentProgress = 0;
             await UploadFileWithRetryAsync(client, manifestFile, ManifestUrl, "manifest", (sent, total) =>
             {
@@ -218,12 +233,12 @@ public class PackWindowViewModel : ObservableObject
 
             CurrentTask = null;
             CurrentProgress = 0;
-            Status = "Éú³É²¢ÉÏ´«Íê³É";
+            Status = "ç”Ÿæˆå¹¶ä¸Šä¼ å®Œæˆ";
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Éú³É»òÉÏ´«Ê§°Ü");
-            Status = $"Éú³É»òÉÏ´«Ê§°Ü: {ex.Message}";
+            Logger.Error(ex, "ç”Ÿæˆæˆ–ä¸Šä¼ å¤±è´¥");
+            Status = $"ç”Ÿæˆæˆ–ä¸Šä¼ å¤±è´¥: {ex.Message}";
         }
     }
 
@@ -239,87 +254,26 @@ public class PackWindowViewModel : ObservableObject
             AutomaticDecompression = DecompressionMethods.All
         };
         if (!string.IsNullOrEmpty(s.Username)) handler.Credentials = new NetworkCredential(s.Username, s.Password ?? string.Empty);
-        var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10), DefaultRequestVersion = new Version(1,1) };
+        var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10), DefaultRequestVersion = new Version(1, 1) };
         httpClient.DefaultRequestHeaders.ExpectContinue = false;
         return new WebDavClient(httpClient);
     }
 
-    private static bool IsTransient(Exception ex)
-    {
-        return ex is TaskCanceledException ||
-               ex is IOException ||
-               ex is HttpRequestException ||
-               (ex is SocketException se && (se.SocketErrorCode == SocketError.ConnectionReset || se.SocketErrorCode == SocketError.TimedOut));
-    }
+    private static bool IsTransient(Exception ex) => ex is TaskCanceledException ||
+                                                     ex is IOException ||
+                                                     ex is HttpRequestException ||
+                                                     ex is SocketException se && (se.SocketErrorCode == SocketError.ConnectionReset || se.SocketErrorCode == SocketError.TimedOut);
 
-    private sealed class ProgressReadStream : Stream
-    {
-        private readonly Stream _inner;
-        private readonly long _size;
-        private readonly Action<long,long>? _onProgress;
-        private long _total;
-
-        public ProgressReadStream(Stream inner, long size, Action<long,long>? onProgress)
-        {
-            _inner = inner;
-            _size = size;
-            _onProgress = onProgress;
-            _total = 0;
-        }
-
-        public override bool CanRead => _inner.CanRead;
-        public override bool CanSeek => _inner.CanSeek;
-        public override bool CanWrite => false;
-        public override long Length => _inner.Length;
-        public override long Position { get => _inner.Position; set => _inner.Position = value; }
-        public override void Flush() => _inner.Flush();
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            var read = _inner.Read(buffer, offset, count);
-            if (read > 0)
-            {
-                _total += read;
-                _onProgress?.Invoke(_total, _size);
-            }
-            return read;
-        }
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-        {
-            var read = await _inner.ReadAsync(buffer, offset, count, cancellationToken);
-            if (read > 0)
-            {
-                _total += read;
-                _onProgress?.Invoke(_total, _size);
-            }
-            return read;
-        }
-#if NET8_0_OR_GREATER
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            var read = await _inner.ReadAsync(buffer, cancellationToken);
-            if (read > 0)
-            {
-                _total += read;
-                _onProgress?.Invoke(_total, _size);
-            }
-            return read;
-        }
-#endif
-        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
-        public override void SetLength(long value) => _inner.SetLength(value);
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-    }
-
-    private static async Task UploadFileWithRetryAsync(WebDavClient client, string localPath, string absoluteUrl, string kind, Action<long,long>? onProgress)
+    private static async Task UploadFileWithRetryAsync(WebDavClient client, string localPath, string absoluteUrl, string kind, Action<long, long>? onProgress)
     {
         const int maxRetries = 3;
         const int baseDelayMs = 800;
         const int bufferSize = 128 * 1024; // 128KB
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
-                await using var fs = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, useAsync: true);
+                await using var fs = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, true);
                 // Wrap with progress stream and use StreamContent (lets HttpClient handle Content-Length correctly)
                 using var ps = new ProgressReadStream(fs, fs.Length, onProgress);
                 using var content = new StreamContent(ps, bufferSize);
@@ -328,13 +282,13 @@ public class PackWindowViewModel : ObservableObject
                 var result = await client.PutFile(new Uri(absoluteUrl), content);
                 if (!result.IsSuccessful)
                 {
-                    if (attempt >= maxRetries) throw new InvalidOperationException($"ÉÏ´«Ê§°Ü: {absoluteUrl} {(int)result.StatusCode} {result.Description}");
+                    if (attempt >= maxRetries) throw new InvalidOperationException($"ä¸Šä¼ å¤±è´¥: {absoluteUrl} {result.StatusCode} {result.Description}");
                 }
                 else return;
             }
             catch (Exception ex) when (IsTransient(ex) && attempt < maxRetries)
             {
-                Logger.Warn(ex, "ÁÙÊ±ÐÔ´íÎó£¬µÚ {attempt}/{max} ´ÎÖØÊÔ {kind}: {url}", attempt, maxRetries, kind, absoluteUrl);
+                Logger.Warn(ex, "ä¸´æ—¶æ€§é”™è¯¯ï¼Œç¬¬ {attempt}/{max} æ¬¡é‡è¯• {kind}: {url}", attempt, maxRetries, kind, absoluteUrl);
             }
             await Task.Delay(TimeSpan.FromMilliseconds(baseDelayMs * Math.Pow(2, attempt - 1) + Random.Shared.Next(0, 300)));
         }
@@ -353,37 +307,6 @@ public class PackWindowViewModel : ObservableObject
     {
         await using var fs = File.OpenRead(settingsPath);
         return await JsonSerializer.DeserializeAsync<ToolsSettings>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-    }
-
-    // Manifest v1 models
-    private class ManifestV1
-    {
-        [JsonPropertyName("schema")] public string Schema { get; set; } = ManifestSchema;
-        [JsonPropertyName("generatedAt")] public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.UtcNow;
-        [JsonPropertyName("projects")] public Dictionary<string, ProjectReleases> Projects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private class ProjectReleases
-    {
-        [JsonPropertyName("latest")] public string? Latest { get; set; }
-        [JsonPropertyName("releases")] public List<ReleaseItem> Releases { get; set; } = new();
-    }
-
-    private class ReleaseItem
-    {
-        [JsonPropertyName("version")] public string? Version { get; set; }
-        [JsonPropertyName("url")] public string? Url { get; set; }
-        [JsonPropertyName("time")] public DateTimeOffset? Time { get; set; }
-        [JsonPropertyName("notes")] public string? Notes { get; set; }
-        [JsonPropertyName("files")] public List<ReleaseFile>? Files { get; set; }
-    }
-
-    private class ReleaseFile
-    {
-        [JsonPropertyName("name")] public string? Name { get; set; }
-        [JsonPropertyName("url")] public string? Url { get; set; }
-        [JsonPropertyName("sha256")] public string? Sha256 { get; set; }
-        [JsonPropertyName("size")] public long Size { get; set; }
     }
 
     private static int CompareSemVer(string a, string b)
@@ -422,7 +345,8 @@ public class PackWindowViewModel : ObservableObject
             {
                 existing.Files ??= new List<ReleaseFile>();
                 var idx = existing.Files.FindIndex(f => string.Equals(f.Url, file.Url, StringComparison.OrdinalIgnoreCase) || string.Equals(f.Name, file.Name, StringComparison.OrdinalIgnoreCase));
-                if (idx >= 0) existing.Files[idx] = file; else existing.Files.Add(file);
+                if (idx >= 0) existing.Files[idx] = file;
+                else existing.Files.Add(file);
             }
         }
         // update latest
@@ -508,19 +432,19 @@ public class PackWindowViewModel : ObservableObject
             var resp = await davClient.GetRawFile(davManifestUrl);
             if (resp.IsSuccessful && resp.Stream is not null)
             {
-                using var sr = new StreamReader(resp.Stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                using var sr = new StreamReader(resp.Stream, Encoding.UTF8, true);
                 json = await sr.ReadToEndAsync();
-                Logger.Info("ÒÑÍ¨¹ý WebDAV »ñÈ¡ manifest.json: {url}", davManifestUrl);
+                Logger.Info("å·²é€šè¿‡ WebDAV èŽ·å– manifest.json: {url}", davManifestUrl);
                 LogFetchedJson("WebDAV", davManifestUrl.ToString(), json);
             }
             else
             {
-                Logger.Info("WebDAV »ñÈ¡ manifest.json Îª¿Õ»òÊ§°Ü: {code} {desc}", (int)resp.StatusCode, resp.Description);
+                Logger.Info("WebDAV èŽ·å– manifest.json ä¸ºç©ºæˆ–å¤±è´¥: {code} {desc}", resp.StatusCode, resp.Description);
             }
         }
         catch (Exception ex)
         {
-            Logger.Warn(ex, "Í¨¹ý WebDAV »ñÈ¡ manifest.json Òì³£");
+            Logger.Warn(ex, "é€šè¿‡ WebDAV èŽ·å– manifest.json å¼‚å¸¸");
         }
 
         // 2) Fallback to HTTP download URL only if needed and content looks like a valid manifest
@@ -535,13 +459,14 @@ public class PackWindowViewModel : ObservableObject
                     http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
                 }
                 var httpJson = await http.GetStringAsync(downloadUrl);
-                Logger.Info("ÒÑ´ÓÏÂÔØµØÖ·»ñÈ¡ manifest.json: {url}", downloadUrl);
+                Logger.Info("å·²ä»Žä¸‹è½½åœ°å€èŽ·å– manifest.json: {url}", downloadUrl);
                 LogFetchedJson("HTTP", downloadUrl!, httpJson);
-                if (LooksLikeManifestJson(httpJson)) json = httpJson; else Logger.Warn("HTTP ·µ»ØµÄ JSON ²»Ïñ manifest£¨¿ÉÄÜÎª´íÎóÏìÓ¦£©£¬ÒÑºöÂÔ");
+                if (LooksLikeManifestJson(httpJson)) json = httpJson;
+                else Logger.Warn("HTTP è¿”å›žçš„ JSON ä¸åƒ manifestï¼ˆå¯èƒ½ä¸ºé”™è¯¯å“åº”ï¼‰ï¼Œå·²å¿½ç•¥");
             }
             catch (Exception ex)
             {
-                Logger.Warn(ex, "HTTP ÏÂÔØ manifest.json Ê§°Ü");
+                Logger.Warn(ex, "HTTP ä¸‹è½½ manifest.json å¤±è´¥");
             }
         }
 
@@ -579,7 +504,7 @@ public class PackWindowViewModel : ObservableObject
                 if (root.TryGetProperty("schema", out var s) && s.ValueKind == JsonValueKind.String) return true;
                 if (root.TryGetProperty("projects", out var proj) && proj.ValueKind == JsonValueKind.Object) return true;
                 if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array) return true;
-                if (root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String && root.TryGetProperty("url", out var u) && (u.ValueKind == JsonValueKind.String)) return true;
+                if (root.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String && root.TryGetProperty("url", out var u) && u.ValueKind == JsonValueKind.String) return true;
                 if (root.TryGetProperty("code", out _) && root.TryGetProperty("message", out _)) return false;
                 return false;
             }
@@ -599,7 +524,7 @@ public class PackWindowViewModel : ObservableObject
     private static void LogFetchedJson(string source, string url, string json)
     {
         const int maxLen = 10000;
-        var preview = json.Length > maxLen ? json[..maxLen] + $"\n...£¨½Ø¶Ï {json.Length - maxLen} ×Ö·û£©" : json;
+        var preview = json.Length > maxLen ? json[..maxLen] + $"\n...ï¼ˆæˆªæ–­ {json.Length - maxLen} å­—ç¬¦ï¼‰" : json;
         Logger.Info("Fetched manifest ({source}) from {url} length={len} content=\n{json}", source, url, json.Length, preview);
     }
 
@@ -609,6 +534,111 @@ public class PackWindowViewModel : ObservableObject
         using var sha = SHA256.Create();
         var hash = await sha.ComputeHashAsync(fs);
         return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private sealed class ProgressReadStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly Action<long, long>? _onProgress;
+        private readonly long _size;
+        private long _total;
+
+        public ProgressReadStream(Stream inner, long size, Action<long, long>? onProgress)
+        {
+            _inner = inner;
+            _size = size;
+            _onProgress = onProgress;
+            _total = 0;
+        }
+
+        public override bool CanRead
+        {
+            get => _inner.CanRead;
+        }
+
+        public override bool CanSeek
+        {
+            get => _inner.CanSeek;
+        }
+
+        public override bool CanWrite
+        {
+            get => false;
+        }
+
+        public override long Length
+        {
+            get => _inner.Length;
+        }
+
+        public override long Position { get => _inner.Position; set => _inner.Position = value; }
+        public override void Flush() => _inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var read = _inner.Read(buffer, offset, count);
+            if (read > 0)
+            {
+                _total += read;
+                _onProgress?.Invoke(_total, _size);
+            }
+            return read;
+        }
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            var read = await _inner.ReadAsync(buffer, offset, count, cancellationToken);
+            if (read > 0)
+            {
+                _total += read;
+                _onProgress?.Invoke(_total, _size);
+            }
+            return read;
+        }
+#if NET8_0_OR_GREATER
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            var read = await _inner.ReadAsync(buffer, cancellationToken);
+            if (read > 0)
+            {
+                _total += read;
+                _onProgress?.Invoke(_total, _size);
+            }
+            return read;
+        }
+#endif
+        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+        public override void SetLength(long value) => _inner.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    // Manifest v1 models
+    private class ManifestV1
+    {
+        [JsonPropertyName("schema")] public string Schema { get; set; } = ManifestSchema;
+        [JsonPropertyName("generatedAt")] public DateTimeOffset GeneratedAt { get; set; } = DateTimeOffset.UtcNow;
+        [JsonPropertyName("projects")] public Dictionary<string, ProjectReleases> Projects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private class ProjectReleases
+    {
+        [JsonPropertyName("latest")] public string? Latest { get; set; }
+        [JsonPropertyName("releases")] public List<ReleaseItem> Releases { get; } = new();
+    }
+
+    private class ReleaseItem
+    {
+        [JsonPropertyName("version")] public string? Version { get; set; }
+        [JsonPropertyName("url")] public string? Url { get; set; }
+        [JsonPropertyName("time")] public DateTimeOffset? Time { get; set; }
+        [JsonPropertyName("notes")] public string? Notes { get; set; }
+        [JsonPropertyName("files")] public List<ReleaseFile>? Files { get; set; }
+    }
+
+    private class ReleaseFile
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("url")] public string? Url { get; set; }
+        [JsonPropertyName("sha256")] public string? Sha256 { get; set; }
+        [JsonPropertyName("size")] public long Size { get; set; }
     }
 
     private class ClientVersion

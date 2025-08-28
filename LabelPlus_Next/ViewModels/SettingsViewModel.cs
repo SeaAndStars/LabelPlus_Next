@@ -1,20 +1,18 @@
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LabelPlus_Next.Services;
-using LabelPlus_Next.Serialization;
+using Downloader;
 using LabelPlus_Next.Models;
+using LabelPlus_Next.Serialization;
+using LabelPlus_Next.Services;
+using LabelPlus_Next.Services.Api;
 using NLog;
-using System;
-using System.IO;
+using System.Diagnostics;
 using System.IO.Compression;
-using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Linq;
-using LabelPlus_Next.Services.Api;
-using Downloader;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -24,31 +22,28 @@ public partial class SettingsViewModel : ViewModelBase
 
     private readonly ISettingsService _settingsService;
 
-    [ObservableProperty] private string? baseUrl= "https://alist.seastarss.cn";
-    [ObservableProperty] private string? manifestPath = "/OneDrive/Update/manifest.json";
-    [ObservableProperty] private string? username= "Upgrade";
-    [ObservableProperty] private string? password= "91f158c48d6ab9c5373c992eb07426cad91da2befd437101b1c90797d8c9daf1";
-
-    // Old single-field display (kept for compatibility)
-    [ObservableProperty] private string? currentVersion;
-    [ObservableProperty] private string? latestVersion;
+    [ObservableProperty] private string? baseUrl = "https://alist.seastarss.cn";
 
     // New detailed fields
     [ObservableProperty] private string? currentClientVersion;
     [ObservableProperty] private string? currentUpdaterVersion;
+
+    // Old single-field display (kept for compatibility)
+    [ObservableProperty] private string? currentVersion;
+    [ObservableProperty] private bool isProgressIndeterminate;
     [ObservableProperty] private string? latestClientVersion;
     [ObservableProperty] private string? latestUpdaterVersion;
+    [ObservableProperty] private string? latestVersion;
+    [ObservableProperty] private string? manifestPath = "/OneDrive/Update/manifest.json";
+    [ObservableProperty] private string? password = "91f158c48d6ab9c5373c992eb07426cad91da2befd437101b1c90797d8c9daf1";
+    [ObservableProperty] private string? status;
 
     [ObservableProperty] private string? updateNotes;
-    [ObservableProperty] private string? status;
+    [ObservableProperty] private double updateProgress; // 0-100
 
     // Progress UI
     [ObservableProperty] private string? updateTask;
-    [ObservableProperty] private double updateProgress; // 0-100
-    [ObservableProperty] private bool isProgressIndeterminate;
-
-    public IAsyncRelayCommand VerifyHttpCommand { get; }
-    public IAsyncRelayCommand CheckUpdateCommand { get; }
+    [ObservableProperty] private string? username = "Upgrade";
 
     public SettingsViewModel() : this(new JsonSettingsService()) { }
 
@@ -60,6 +55,9 @@ public partial class SettingsViewModel : ViewModelBase
         _ = LoadAsync();
     }
 
+    public IAsyncRelayCommand VerifyHttpCommand { get; }
+    public IAsyncRelayCommand CheckUpdateCommand { get; }
+
     public async Task LoadAsync()
     {
         try
@@ -68,11 +66,14 @@ public partial class SettingsViewModel : ViewModelBase
             var s = await _settingsService.LoadAsync();
 
             // Keep VM defaults as priority; only override when settings.json has non-empty values
-            var defBase = BaseUrl; var defPath = ManifestPath; var defUser = Username; var defPwd = Password;
+            var defBase = BaseUrl;
+            var defPath = ManifestPath;
+            var defUser = Username;
+            var defPwd = Password;
             var effBase = string.IsNullOrWhiteSpace(s.Update.BaseUrl) ? defBase : s.Update.BaseUrl;
             var effPath = string.IsNullOrWhiteSpace(s.Update.ManifestPath) ? defPath : s.Update.ManifestPath;
             var effUser = string.IsNullOrWhiteSpace(s.Update.Username) ? defUser : s.Update.Username;
-            var effPwd  = string.IsNullOrWhiteSpace(s.Update.Password) ? defPwd  : s.Update.Password;
+            var effPwd = string.IsNullOrWhiteSpace(s.Update.Password) ? defPwd : s.Update.Password;
 
             BaseUrl = effBase;
             ManifestPath = effPath;
@@ -80,24 +81,40 @@ public partial class SettingsViewModel : ViewModelBase
             Password = effPwd;
 
             // Persist back if we had to fill missing values using defaults
-            bool needSave = false;
-            if (!string.Equals(s.Update.BaseUrl, effBase, StringComparison.Ordinal)) { s.Update.BaseUrl = effBase; needSave = true; }
-            if (!string.Equals(s.Update.ManifestPath, effPath, StringComparison.Ordinal)) { s.Update.ManifestPath = effPath; needSave = true; }
-            if (!string.Equals(s.Update.Username, effUser, StringComparison.Ordinal)) { s.Update.Username = effUser; needSave = true; }
-            if (!string.Equals(s.Update.Password, effPwd, StringComparison.Ordinal)) { s.Update.Password = effPwd; needSave = true; }
+            var needSave = false;
+            if (!string.Equals(s.Update.BaseUrl, effBase, StringComparison.Ordinal))
+            {
+                s.Update.BaseUrl = effBase;
+                needSave = true;
+            }
+            if (!string.Equals(s.Update.ManifestPath, effPath, StringComparison.Ordinal))
+            {
+                s.Update.ManifestPath = effPath;
+                needSave = true;
+            }
+            if (!string.Equals(s.Update.Username, effUser, StringComparison.Ordinal))
+            {
+                s.Update.Username = effUser;
+                needSave = true;
+            }
+            if (!string.Equals(s.Update.Password, effPwd, StringComparison.Ordinal))
+            {
+                s.Update.Password = effPwd;
+                needSave = true;
+            }
             if (needSave)
             {
                 Logger.Info("Settings missing values filled from VM defaults. Saving back to settings.json");
                 await _settingsService.SaveAsync(s);
             }
 
-            Status = "ÉèÖÃÒÑ¼ÓÔØ";
+            Status = "è®¾ç½®å·²åŠ è½½";
             Logger.Info("Settings effective: baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Load settings failed");
-            Status = $"¼ÓÔØÊ§°Ü: {ex.Message}";
+            Status = $"åŠ è½½å¤±è´¥: {ex.Message}";
         }
     }
 
@@ -118,13 +135,13 @@ public partial class SettingsViewModel : ViewModelBase
                 }
             };
             await _settingsService.SaveAsync(s);
-            Status = "±£´æ³É¹¦";
+            Status = "ä¿å­˜æˆåŠŸ";
             Logger.Info("Settings saved");
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Save settings failed");
-            Status = $"±£´æÊ§°Ü: {ex.Message}";
+            Status = $"ä¿å­˜å¤±è´¥: {ex.Message}";
         }
     }
 
@@ -133,10 +150,20 @@ public partial class SettingsViewModel : ViewModelBase
         try
         {
             Logger.Info("Verify via API download... baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
-            if (string.IsNullOrWhiteSpace(BaseUrl)) { Status = "ÇëÌîĞ´ BaseUrl"; Logger.Warn("BaseUrl is empty"); return; }
-            if (string.IsNullOrWhiteSpace(ManifestPath)) { Status = "ÇëÌîĞ´ Manifest Â·¾¶"; Logger.Warn("ManifestPath is empty"); return; }
+            if (string.IsNullOrWhiteSpace(BaseUrl))
+            {
+                Status = "è¯·å¡«å†™ BaseUrl";
+                Logger.Warn("BaseUrl is empty");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(ManifestPath))
+            {
+                Status = "è¯·å¡«å†™ Manifest è·¯å¾„";
+                Logger.Warn("ManifestPath is empty");
+                return;
+            }
 
-            // 1) Ê¹ÓÃÓÃ»§Ãû/ÃÜÂë»ñÈ¡ token£¨ÈçÓĞÅäÖÃ£©
+            // 1) ä½¿ç”¨ç”¨æˆ·å/å¯†ç è·å– tokenï¼ˆå¦‚æœ‰é…ç½®ï¼‰
             string? token = null;
             if (!string.IsNullOrWhiteSpace(Username))
             {
@@ -151,18 +178,18 @@ public partial class SettingsViewModel : ViewModelBase
                 else
                 {
                     Logger.Warn("Login failed: code={code}, message={msg}", login.Code, login.Message);
-                    Status = $"µÇÂ¼Ê§°Ü: {login.Code} {login.Message}";
+                    Status = $"ç™»å½•å¤±è´¥: {login.Code} {login.Message}";
                     return;
                 }
             }
             else
             {
-                Status = "Î´ÅäÖÃÓÃ»§Ãû/ÃÜÂë£¬½«ÎŞ·¨Í¨¹ı API ÏÂÔØ";
+                Status = "æœªé…ç½®ç”¨æˆ·å/å¯†ç ï¼Œå°†æ— æ³•é€šè¿‡ API ä¸‹è½½";
                 Logger.Warn("Username/Password not configured");
                 return;
             }
 
-            // 2) ½âÎö manifest Ô¶¶ËÂ·¾¶
+            // 2) è§£æ manifest è¿œç«¯è·¯å¾„
             string filePath;
             if (Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs))
                 filePath = abs.AbsolutePath;
@@ -173,19 +200,19 @@ public partial class SettingsViewModel : ViewModelBase
             }
             Logger.Debug("Resolved manifest api filePath={path}", filePath);
 
-            // 3) Ê¹ÓÃ FileSystemApi.DownloadAsync »ñÈ¡ raw_url ²¢ÏÂÔØ
+            // 3) ä½¿ç”¨ FileSystemApi.DownloadAsync è·å– raw_url å¹¶ä¸‹è½½
             Logger.Info("Begin API download of manifest...");
             var fs = new FileSystemApi(BaseUrl!);
             var result = await fs.DownloadAsync(token!, filePath);
             if (result.Code != 200 || result.Content is null)
             {
                 Logger.Warn("Download failed: code={code}, message={msg}", result.Code, result.Message);
-                Status = $"ÏÂÔØÊ§°Ü: {result.Code} {result.Message}";
+                Status = $"ä¸‹è½½å¤±è´¥: {result.Code} {result.Message}";
                 return;
             }
             Logger.Info("Download success: bytes={len}", result.Content.Length);
 
-            // 4) ÑéÖ¤Çåµ¥ JSON ½á¹¹£¨ÒÆ³ı UTF-8 BOM ²¢²Ã¼ôÇ°ºó¿Õ°×£©
+            // 4) éªŒè¯æ¸…å• JSON ç»“æ„ï¼ˆç§»é™¤ UTF-8 BOM å¹¶è£å‰ªå‰åç©ºç™½ï¼‰
             var bytes = result.Content;
             if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
             {
@@ -199,42 +226,42 @@ public partial class SettingsViewModel : ViewModelBase
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("projects", out _))
                 {
-                    Status = "API ÏÂÔØÑéÖ¤³É¹¦";
+                    Status = "API ä¸‹è½½éªŒè¯æˆåŠŸ";
                     Logger.Info("Manifest schema valid (projects found)");
                 }
                 else
                 {
-                    Status = "API ÏÂÔØÑéÖ¤Ê§°Ü£ºÇåµ¥È±ÉÙ projects";
+                    Status = "API ä¸‹è½½éªŒè¯å¤±è´¥ï¼šæ¸…å•ç¼ºå°‘ projects";
                     Logger.Warn("Manifest schema invalid: projects missing");
                 }
             }
             catch (JsonException jx)
             {
-                // ÄÚÈİ¿ÉÄÜ²»ÊÇ JSON£¨ÀıÈç HTML »òÑ¹Ëõ°ü£©£¬¼ÇÂ¼Ç° 64 ×Ö½ÚÊ®Áù½øÖÆÒÔ±ãÕï¶Ï
+                // å†…å®¹å¯èƒ½ä¸æ˜¯ JSONï¼ˆä¾‹å¦‚ HTML æˆ–å‹ç¼©åŒ…ï¼‰ï¼Œè®°å½•å‰ 64 å­—èŠ‚åå…­è¿›åˆ¶ä»¥ä¾¿è¯Šæ–­
                 var previewLen = Math.Min(64, bytes.Length);
                 var hex = BitConverter.ToString(bytes, 0, previewLen).Replace("-", string.Empty);
                 Logger.Error(jx, "Manifest JSON parse failed. FirstBytesHex={hex}", hex);
-                Status = $"ÑéÖ¤Ê§°Ü£ºÇåµ¥²»ÊÇÓĞĞ§ JSON£¨{jx.Message}£©";
+                Status = $"éªŒè¯å¤±è´¥ï¼šæ¸…å•ä¸æ˜¯æœ‰æ•ˆ JSONï¼ˆ{jx.Message}ï¼‰";
             }
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Verify via API failed");
-            Status = $"ÑéÖ¤Òì³£: {ex.Message}";
+            Status = $"éªŒè¯å¼‚å¸¸: {ex.Message}";
         }
     }
 
-    // ¿ª»ú¼ì²é£ºÓÅÏÈ¼ì²é²¢¸üĞÂ Updater£¬×ÔÉí¸üĞÂÍê³Éºó£¬Èô Client ÓĞ¸üĞÂ£¬Ö±½ÓÆô¶¯ updater ´¦Àí£¨²»ÔÚÖ÷³ÌĞòÏÂÔØ Client£©
+    // å¼€æœºæ£€æŸ¥ï¼šä¼˜å…ˆæ£€æŸ¥å¹¶æ›´æ–° Updaterï¼Œè‡ªèº«æ›´æ–°å®Œæˆåï¼Œè‹¥ Client æœ‰æ›´æ–°ï¼Œç›´æ¥å¯åŠ¨ updater å¤„ç†ï¼ˆä¸åœ¨ä¸»ç¨‹åºä¸‹è½½ Clientï¼‰
     public async Task CheckAndUpdateOnStartupAsync()
     {
         try
         {
-            Status = "ÕıÔÚ¼ì²é¸üĞÂ...";
+            Status = "æ­£åœ¨æ£€æŸ¥æ›´æ–°...";
             Logger.Info("Startup update check...");
             var manifestJson = await DownloadManifestViaApiAsync();
             if (manifestJson is null)
             {
-                Status = "»ñÈ¡Çåµ¥Ê§°Ü";
+                Status = "è·å–æ¸…å•å¤±è´¥";
                 Logger.Warn("Manifest download failed");
                 return;
             }
@@ -242,7 +269,7 @@ public partial class SettingsViewModel : ViewModelBase
             var manifest = JsonSerializer.Deserialize(manifestJson, AppJsonContext.Default.ManifestV1);
             if (manifest?.Projects is null)
             {
-                Status = "Çåµ¥¸ñÊ½´íÎó";
+                Status = "æ¸…å•æ ¼å¼é”™è¯¯";
                 Logger.Warn("Manifest parse failed or projects missing");
                 return;
             }
@@ -251,62 +278,74 @@ public partial class SettingsViewModel : ViewModelBase
             var updateDir = Path.Combine(appDir, "update");
             Directory.CreateDirectory(updateDir);
 
-            string? clientLocal = ReadLocalVersion(Path.Combine(appDir, "Client.version.json"));
-            string? updaterLocal = ReadLocalVersion(Path.Combine(updateDir, "Update.version.json"))
-                                   ?? ReadLocalVersion(Path.Combine(appDir, "Update.version.json"));
+            var clientLocal = ReadLocalVersion(Path.Combine(appDir, "Client.version.json"));
+            var updaterLocal = ReadLocalVersion(Path.Combine(updateDir, "Update.version.json"))
+                               ?? ReadLocalVersion(Path.Combine(appDir, "Update.version.json"));
 
             manifest.Projects.TryGetValue("LabelPlus_Next.Desktop", out var cproj);
             manifest.Projects.TryGetValue("LabelPlus_Next.Update", out var uproj);
             var clientLatest = cproj?.Latest ?? (cproj?.Releases.Count > 0 ? cproj.Releases[0].Version : null);
             var updaterLatest = uproj?.Latest ?? (uproj?.Releases.Count > 0 ? uproj.Releases[0].Version : null);
 
-            bool needUpdater = IsGreater(updaterLatest, updaterLocal);
-            bool needClient = IsGreater(clientLatest, clientLocal);
+            var needUpdater = IsGreater(updaterLatest, updaterLocal);
+            var needClient = IsGreater(clientLatest, clientLocal);
 
             if (!needUpdater && !needClient)
             {
-                Status = "ÒÑ¾­ÊÇ×îĞÂ°æ±¾";
+                Status = "å·²ç»æ˜¯æœ€æ–°ç‰ˆæœ¬";
             }
 
-            // 1) ÓÅÏÈ¸üĞÂ Updater
+            // 1) ä¼˜å…ˆæ›´æ–° Updater
             if (needUpdater && uproj is not null)
             {
                 var (upUrl, upSha) = GetReleaseFileInfo(uproj, updaterLatest!);
                 if (!string.IsNullOrWhiteSpace(upUrl))
                 {
-                    UpdateTask = $"ÏÂÔØ¸üĞÂ³ÌĞò {updaterLatest}..."; IsProgressIndeterminate = false; UpdateProgress = 0;
+                    UpdateTask = $"ä¸‹è½½æ›´æ–°ç¨‹åº {updaterLatest}...";
+                    IsProgressIndeterminate = false;
+                    UpdateProgress = 0;
                     Status = UpdateTask;
                     var zipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
                     var ok = await DownloadZipAutoAsync(upUrl!, zipPath);
                     if (!ok)
                     {
-                        Status = "ÏÂÔØ¸üĞÂ³ÌĞòÊ§°Ü";
+                        Status = "ä¸‹è½½æ›´æ–°ç¨‹åºå¤±è´¥";
                         Logger.Warn("Updater download failed");
                         return;
                     }
-                    if (!await EnsureFileReadyAsync(zipPath)) { Status = "ÏÂÔØÎÄ¼ş²»´æÔÚ"; Logger.Warn("Updater file not present after download"); return; }
+                    if (!await EnsureFileReadyAsync(zipPath))
+                    {
+                        Status = "ä¸‹è½½æ–‡ä»¶ä¸å­˜åœ¨";
+                        Logger.Warn("Updater file not present after download");
+                        return;
+                    }
 
                     if (!string.IsNullOrWhiteSpace(upSha))
                     {
                         var actual = await ComputeSha256Async(zipPath);
                         if (!string.Equals(actual, upSha, StringComparison.OrdinalIgnoreCase))
                         {
-                            Status = "¸üĞÂ³ÌĞòĞ£ÑéÊ§°Ü";
+                            Status = "æ›´æ–°ç¨‹åºæ ¡éªŒå¤±è´¥";
                             Logger.Warn("Updater SHA256 mismatch. expected={exp} actual={act}", upSha, actual);
                             SafeDelete(zipPath);
                             return;
                         }
                     }
-                    UpdateTask = "½âÑ¹¸üĞÂ³ÌĞò..."; IsProgressIndeterminate = true; UpdateProgress = 0; Status = UpdateTask;
-                    ZipFile.ExtractToDirectory(zipPath, updateDir, overwriteFiles: true);
+                    UpdateTask = "è§£å‹æ›´æ–°ç¨‹åº...";
+                    IsProgressIndeterminate = true;
+                    UpdateProgress = 0;
+                    Status = UpdateTask;
+                    ZipFile.ExtractToDirectory(zipPath, updateDir, true);
                     SafeDelete(zipPath);
-                    UpdateTask = null; IsProgressIndeterminate = false; UpdateProgress = 0;
-                    Status = $"¸üĞÂ³ÌĞòÒÑ¸üĞÂµ½ {updaterLatest}";
+                    UpdateTask = null;
+                    IsProgressIndeterminate = false;
+                    UpdateProgress = 0;
+                    Status = $"æ›´æ–°ç¨‹åºå·²æ›´æ–°åˆ° {updaterLatest}";
                     Logger.Info("Updater updated to {ver}", updaterLatest);
                 }
             }
 
-            // 2) Èç Client ÓĞ¸üĞÂ£ºÖ±½ÓÆô¶¯ Updater ´¦Àí£¨²»ÔÚÖ÷³ÌĞòÏÂÔØ Client£©
+            // 2) å¦‚ Client æœ‰æ›´æ–°ï¼šç›´æ¥å¯åŠ¨ Updater å¤„ç†ï¼ˆä¸åœ¨ä¸»ç¨‹åºä¸‹è½½ Clientï¼‰
             if (needClient)
             {
                 var updaterExe = Path.Combine(updateDir, "LabelPlus_Next.Update.exe");
@@ -319,7 +358,7 @@ public partial class SettingsViewModel : ViewModelBase
                 {
                     try
                     {
-                        Status = "Æô¶¯¸üĞÂ³ÌĞò...";
+                        Status = "å¯åŠ¨æ›´æ–°ç¨‹åº...";
                         var pid = Process.GetCurrentProcess().Id;
                         var psi = new ProcessStartInfo
                         {
@@ -332,19 +371,18 @@ public partial class SettingsViewModel : ViewModelBase
                         psi.ArgumentList.Add("--targetpath");
                         psi.ArgumentList.Add(appDir);
                         Process.Start(psi);
-                        var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
                         lifetime?.Shutdown();
-                        return;
                     }
                     catch (Exception ex)
                     {
-                        Status = "Æô¶¯¸üĞÂ³ÌĞòÊ§°Ü";
+                        Status = "å¯åŠ¨æ›´æ–°ç¨‹åºå¤±è´¥";
                         Logger.Error(ex, "Failed to start updater for client update");
                     }
                 }
                 else
                 {
-                    Status = "Î´ÕÒµ½¸üĞÂ³ÌĞò£¬ÎŞ·¨Æô¶¯¿Í»§¶Ë¸üĞÂ";
+                    Status = "æœªæ‰¾åˆ°æ›´æ–°ç¨‹åºï¼Œæ— æ³•å¯åŠ¨å®¢æˆ·ç«¯æ›´æ–°";
                     Logger.Warn("Updater exe not found to start client update");
                 }
             }
@@ -352,7 +390,7 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             Logger.Error(ex, "Startup update check failed");
-            Status = $"¼ì²é¸üĞÂÊ§°Ü: {ex.Message}";
+            Status = $"æ£€æŸ¥æ›´æ–°å¤±è´¥: {ex.Message}";
         }
     }
 
@@ -393,7 +431,9 @@ public partial class SettingsViewModel : ViewModelBase
                         {
                             var raw = !string.IsNullOrWhiteSpace(meta.Data.RawUrl)
                                 ? meta.Data.RawUrl!
-                                : (string.IsNullOrWhiteSpace(meta.Data.Sign) ? null : BaseUrl!.TrimEnd('/') + "/d/" + Uri.EscapeDataString(meta.Data.Sign!));
+                                : string.IsNullOrWhiteSpace(meta.Data.Sign)
+                                    ? null
+                                    : BaseUrl!.TrimEnd('/') + "/d/" + Uri.EscapeDataString(meta.Data.Sign!);
                             if (!string.IsNullOrWhiteSpace(raw))
                             {
                                 return await DownloadWithDownloaderAsync(raw!, outPath);
@@ -404,10 +444,7 @@ public partial class SettingsViewModel : ViewModelBase
                 // Fallback to direct download
                 return await DownloadWithDownloaderAsync(url, outPath);
             }
-            else
-            {
-                return await DownloadWithDownloaderAsync(url, outPath);
-            }
+            return await DownloadWithDownloaderAsync(url, outPath);
         }
         catch (Exception ex)
         {
@@ -423,7 +460,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             var u = new Uri(url);
             var segments = u.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < segments.Length; i++)
+            for (var i = 0; i < segments.Length; i++)
             {
                 if (string.Equals(segments[i], "dav", StringComparison.OrdinalIgnoreCase))
                 {
@@ -502,7 +539,8 @@ public partial class SettingsViewModel : ViewModelBase
             if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) return null;
             var token = login.Data!.Token!;
             string filePath;
-            if (Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs)) filePath = abs.AbsolutePath; else filePath = ManifestPath!.StartsWith('/') ? ManifestPath! : "/" + ManifestPath!;
+            if (Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs)) filePath = abs.AbsolutePath;
+            else filePath = ManifestPath!.StartsWith('/') ? ManifestPath! : "/" + ManifestPath!;
             var fs = new FileSystemApi(BaseUrl!);
             var result = await fs.DownloadAsync(token, filePath);
             if (result.Code != 200 || result.Content is null) return null;
@@ -541,7 +579,7 @@ public partial class SettingsViewModel : ViewModelBase
     private static async Task<string> ComputeSha256Async(string path)
     {
         await using var fs = File.OpenRead(path);
-        using var sha = System.Security.Cryptography.SHA256.Create();
+        using var sha = SHA256.Create();
         var bytes = await sha.ComputeHashAsync(fs);
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
@@ -627,12 +665,16 @@ public partial class SettingsViewModel : ViewModelBase
 
     private static void SafeDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch { }
     }
 
     private static async Task<bool> EnsureFileReadyAsync(string path, int maxAttempts = 10, int delayMs = 100)
     {
-        for (int i = 0; i < maxAttempts; i++)
+        for (var i = 0; i < maxAttempts; i++)
         {
             try
             {
@@ -643,7 +685,8 @@ public partial class SettingsViewModel : ViewModelBase
                 }
             }
             catch { }
-            try { await Task.Delay(delayMs); } catch { }
+            try { await Task.Delay(delayMs); }
+            catch { }
         }
         return false;
     }

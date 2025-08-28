@@ -1,93 +1,89 @@
-using System.Collections.Generic;
 using Avalonia.Controls;
-using Avalonia.Platform.Storage;
-using Ursa.Controls;
-using LabelPlus_Next.Tools.ViewModels;
-using LabelPlus_Next.Tools.Models;
-using Avalonia;
 using Avalonia.Interactivity;
-using LabelPlus_Next.Tools.Views;
-using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
+using LabelPlus_Next.Tools.Models;
+using LabelPlus_Next.Tools.ViewModels;
+using System.Collections.Generic;
+using Ursa.Controls;
 
-namespace LabelPlus_Next.Tools.Views
+namespace LabelPlus_Next.Tools.Views;
+
+public partial class MainWindow : UrsaWindow
 {
-    public partial class MainWindow : UrsaWindow
+    public MainWindow()
     {
-        public MainWindow()
-        {
-            InitializeComponent();
+        InitializeComponent();
 
-            var tree = this.FindControl<TreeView>("Tree");
-            if (tree != null)
+        var tree = this.FindControl<TreeView>("Tree");
+        if (tree != null)
+        {
+            tree.AddHandler(TreeViewItem.ExpandedEvent, OnTreeItemExpanded, RoutingStrategies.Bubble);
+        }
+    }
+
+    private void OnOpenPackWindow(object? sender, RoutedEventArgs e)
+    {
+        var win = new PackWindow();
+        win.Show(this);
+    }
+
+    private async void OnTreeItemExpanded(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is not TreeViewItem tvi) return;
+        if (tvi.DataContext is not DavNode node) return;
+        if (DataContext is not MainWindowViewModel vm) return;
+        await vm.RefreshNodeAsync(node);
+    }
+
+    private async void OnUploadClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var provider = GetTopLevel(this)?.StorageProvider;
+        if (provider is null) return;
+        var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑÊñá‰ª∂",
+            AllowMultiple = true
+        });
+        if (files is null || files.Count == 0) return;
+        var paths = new List<string>();
+        foreach (var f in files)
+        {
+            if (f.Path is not null)
             {
-                tree.AddHandler(TreeViewItem.ExpandedEvent, OnTreeItemExpanded, RoutingStrategies.Bubble);
+                paths.Add(f.Path.LocalPath);
             }
         }
-
-        private void OnOpenPackWindow(object? sender, RoutedEventArgs e)
+        if (paths.Count > 0)
         {
-            var win = new PackWindow();
-            win.Show(this);
+            await vm.UploadFilesAsync(paths);
         }
+    }
 
-        private async void OnTreeItemExpanded(object? sender, RoutedEventArgs e)
-        {
-            if (e.Source is not TreeViewItem tvi) return;
-            if (tvi.DataContext is not DavNode node) return;
-            if (DataContext is not MainWindowViewModel vm) return;
-            await vm.RefreshNodeAsync(node);
-        }
+    private async void OnUploadToFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var provider = GetTopLevel(this)?.StorageProvider;
+        if (provider is null) return;
+        if (this.FindControl<TreeView>("Tree")?.SelectedItem is not DavNode node || !node.IsCollection) return;
 
-        private async void OnUploadClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            if (DataContext is not MainWindowViewModel vm) return;
-            var provider = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (provider is null) return;
-            var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+            Title = "ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑÊñá‰ª∂ (ÁõÆÊ†á: ÈÄâ‰∏≠Êñá‰ª∂Â§π)",
+            AllowMultiple = true
+        });
+        if (files is null || files.Count == 0) return;
+        var paths = new List<string>();
+        foreach (var f in files)
+        {
+            if (f.Path is not null)
             {
-                Title = "—°‘Ò“™…œ¥´µƒŒƒº˛",
-                AllowMultiple = true
-            });
-            if (files is null || files.Count == 0) return;
-            var paths = new List<string>();
-            foreach (var f in files)
-            {
-                if (f.Path is not null)
-                {
-                    paths.Add(f.Path.LocalPath);
-                }
-            }
-            if (paths.Count > 0)
-            {
-                await vm.UploadFilesAsync(paths);
+                paths.Add(f.Path.LocalPath);
             }
         }
-
-        private async void OnUploadToFolderClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        if (paths.Count > 0)
         {
-            if (DataContext is not MainWindowViewModel vm) return;
-            var provider = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (provider is null) return;
-            if (this.FindControl<TreeView>("Tree")?.SelectedItem is not DavNode node || !node.IsCollection) return;
-
-            var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "—°‘Ò“™…œ¥´µƒŒƒº˛ (ƒø±Í: —°÷–Œƒº˛º–)",
-                AllowMultiple = true
-            });
-            if (files is null || files.Count == 0) return;
-            var paths = new List<string>();
-            foreach (var f in files)
-            {
-                if (f.Path is not null)
-                {
-                    paths.Add(f.Path.LocalPath);
-                }
-            }
-            if (paths.Count > 0)
-            {
-                await vm.UploadFilesAsync(paths, node.Uri);
-            }
+            await vm.UploadFilesAsync(paths, node.Uri);
         }
     }
 }

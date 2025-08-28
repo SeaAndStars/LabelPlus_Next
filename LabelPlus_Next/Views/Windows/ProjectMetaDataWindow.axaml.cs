@@ -1,14 +1,12 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Templates;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.ViewModels;
-using System.Collections.ObjectModel;
-using System.Linq;
-using Ursa.Controls;
 using NLog;
-using System;
+using System.Collections.ObjectModel;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Windows;
 
@@ -16,27 +14,20 @@ public partial class ProjectMetaDataWindow : UrsaWindow
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private TreeDataGrid? _tree;
+    private readonly TreeDataGrid? _tree;
     private ObservableCollection<Node>? _roots;
-
-    private sealed class Node
-    {
-        public bool IsFile { get; init; }
-        public string? Name { get; init; }
-        public int Number { get; init; }
-        public bool Include { get; set; }
-        public string Status { get; set; } = "¡¢œÓ";
-        public int LocalFileCount { get; init; }
-        public ObservableCollection<Node> Children { get; } = new();
-    }
 
     public ProjectMetaDataWindow()
     {
         InitializeComponent();
         _tree = this.FindControl<TreeDataGrid>("EpisodeTree");
-        this.Opened += (_, __) =>
+        Opened += (_, __) =>
         {
-            try { BuildTree(); Logger.Info("Meta window opened and tree built."); }
+            try
+            {
+                BuildTree();
+                Logger.Info("Meta window opened and tree built.");
+            }
             catch (Exception ex) { Logger.Error(ex, "BuildTree failed on open."); }
         };
     }
@@ -59,7 +50,7 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             var root = new Node
             {
                 IsFile = false,
-                Name = $"µ⁄ {ep.Number} ª∞",
+                Name = $"Á¨¨ {ep.Number} ËØù",
                 Number = ep.Number,
                 Include = ep.Include,
                 Status = ep.Status,
@@ -70,7 +61,7 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                 root.Children.Add(new Node
                 {
                     IsFile = true,
-                    Name = System.IO.Path.GetFileName(f),
+                    Name = Path.GetFileName(f),
                     Number = ep.Number,
                     Include = true,
                     Status = string.Empty,
@@ -85,13 +76,13 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             Columns =
             {
                 new HierarchicalExpanderColumn<Node>(
-                    new TextColumn<Node, string>("√˚≥∆", x => x.Name ?? string.Empty),
+                    new TextColumn<Node, string>("ÂêçÁß∞", x => x.Name ?? string.Empty),
                     n => n.Children,
                     n => !n.IsFile),
-                new CheckBoxColumn<Node>("…œ¥´", x => x.Include, (x, v) => x.Include = v),
-                new TextColumn<Node, int>("ª∞ ˝", x => x.Number),
-                new TemplateColumn<Node>("◊¥Ã¨", BuildStatusCellTemplate()),
-                new TextColumn<Node, int>("±æµÿŒƒº˛ ˝", x => x.LocalFileCount)
+                new CheckBoxColumn<Node>("‰∏ä‰º†", x => x.Include, (x, v) => x.Include = v),
+                new TextColumn<Node, int>("ËØùÊï∞", x => x.Number),
+                new TemplateColumn<Node>("Áä∂ÊÄÅ", BuildStatusCellTemplate()),
+                new TextColumn<Node, int>("Êú¨Âú∞Êñá‰ª∂Êï∞", x => x.LocalFileCount)
             }
         };
         _tree.Source = source;
@@ -102,20 +93,23 @@ public partial class ProjectMetaDataWindow : UrsaWindow
         return new FuncDataTemplate<Node>((n, _) =>
         {
             var box = new ComboBox { IsEnabled = !n.IsFile };
-            box.ItemsSource = new[] { "¡¢œÓ", "∑≠“Î", "–£∂‘", "«∂◊÷", "∑¢≤º" };
+            box.ItemsSource = new[] { "Á´ãÈ°π", "ÁøªËØë", "Ê†°ÂØπ", "ÂµåÂ≠ó", "ÂèëÂ∏É" };
             box.SelectedItem = n.Status;
-            box.SelectionChanged += (_, __) => { if (box.SelectedItem is string s) n.Status = s; };
+            box.SelectionChanged += (_, __) =>
+            {
+                if (box.SelectedItem is string s) n.Status = s;
+            };
             return box;
         }, true);
     }
 
-    private void OnCancelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
     {
         Logger.Info("Meta window cancelled by user.");
         Close(false);
     }
 
-    private async void OnConfirmClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void OnConfirmClick(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -134,14 +128,25 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             }
             Logger.Info("Confirm: starting upload for {count} episodes", vm.PendingEpisodes.Count(e1 => e1.Include));
             var ok = await vm.UploadPendingAsync();
-            await MessageBox.ShowAsync(ok ? "…œ¥´ÕÍ≥…" : "…œ¥´ ß∞‹", ok ? "≥…π¶" : " ß∞‹");
+            await MessageBox.ShowAsync(ok ? "‰∏ä‰º†ÂÆåÊàê" : "‰∏ä‰º†Â§±Ë¥•", ok ? "ÊàêÂäü" : "Â§±Ë¥•");
             Logger.Info("Upload result: {result}", ok);
             Close(ok);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Confirm click failed.");
-            await MessageBox.ShowAsync(ex.Message, "¥ÌŒÛ");
+            await MessageBox.ShowAsync(ex.Message, "ÈîôËØØ");
         }
+    }
+
+    private sealed class Node
+    {
+        public bool IsFile { get; init; }
+        public string? Name { get; init; }
+        public int Number { get; init; }
+        public bool Include { get; set; }
+        public string Status { get; set; } = "Á´ãÈ°π";
+        public int LocalFileCount { get; init; }
+        public ObservableCollection<Node> Children { get; } = new();
     }
 }

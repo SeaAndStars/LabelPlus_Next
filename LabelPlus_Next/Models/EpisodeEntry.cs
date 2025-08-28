@@ -1,11 +1,9 @@
-using System.Collections.Generic;
-
 namespace LabelPlus_Next.Models;
 
 public class EpisodeEntry
 {
     public bool Include { get; set; } = true;
     public int Number { get; set; }
-    public string Status { get; set; } = "Á¢Ïî";
+    public string Status { get; set; } = "ç«‹é¡¹";
     public List<string> LocalFiles { get; set; } = new();
 }

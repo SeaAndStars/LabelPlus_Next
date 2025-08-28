@@ -1,39 +1,38 @@
-using System;
-using System.Linq;
-using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
-using Ursa.Controls;
 using LabelPlus_Next.Tools.ViewModels;
+using System.Linq;
+using Ursa.Controls;
 
-namespace LabelPlus_Next.Tools.Views
+namespace LabelPlus_Next.Tools.Views;
+
+public partial class PackWindow : UrsaWindow
 {
-    public partial class PackWindow : UrsaWindow
+    public PackWindow()
     {
-        public PackWindow()
-        {
-            InitializeComponent();
-            // Ensure DataContext at runtime
-            DataContext ??= new PackWindowViewModel();
-        }
+        InitializeComponent();
+        // Ensure DataContext at runtime
+        DataContext ??= new PackWindowViewModel();
+    }
 
-        private void InitializeComponent()
-        {
-            Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
-        }
+    private void InitializeComponent()
+    {
+        AvaloniaXamlLoader.Load(this);
+    }
 
-        private async void OnBrowseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void OnBrowseClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not PackWindowViewModel vm) return;
+        var top = GetTopLevel(this);
+        if (top?.StorageProvider is null) return;
+        var folders = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            if (DataContext is not PackWindowViewModel vm) return;
-            var top = TopLevel.GetTopLevel(this);
-            if (top?.StorageProvider is null) return;
-            var folders = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            {
-                Title = "选择要打包的目录",
-                AllowMultiple = false
-            });
-            var folder = folders?.FirstOrDefault();
-            if (folder?.Path is null) return;
-            await vm.SetFolderAsync(folder.Path.LocalPath);
-        }
+            Title = "閫夋嫨瑕佹墦鍖呯殑鐩綍",
+            AllowMultiple = false
+        });
+        var folder = folders?.FirstOrDefault();
+        if (folder?.Path is null) return;
+        await vm.SetFolderAsync(folder.Path.LocalPath);
     }
 }
