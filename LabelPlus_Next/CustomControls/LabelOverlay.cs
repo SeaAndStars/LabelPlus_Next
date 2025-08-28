@@ -168,7 +168,8 @@ public class LabelOverlay : Control
 
             var rect = GetLabelRect(x, y, side);
             var brush = label.Category == 1 ? innerBrush : outerBrush;
-            var penThickness = (i - 1) == HighlightIndex ? side / 5.0 : side / 10.0;
+            // Thinner borders
+            var penThickness = (i - 1) == HighlightIndex ? side / 10.0 : side / 18.0;
             var pen = new Pen(brush, penThickness);
 
             var rrect = new RoundedRect(rect, radius, radius);
@@ -183,15 +184,24 @@ public class LabelOverlay : Control
 
             context.DrawRectangle(null, pen, rrect);
 
-            // 居中显示加粗编号（使用更粗字体）
+            // Index number centered inside rect
             var head = i.ToString();
             var boldTf = new Typeface(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.Bold);
-            var indexFontSize = side / 1.6; // 稍微增大字号
-            var layout = new TextLayout(head, boldTf, indexFontSize, brush, TextAlignment.Center, TextWrapping.NoWrap, maxWidth: rect.Width);
-            var yTop = rect.Y + (rect.Height - indexFontSize) / 2;
-            layout.Draw(context, new Avalonia.Point(rect.X, yTop));
+            var indexFontSize = side / 1.15; // bigger index text
+            var layout = new TextLayout(head, boldTf, indexFontSize, brush, TextAlignment.Left, TextWrapping.NoWrap, TextTrimming.None);
+            double textW = 0, textH = 0;
+            foreach (var r in layout.HitTestTextRange(0, head.Length))
+            {
+                textW = System.Math.Max(textW, r.Right);
+                textH = System.Math.Max(textH, r.Bottom);
+            }
+            if (textW <= 0) textW = indexFontSize; // fallback approx
+            if (textH <= 0) textH = indexFontSize;
+            var drawX = rect.X + (rect.Width - textW) / 2;
+            var drawY = rect.Y + (rect.Height - textH) / 2;
+            layout.Draw(context, new Avalonia.Point(drawX, drawY));
 
-            // 悬浮显示 label text（在高亮时显示）
+            // Tip text for highlighted label
             if ((i - 1) == HighlightIndex && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
             {
                 var maxTipWidth = System.Math.Min(cw * 0.6, 480);
@@ -208,19 +218,19 @@ public class LabelOverlay : Control
                     FlowDirection.LeftToRight,
                     maxWidth: maxTipWidth);
 
-                double textW = 0, textH = 0;
-                foreach (var r in tipLayout.HitTestTextRange(0, tip.Length))
+                double tW = 0, tH = 0;
+                foreach (var rr in tipLayout.HitTestTextRange(0, tip.Length))
                 {
-                    textW = System.Math.Max(textW, r.Right);
-                    textH = System.Math.Max(textH, r.Bottom);
+                    tW = System.Math.Max(tW, rr.Right);
+                    tH = System.Math.Max(tH, rr.Bottom);
                 }
-                if (textW <= 0) textW = maxTipWidth;
-                if (textH <= 0) textH = tipFontSize;
+                if (tW <= 0) tW = maxTipWidth;
+                if (tH <= 0) tH = tipFontSize;
 
                 var padH = 6;
                 var padW = 8;
-                var bgW = textW + padW * 2;
-                var bgH = textH + padH * 2;
+                var bgW = tW + padW * 2;
+                var bgH = tH + padH * 2;
 
                 double tipX = rect.X;
                 double tipY = rect.Y - bgH - 4;

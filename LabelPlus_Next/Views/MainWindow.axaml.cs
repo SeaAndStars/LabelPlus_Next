@@ -22,6 +22,7 @@ namespace LabelPlus_Next.Views
         private NavMenu? _menuFooter;
         private bool _didStartupCheck;
         private readonly SettingsViewModel _settingsVm = new();
+        private bool _navCollapsed;
 
         public MainWindow()
         {
@@ -30,12 +31,37 @@ namespace LabelPlus_Next.Views
             _menuMain = this.FindControl<NavMenu>("NavMenuMain");
             _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
 
+            // Initialize collapse state from NavMenu property and sync toggle item text/icon
+            _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
+            UpdateToggleItemVisual();
+
             // Set default page and selection
             SetContent("translate");
             SelectMenuItemByTag(_menuMain, "translate");
             ClearMenuSelection(_menuFooter);
 
             Opened += OnOpened;
+        }
+
+        private void ToggleNavCollapse()
+        {
+            _navCollapsed = !_navCollapsed;
+            if (_menuMain is not null)
+            {
+                _menuMain.IsHorizontalCollapsed = _navCollapsed;
+            }
+            UpdateToggleItemVisual();
+        }
+
+        private void UpdateToggleItemVisual()
+        {
+            if (_menuMain?.Items is not IEnumerable items) return;
+            var first = items.Cast<object>().OfType<NavMenuItem>().FirstOrDefault();
+            if (first is NavMenuItem nmi)
+            {
+                nmi.Header = _navCollapsed ? "展开" : "收起";
+                nmi.Icon = _navCollapsed ? "?" : "?"; // use basic triangles to avoid missing glyphs
+            }
         }
 
         private async void OnOpened(object? sender, EventArgs e)
@@ -69,6 +95,19 @@ namespace LabelPlus_Next.Views
             string? tag = null;
             if (e.AddedItems[0] is Control ctrl)
                 tag = ctrl.Tag as string;
+
+            // Toggle expand/collapse
+            if (string.Equals(tag, "toggle", StringComparison.Ordinal))
+            {
+                ToggleNavCollapse();
+                // restore previous selection after toggling
+                if (sender is NavMenu menu)
+                {
+                    var previous = e.RemovedItems is { Count: > 0 } ? e.RemovedItems[0] : null;
+                    menu.SelectedItem = previous;
+                }
+                return;
+            }
 
             // Intercept settings: open modal and restore previous selection
             if (string.Equals(tag, "settings", StringComparison.Ordinal))

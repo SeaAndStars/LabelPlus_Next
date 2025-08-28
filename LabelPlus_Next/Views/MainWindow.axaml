@@ -9,17 +9,18 @@
     Title="LabelPlus_Next"
     Width="1300"
     Height="800"
-    d:DesignHeight="650"
-    d:DesignWidth="1200"
+    d:DesignHeight="800"
+    d:DesignWidth="1300"
     Focusable="True"
     Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     mc:Ignorable="d">
 
 
-    <Grid
+    <Grid x:Name="RootGrid"
         Margin="0,25,0,0"
-        ColumnDefinitions="220,*"
-        RowDefinitions="*">
+        ColumnDefinitions="auto,*"
+        RowDefinitions="*"
+		  >
 
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
@@ -31,12 +32,15 @@
             <u:NavMenu
                 x:Name="NavMenuMain"
                 Grid.Row="0"
+                IsHorizontalCollapsed="False"
                 SelectionChanged="OnNavSelectionChanged">
-                <u:NavMenuItem Header="翻译" Tag="translate" />
-                <u:NavMenuItem Header="校对" Tag="proof" />
-                <u:NavMenuItem Header="协作" Tag="collab" />
-                <u:NavMenuItem Header="上传" Tag="upload" />
-                <u:NavMenuItem Header="交付" Tag="deliver" />
+
+                <u:NavMenuItem Header="收起" Tag="toggle" Icon="◀" />
+                <u:NavMenuItem Header="翻译" Tag="translate" Icon="📝"/>
+                <u:NavMenuItem Header="校对" Tag="proof" Icon="✅"/>
+                <u:NavMenuItem Header="协作" Tag="collab" Icon="🤝"/>
+                <u:NavMenuItem Header="上传" Tag="upload" Icon="⤴" />
+                <u:NavMenuItem Header="交付" Tag="deliver" Icon="📦" />
             </u:NavMenu>
 
 
@@ -44,7 +48,7 @@
                 x:Name="NavMenuFooter"
                 Grid.Row="1"
                 SelectionChanged="OnNavSelectionChanged">
-                <u:NavMenuItem Header="设置" Tag="settings" />
+                <u:NavMenuItem Header="设置" Tag="settings" Icon="⚙" />
             </u:NavMenu>
         </Grid>
 
