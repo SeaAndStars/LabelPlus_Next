@@ -43,5 +43,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="9.0.0" />
     <PackageVersion Include="RestSharp" Version="112.1.0" />
+    <!-- Add missing central version for Update project's logging -->
+    <PackageVersion Include="NLog.Config" Version="5.2.3" />
   </ItemGroup>
 </Project>

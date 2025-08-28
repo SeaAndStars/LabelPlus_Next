@@ -33,6 +33,7 @@
     <PackageReference Include="Irihi.Ursa" />
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
     <PackageReference Include="Semi.Avalonia" />
+    <PackageReference Include="NLog" />
   </ItemGroup>
 
   <ItemGroup>

@@ -22,7 +22,7 @@
           <TextBox Text="{Binding Password}"/>
           <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
             <Button Content="保存" Command="{Binding SaveCommand}"/>
-            <Button Content="检查更新" Command="{Binding VerifyHttpCommand}"/>
+            <Button Content="检查更新" Command="{Binding CheckUpdateCommand}"/>
             <Button Content="验证 HTTP" Click="OnVerifyClick"/>
           </StackPanel>
           <TextBlock Text="{Binding Status}"/>
@@ -55,10 +55,6 @@
           </StackPanel>
 			<TextBlock Text="{Binding UpdateTask}"/>
 			<ProgressBar Minimum="0" Maximum="100" IsIndeterminate="{Binding IsProgressIndeterminate}" Value="{Binding UpdateProgress}" Height="10"/>
-         
-
-          
-
         </StackPanel>
       </Border>
     </StackPanel>

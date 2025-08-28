@@ -203,7 +203,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    // 开机检查：如 Updater 有更新则多线程下载；如 Client 有更新则启动 /update 下的 updater 进行更新
+    // 开机检查：优先检查并更新 Updater，自身更新完成后，若 Client 有更新，直接启动 updater 处理（不在主程序下载 Client）
     public async Task CheckAndUpdateOnStartupAsync()
     {
         try
@@ -239,6 +239,7 @@ public partial class SettingsViewModel : ViewModelBase
             bool needUpdater = IsGreater(updaterLatest, updaterLocal);
             bool needClient = IsGreater(clientLatest, clientLocal);
 
+            // 1) 优先更新 Updater
             if (needUpdater && uproj is not null)
             {
                 var (upUrl, upSha) = GetReleaseFileInfo(uproj, updaterLatest!);
@@ -246,13 +247,12 @@ public partial class SettingsViewModel : ViewModelBase
                 {
                     UpdateTask = $"下载更新程序 {updaterLatest}..."; IsProgressIndeterminate = false; UpdateProgress = 0;
                     var zipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
-                    var ok = await DownloadWithDownloaderAsync(upUrl!, zipPath);
+                    var ok = await DownloadZipAutoAsync(upUrl!, zipPath);
                     if (!ok)
                     {
                         Logger.Warn("Updater download failed");
                         return;
                     }
-                    // 确保文件落盘
                     if (!await EnsureFileReadyAsync(zipPath)) { Logger.Warn("Updater file not present after download"); return; }
 
                     if (!string.IsNullOrWhiteSpace(upSha))
@@ -273,66 +273,44 @@ public partial class SettingsViewModel : ViewModelBase
                 }
             }
 
-            if (needClient && cproj is not null)
+            // 2) 如 Client 有更新：直接启动 Updater 处理（不在主程序下载 Client）
+            if (needClient)
             {
-                var (fileUrl, fileSha) = GetReleaseFileInfo(cproj, clientLatest!);
-                if (!string.IsNullOrWhiteSpace(fileUrl))
+                var updaterExe = Path.Combine(updateDir, "LabelPlus_Next.Update.exe");
+                if (!File.Exists(updaterExe))
                 {
-                    UpdateTask = $"下载客户端 {clientLatest}..."; IsProgressIndeterminate = false; UpdateProgress = 0;
-                    var zipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
-                    var ok = await DownloadWithDownloaderAsync(fileUrl!, zipPath);
-                    if (!ok)
+                    var fallback = Path.Combine(appDir, "LabelPlus_Next.Update.exe");
+                    if (File.Exists(fallback)) updaterExe = fallback;
+                }
+                if (File.Exists(updaterExe))
+                {
+                    try
                     {
-                        Logger.Warn("Client download failed");
+                        Status = "启动更新程序...";
+                        var pid = Process.GetCurrentProcess().Id;
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = updaterExe,
+                            UseShellExecute = false,
+                            WorkingDirectory = Path.GetDirectoryName(updaterExe) ?? updateDir
+                        };
+                        psi.ArgumentList.Add("--waitpid");
+                        psi.ArgumentList.Add(pid.ToString());
+                        psi.ArgumentList.Add("--targetpath");
+                        psi.ArgumentList.Add(appDir);
+                        Process.Start(psi);
+                        var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        lifetime?.Shutdown();
                         return;
                     }
-                    if (!await EnsureFileReadyAsync(zipPath)) { Logger.Warn("Client file not present after download"); return; }
-
-                    if (!string.IsNullOrWhiteSpace(fileSha))
+                    catch (Exception ex)
                     {
-                        var actual = await ComputeSha256Async(zipPath);
-                        if (!string.Equals(actual, fileSha, StringComparison.OrdinalIgnoreCase))
-                        {
-                            Logger.Warn("Client SHA256 mismatch. expected={exp} actual={act}", fileSha, actual);
-                            SafeDelete(zipPath);
-                            return;
-                        }
+                        Logger.Error(ex, "Failed to start updater for client update");
                     }
-                    UpdateTask = "解压客户端..."; IsProgressIndeterminate = true; UpdateProgress = 0;
-                    await ExtractZipSelectiveAsync(zipPath, appDir, rel => rel.Replace('\\','/').StartsWith("update/", StringComparison.OrdinalIgnoreCase));
-                    SafeDelete(zipPath);
-
-                    // 启动 updater 执行替换/重启
-                    var updaterExe = Path.Combine(updateDir, "LabelPlus_Next.Update.exe");
-                    if (!File.Exists(updaterExe))
-                    {
-                        var fallback = Path.Combine(appDir, "LabelPlus_Next.Update.exe");
-                        if (File.Exists(fallback)) updaterExe = fallback;
-                    }
-                    if (File.Exists(updaterExe))
-                    {
-                        try
-                        {
-                            var pid = Process.GetCurrentProcess().Id;
-                            var psi = new ProcessStartInfo
-                            {
-                                FileName = updaterExe,
-                                UseShellExecute = false,
-                                WorkingDirectory = Path.GetDirectoryName(updaterExe) ?? updateDir
-                            };
-                            psi.ArgumentList.Add("--waitpid");
-                            psi.ArgumentList.Add(pid.ToString());
-                            psi.ArgumentList.Add("--targetpath");
-                            psi.ArgumentList.Add(appDir);
-                            Process.Start(psi);
-                            var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                            lifetime?.Shutdown();
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error(ex, "Failed to start updater after client extraction");
-                        }
-                    }
+                }
+                else
+                {
+                    Logger.Warn("Updater exe not found to start client update");
                 }
             }
         }
@@ -359,6 +337,83 @@ public partial class SettingsViewModel : ViewModelBase
         return (null, null);
     }
 
+    private async Task<bool> DownloadZipAutoAsync(string url, string outPath)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(url) && url.Contains("/dav", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryExtractDavPath(url, out var davPath) && !string.IsNullOrEmpty(BaseUrl))
+                {
+                    // Login and resolve raw url via API
+                    var auth = new AuthApi(BaseUrl!);
+                    var login = await auth.LoginAsync(Username ?? string.Empty, Password ?? string.Empty);
+                    if (login.Code == 200 && !string.IsNullOrWhiteSpace(login.Data?.Token))
+                    {
+                        var token = login.Data!.Token!;
+                        var fs = new FileSystemApi(BaseUrl!);
+                        var meta = await fs.GetAsync(token, davPath);
+                        if (meta.Code == 200 && meta.Data is not null && !meta.Data.IsDir)
+                        {
+                            var raw = !string.IsNullOrWhiteSpace(meta.Data.RawUrl)
+                                ? meta.Data.RawUrl!
+                                : (string.IsNullOrWhiteSpace(meta.Data.Sign) ? null : BaseUrl!.TrimEnd('/') + "/d/" + Uri.EscapeDataString(meta.Data.Sign!));
+                            if (!string.IsNullOrWhiteSpace(raw))
+                            {
+                                return await DownloadWithDownloaderAsync(raw!, outPath);
+                            }
+                        }
+                    }
+                }
+                // Fallback to direct download
+                return await DownloadWithDownloaderAsync(url, outPath);
+            }
+            else
+            {
+                return await DownloadWithDownloaderAsync(url, outPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "DownloadZipAutoAsync failed for url={url}");
+            return false;
+        }
+    }
+
+    private static bool TryExtractDavPath(string url, out string davPath)
+    {
+        davPath = string.Empty;
+        try
+        {
+            var u = new Uri(url);
+            var segments = u.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (string.Equals(segments[i], "dav", StringComparison.OrdinalIgnoreCase))
+                {
+                    var rest = string.Join('/', segments.Skip(i + 1));
+                    davPath = "/" + rest;
+                    return true;
+                }
+            }
+            return false;
+        }
+        catch
+        {
+            // Naive fallback
+            var idx = url.IndexOf("/dav", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                var after = url[(idx + 4)..];
+                davPath = after.StartsWith('/') ? after : "/" + after;
+                var q = davPath.IndexOf('?');
+                if (q >= 0) davPath = davPath[..q];
+                return true;
+            }
+            return false;
+        }
+    }
+
     private async Task<bool> DownloadWithDownloaderAsync(string url, string outPath)
     {
         try
@@ -380,12 +435,23 @@ public partial class SettingsViewModel : ViewModelBase
                 EnableLiveStreaming = false
             };
             var service = new DownloadService(cfg);
+            service.DownloadProgressChanged += (s, e) =>
+            {
+                UpdateProgress = e.ProgressPercentage;
+                IsProgressIndeterminate = false;
+            };
+            service.DownloadFileCompleted += (s, e) =>
+            {
+                UpdateProgress = 100;
+                IsProgressIndeterminate = false;
+            };
             await service.DownloadFileTaskAsync(url, outPath);
             return true;
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Downloader failed: {url}", url);
+            IsProgressIndeterminate = false;
             return false;
         }
     }
