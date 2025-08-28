@@ -13,6 +13,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -247,6 +248,48 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             Logger.Error(ex, "Verify via API failed");
+            Status = $"验证异常: {ex.Message}";
+        }
+    }
+
+    // 通过 IUpdateService 验证清单，便于测试不同失败路径（超时/JSON非法/网络错误/空清单等）
+    public async Task VerifyViaUpdateServiceAsync(IUpdateService updateService, UpdateSettings upd, CancellationToken ct = default)
+    {
+        try
+        {
+            Status = "正在验证清单...";
+            Logger.Info("Verify via IUpdateService...");
+            var manifest = await updateService.FetchManifestAsync(upd, ct);
+            if (manifest is null)
+            {
+                Status = "清单为空";
+                return;
+            }
+            if (manifest.Files is null)
+            {
+                Status = "清单格式错误";
+                return;
+            }
+            Status = "服务验证成功";
+        }
+        catch (TaskCanceledException)
+        {
+            Status = "验证失败：请求超时";
+        }
+        catch (TimeoutException)
+        {
+            Status = "验证失败：请求超时";
+        }
+        catch (JsonException jx)
+        {
+            Status = $"验证失败：清单不是有效 JSON（{jx.Message}）";
+        }
+        catch (HttpRequestException hx)
+        {
+            Status = $"验证失败：网络错误（{hx.Message}）";
+        }
+        catch (Exception ex)
+        {
             Status = $"验证异常: {ex.Message}";
         }
     }

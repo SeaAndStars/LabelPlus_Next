@@ -64,6 +64,9 @@ public class ProductionVmIntegrationTests
             Assert.Inconclusive($"生产环境不可用或未授权: {vm.Status}");
         else
             Assert.IsTrue(true, vm.Status);
+
+    // 额外：调用保存设置，验证不抛异常
+    await vm.SaveAsync();
     }
 
     [TestMethod]
@@ -90,6 +93,13 @@ public class ProductionVmIntegrationTests
 
         // 只要不报错即视为通过；Projects 可能为空取决于服务端
         Assert.IsNotNull(vm.Projects);
+        // 如果有项目，随机取一个触发搜索提示刷新
+        if (vm.Projects.Count > 0)
+        {
+            vm.SelectedProject = vm.Projects[0];
+            // 不直接上传，避免副作用
+            Assert.IsFalse(string.IsNullOrWhiteSpace(vm.SelectedProject));
+        }
     }
 
     private sealed class MemorySettingsService : ISettingsService
