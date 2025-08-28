@@ -3,7 +3,7 @@ using Avalonia.Markup.Xaml;
 
 namespace LabelPlus_Next.Views.Pages;
 
-public class TeamWorkPage : UserControl
+public partial class TeamWorkPage : UserControl
 {
     public TeamWorkPage()
     {
