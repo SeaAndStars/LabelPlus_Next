@@ -3,69 +3,69 @@ using Newtonsoft.Json;
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// /api/fs/search ÏìÓ¦¡£
+///     /api/fs/search å“åº”ã€‚
 /// </summary>
 public sealed class FsSearchResponse
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ã€‚
     /// </summary>
     [JsonProperty("code")] public int Code { get; set; }
 
     /// <summary>
-    /// Êı¾İ¸ºÔØ¡£
+    ///     æ•°æ®è´Ÿè½½ã€‚
     /// </summary>
     [JsonProperty("data")] public FsSearchData? Data { get; set; }
 
     /// <summary>
-    /// ÏûÏ¢¡£
+    ///     æ¶ˆæ¯ã€‚
     /// </summary>
     [JsonProperty("message")] public string? Message { get; set; }
 }
 
 /// <summary>
-/// ËÑË÷Êı¾İ¶ÔÏó¡£
+///     æœç´¢æ•°æ®å¯¹è±¡ã€‚
 /// </summary>
 public sealed class FsSearchData
 {
     /// <summary>
-    /// ËÑË÷½á¹ûÁĞ±í¡£
+    ///     æœç´¢ç»“æœåˆ—è¡¨ã€‚
     /// </summary>
     [JsonProperty("content")] public FsSearchItem[]? Content { get; set; }
 
     /// <summary>
-    /// ½á¹û×ÜÊı¡£
+    ///     ç»“æœæ€»æ•°ã€‚
     /// </summary>
     [JsonProperty("total")] public long Total { get; set; }
 }
 
 /// <summary>
-/// µ¥¸öËÑË÷½á¹ûÏî¡£
+///     å•ä¸ªæœç´¢ç»“æœé¡¹ã€‚
 /// </summary>
 public sealed class FsSearchItem
 {
     /// <summary>
-    /// ÊÇ·ñÎªÄ¿Â¼¡£
+    ///     æ˜¯å¦ä¸ºç›®å½•ã€‚
     /// </summary>
     [JsonProperty("is_dir")] public bool IsDir { get; set; }
 
     /// <summary>
-    /// Ãû³Æ¡£
+    ///     åç§°ã€‚
     /// </summary>
     [JsonProperty("name")] public string? Name { get; set; }
 
     /// <summary>
-    /// ¸¸Â·¾¶¡£
+    ///     çˆ¶è·¯å¾„ã€‚
     /// </summary>
     [JsonProperty("parent")] public string? Parent { get; set; }
 
     /// <summary>
-    /// ´óĞ¡¡£
+    ///     å¤§å°ã€‚
     /// </summary>
     [JsonProperty("size")] public long Size { get; set; }
 
     /// <summary>
-    /// ÀàĞÍ¡£
+    ///     ç±»å‹ã€‚
     /// </summary>
     [JsonProperty("type")] public long Type { get; set; }
 }

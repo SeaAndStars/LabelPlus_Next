@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using NLog;
 using System.Globalization;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
-using NLog;
 
 namespace LabelPlus_Next.Models;
 

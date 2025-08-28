@@ -78,8 +78,12 @@
                             <Grid.RenderTransform>
                                 <TransformGroup>
                                     <!--  Scale first, then translate: x' = S*x + T  -->
-                                    <ScaleTransform ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
-                                    <TranslateTransform X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}" Y="{Binding TranslateY, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    <ScaleTransform
+                                        ScaleX="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}"
+                                        ScaleY="{Binding Scale, RelativeSource={RelativeSource TemplatedParent}}" />
+                                    <TranslateTransform
+                                        X="{Binding TranslateX, RelativeSource={RelativeSource TemplatedParent}}"
+                                        Y="{Binding TranslateY, RelativeSource={RelativeSource TemplatedParent}}" />
                                 </TransformGroup>
                             </Grid.RenderTransform>
                             <Image

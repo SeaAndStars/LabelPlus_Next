@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-namespace LabelPlus_Next.Models;
+﻿namespace LabelPlus_Next.Models;
 
 public class LabelFileHeaderManager
 {

@@ -1,23 +1,22 @@
-using System.Threading.Tasks;
 using LabelPlus_Next.Services.Api;
 
 namespace LabelPlus_Next.Test;
 
 /// <summary>
-/// ¼òµ¥µÄÁîÅÆ»º´æ£ºÓÅÏÈÊ¹ÓÃÒÑÓÐ Token£»ÈôÎÞÔòµ÷ÓÃµÇÂ¼½Ó¿Ú»ñÈ¡²¢»º´æµ½ÄÚ´æ£¬¹©±¾´Î²âÊÔ»á»°¸´ÓÃ¡£
+///     ï¿½òµ¥µï¿½ï¿½ï¿½ï¿½Æ»ï¿½ï¿½æ£ºï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Tokenï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½Â¼ï¿½Ó¿Ú»ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½æµ½ï¿½Ú´æ£¬ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½ï¿½Ô»á»°ï¿½ï¿½ï¿½Ã¡ï¿½
 /// </summary>
 internal static class TokenCache
 {
     private static string? _cachedToken;
 
     /// <summary>
-    /// »ñÈ¡¿ÉÓÃµÄ Token£»ÈôÈ±Ê§Ôò³¢ÊÔµÇÂ¼»ñÈ¡²¢»º´æ¡£
+    ///     ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ãµï¿½ Tokenï¿½ï¿½ï¿½ï¿½È±Ê§ï¿½ï¿½ï¿½Ôµï¿½Â¼ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½æ¡£
     /// </summary>
-    /// <param name="baseUrl">·þÎñ¶Ë»ù´¡µØÖ·¡£</param>
-    /// <param name="tokenFromConfig">ÅäÖÃÎÄ¼þÖÐµÄ³õÊ¼ Token£¨¿ÉÎª¿Õ£©¡£</param>
-    /// <param name="username">ÓÃ»§Ãû£¨µ±ÐèµÇÂ¼Ê±Ê¹ÓÃ£©¡£</param>
-    /// <param name="password">ÃÜÂë£¨µ±ÐèµÇÂ¼Ê±Ê¹ÓÃ£©¡£</param>
-    /// <returns>·µ»Ø¿ÉÓÃµÄ Token£¬ÈôÎÞ·¨»ñÈ¡Ôò·µ»Ø null¡£</returns>
+    /// <param name="baseUrl">ï¿½ï¿½ï¿½ï¿½Ë»ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½</param>
+    /// <param name="tokenFromConfig">ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ÐµÄ³ï¿½Ê¼ Tokenï¿½ï¿½ï¿½ï¿½Îªï¿½Õ£ï¿½ï¿½ï¿½</param>
+    /// <param name="username">ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼Ê±Ê¹ï¿½Ã£ï¿½ï¿½ï¿½</param>
+    /// <param name="password">ï¿½ï¿½ï¿½ë£¨ï¿½ï¿½ï¿½ï¿½ï¿½Â¼Ê±Ê¹ï¿½Ã£ï¿½ï¿½ï¿½</param>
+    /// <returns>ï¿½ï¿½ï¿½Ø¿ï¿½ï¿½Ãµï¿½ Tokenï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½ï¿½È¡ï¿½ò·µ»ï¿½ nullï¿½ï¿½</returns>
     public static async Task<string?> GetOrLoginAsync(string baseUrl, string? tokenFromConfig, string? username, string? password)
     {
         if (!string.IsNullOrWhiteSpace(_cachedToken))

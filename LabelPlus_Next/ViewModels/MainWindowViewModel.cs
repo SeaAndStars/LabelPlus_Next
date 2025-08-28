@@ -1,68 +1,63 @@
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using Avalonia.Controls;
-using Avalonia.Media; // for IImage
+using Avalonia.Controls.Notifications;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using NLog;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using Avalonia.Controls.Notifications;
-using Avalonia.Threading;
+// for IImage
 using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
-using NLog;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    protected static LabelFileManager LabelFileManager1 = new();
+    private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
+    private int _autoSaveBusy; // 0 = idle, 1 = running
+
+    // Auto-save timer
+    private Timer? _autoSaveTimer;
 
     private IFileDialogService? _dialogs;
-    protected static LabelFileManager LabelFileManager1 = new();
+    private string? _lastBackupSignature; // avoid duplicate backups
+
+    [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
+    [ObservableProperty] private string? currentText;
+    [ObservableProperty] private ObservableCollection<LabelItem> deletedLabels = new();
+    [ObservableProperty] private ObservableCollection<string> imageFileNames = new();
+    [ObservableProperty] private string? newTranslationPath;
+    [ObservableProperty] private string? openTranslationFilePath;
+    [ObservableProperty] private IImage? picImageSource;
+    [ObservableProperty] private string? selectedImageFile;
+    [ObservableProperty] private LabelItem? selectedLabel;
+
+    [ObservableProperty]
+    private string? selectedLang = "default";
 
     // Notification manager (injected from MainWindow)
     public WindowNotificationManager? NotificationManager { get; set; }
 
-    // Auto-save timer
-    private Timer? _autoSaveTimer;
-    private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
-    private int _autoSaveBusy; // 0 = idle, 1 = running
-    private string? _lastBackupSignature; // avoid duplicate backups
+    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
+
+    public bool HasUnsavedChanges
+    {
+        get => LabelFileManager1.StoreManager.IsDirty;
+    }
 
     public void InitializeServices(IFileDialogService dialogs)
     {
         _dialogs ??= dialogs;
         Logger.Debug("Services initialized.");
     }
-
-    public MainWindowViewModel() { }
-
-    [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
-    [ObservableProperty] private string? currentText;
-    [ObservableProperty] private ObservableCollection<string> imageFileNames = new();
-    [ObservableProperty] private string? newTranslationPath;
-    [ObservableProperty] private string? openTranslationFilePath;
-    [ObservableProperty] private string? selectedImageFile;
-    [ObservableProperty] private LabelItem? selectedLabel;
-    [ObservableProperty] private ObservableCollection<LabelItem> deletedLabels = new();
-    [ObservableProperty] private IImage? picImageSource;
-
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
-
-    [ObservableProperty]
-    private string? selectedLang = "default";
-
-    public bool HasUnsavedChanges => LabelFileManager1.StoreManager.IsDirty;
 
     // Start/Stop auto-save
     private void StartAutoSave()
@@ -111,16 +106,32 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task AutoSaveTickAsync()
     {
-        if (Interlocked.Exchange(ref _autoSaveBusy, 1) == 1) { Logger.Debug("Skip autosave tick: busy."); return; }
+        if (Interlocked.Exchange(ref _autoSaveBusy, 1) == 1)
+        {
+            Logger.Debug("Skip autosave tick: busy.");
+            return;
+        }
         try
         {
             var path = OpenTranslationFilePath;
-            if (string.IsNullOrEmpty(path)) { Logger.Debug("Skip autosave: no open file."); return; }
-            if (!HasUnsavedChanges) { Logger.Debug("Skip autosave: no changes."); return; }
+            if (string.IsNullOrEmpty(path))
+            {
+                Logger.Debug("Skip autosave: no open file.");
+                return;
+            }
+            if (!HasUnsavedChanges)
+            {
+                Logger.Debug("Skip autosave: no changes.");
+                return;
+            }
 
             string snapshot;
             try { snapshot = await BuildSnapshotAsync(); }
-            catch (Exception ex) { Logger.Error(ex, "Autosave snapshot build failed."); return; }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Autosave snapshot build failed.");
+                return;
+            }
             var sig = ComputeHash(snapshot);
             if (string.Equals(sig, _lastBackupSignature, StringComparison.Ordinal))
             {
@@ -129,9 +140,18 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             var dir = Path.GetDirectoryName(path);
-            if (string.IsNullOrEmpty(dir)) { Logger.Warn("Autosave: cannot resolve directory of {path}.", path); return; }
+            if (string.IsNullOrEmpty(dir))
+            {
+                Logger.Warn("Autosave: cannot resolve directory of {path}.", path);
+                return;
+            }
             var bakDir = Path.Combine(dir, "bak");
-            try { Directory.CreateDirectory(bakDir); } catch (Exception ex) { Logger.Error(ex, "Autosave: create bak dir failed: {bakDir}", bakDir); return; }
+            try { Directory.CreateDirectory(bakDir); }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Autosave: create bak dir failed: {bakDir}", bakDir);
+                return;
+            }
 
             var fileName = Path.GetFileName(path);
             var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -156,10 +176,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     // Utilities for Image Manager integration
-    public IReadOnlyCollection<string> GetIncludedImageFiles()
-    {
-        return LabelFileManager1.StoreManager.Store.Keys.ToList();
-    }
+    public IReadOnlyCollection<string> GetIncludedImageFiles() => LabelFileManager1.StoreManager.Store.Keys.ToList();
 
     public async Task AddImageFileAsync(string relativePath)
     {
@@ -206,10 +223,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     // Expose file header settings
-    public (List<string> groupList, string notes) GetFileSettings()
-    {
-        return (new List<string>(LabelFileManager1.GroupStringList), LabelFileManager1.Comment);
-    }
+    public (List<string> groupList, string notes) GetFileSettings() => (new List<string>(LabelFileManager1.GroupStringList), LabelFileManager1.Comment);
 
     public async Task<bool> SaveFileSettingsAsync(List<string> groupList, string notes)
     {
@@ -301,7 +315,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Compose content
         var nl = Environment.NewLine;
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         sb.Append(header);
         foreach (var name in selected)
         {
@@ -313,7 +327,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Save as translation.txt in folder
         var outPath = Path.Combine(folder, "translation.txt");
-        await File.WriteAllTextAsync(outPath, sb.ToString(), System.Text.Encoding.UTF8);
+        await File.WriteAllTextAsync(outPath, sb.ToString(), Encoding.UTF8);
 
         await _dialogs.ShowMessageAsync($"创建完成:{nl}{outPath}{nl}共 {selected.Count} 个文件。");
         OpenTranslationFilePath = outPath;
@@ -450,12 +464,12 @@ public partial class MainWindowViewModel : ViewModelBase
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
-            string? translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
+            var translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
             string? translationDir = null;
             if (!string.IsNullOrEmpty(translationFilePath))
                 translationDir = Path.GetDirectoryName(translationFilePath);
 
-            string imagePath = value;
+            var imagePath = value;
             if (translationDir != null && !Path.IsPathRooted(imagePath))
                 imagePath = Path.Combine(translationDir, imagePath);
 
@@ -473,9 +487,15 @@ public partial class MainWindowViewModel : ViewModelBase
         else { PicImageSource = null; }
 
         if (CurrentLabels.Count > 0)
-        { SelectedLabel = CurrentLabels[0]; CurrentText = SelectedLabel.Text; }
+        {
+            SelectedLabel = CurrentLabels[0];
+            CurrentText = SelectedLabel.Text;
+        }
         else
-        { SelectedLabel = null; CurrentText = string.Empty; }
+        {
+            SelectedLabel = null;
+            CurrentText = string.Empty;
+        }
     }
 
     partial void OnSelectedLabelChanged(LabelItem? value) => CurrentText = value?.Text ?? string.Empty;

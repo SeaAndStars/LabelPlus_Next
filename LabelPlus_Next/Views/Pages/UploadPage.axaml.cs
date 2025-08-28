@@ -1,22 +1,20 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Windows;
-using System;
-using Ursa.Controls;
 using NLog;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;
 
 public partial class UploadPage : UserControl
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private bool _servicesInitialized;
 
     private UploadViewModel? _vm;
-    private bool _servicesInitialized;
 
     public UploadPage()
     {
@@ -27,7 +25,7 @@ public partial class UploadPage : UserControl
             {
                 DataContext = new UploadViewModel();
             }
-            this.DataContextChanged += OnDataContextChanged;
+            DataContextChanged += OnDataContextChanged;
             TryHookVm(DataContext as UploadViewModel);
             Logger.Info("UploadPage constructed.");
         }
@@ -143,7 +141,7 @@ public partial class UploadPage : UserControl
             if (_vm.HasDuplicates)
             {
                 Logger.Info("Duplicate episodes detected, asking for confirmation.");
-                var res = await MessageBox.ShowAsync("¼ì²âµ½ÓëÔ¶¶Ë´æÔÚÏàÍ¬»°Êý£¬ÊÇ·ñ¼ÌÐø?", "ÌáÊ¾", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var res = await MessageBox.ShowAsync("ï¿½ï¿½âµ½ï¿½ï¿½Ô¶ï¿½Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½?", "ï¿½ï¿½Ê¾", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
                 if (res != MessageBoxResult.Yes)
                 {
                     Logger.Info("User cancelled due to duplicates.");
@@ -168,7 +166,7 @@ public partial class UploadPage : UserControl
         }
     }
 
-    private void VmOnMultiMetadataReady(object? sender, System.Collections.Generic.IReadOnlyList<UploadViewModel> vms)
+    private void VmOnMultiMetadataReady(object? sender, IReadOnlyList<UploadViewModel> vms)
     {
         try
         {
@@ -176,7 +174,8 @@ public partial class UploadPage : UserControl
             foreach (var vm in vms)
             {
                 var win = new ProjectMetaDataWindow { DataContext = vm };
-                if (owner is not null) win.Show(owner); else win.Show();
+                if (owner is not null) win.Show(owner);
+                else win.Show();
             }
             Logger.Info("Opened {count} metadata windows for multi-folder selection.", vms.Count);
         }

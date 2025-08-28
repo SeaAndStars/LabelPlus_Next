@@ -1,10 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using LabelPlus_Next.ViewModels;
-using System.Linq;
-using System;
-using System.IO;
-using System.Collections.Generic;
 using NLog;
 using Ursa.Controls;
 
@@ -17,10 +13,13 @@ public partial class ImageManager : UrsaWindow
     public ImageManager()
     {
         InitializeComponent();
-        this.Opened += OnOpened;
+        Opened += OnOpened;
     }
 
-    private ImageManagerViewModel? VM => DataContext as ImageManagerViewModel;
+    private ImageManagerViewModel? VM
+    {
+        get => DataContext as ImageManagerViewModel;
+    }
 
     private void OnOpened(object? sender, EventArgs e)
     {
@@ -39,7 +38,7 @@ public partial class ImageManager : UrsaWindow
         if (string.IsNullOrEmpty(transPath)) return;
         var dir = Path.GetDirectoryName(transPath)!;
         var all = new List<string>();
-        string[] patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp" };
+        var patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.webp" };
         foreach (var pat in patterns)
         {
             try
@@ -102,9 +101,21 @@ public partial class ImageManager : UrsaWindow
 
     private async void OnOkClick(object? sender, RoutedEventArgs e)
     {
-        if (Owner is not Window owner) { Close(false); return; }
-        if (owner.DataContext is not MainWindowViewModel mvm) { Close(false); return; }
-        if (VM is null) { Close(false); return; }
+        if (Owner is not Window owner)
+        {
+            Close(false);
+            return;
+        }
+        if (owner.DataContext is not MainWindowViewModel mvm)
+        {
+            Close(false);
+            return;
+        }
+        if (VM is null)
+        {
+            Close(false);
+            return;
+        }
 
         var before = mvm.GetIncludedImageFiles().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var after = VM.FileList.ToHashSet(StringComparer.OrdinalIgnoreCase);

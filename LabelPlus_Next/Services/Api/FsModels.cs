@@ -1,164 +1,164 @@
-using System;
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// /api/fs/list ½Ó¿ÚµÄÏìÓ¦¸ù¶ÔÏó¡£
+///     /api/fs/list æ¥å£çš„å“åº”æ ¹å¯¹è±¡ã€‚
 /// </summary>
 public sealed class FsListResponse
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë£¬200 ±íÊ¾³É¹¦¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ï¼Œ200 è¡¨ç¤ºæˆåŠŸã€‚
     /// </summary>
     [JsonProperty("code")] public int Code { get; set; }
 
     /// <summary>
-    /// Êı¾İ¸ºÔØ¡£
+    ///     æ•°æ®è´Ÿè½½ã€‚
     /// </summary>
     [JsonProperty("data")] public FsListData? Data { get; set; }
 
     /// <summary>
-    /// ÈËÀà¿É¶ÁµÄÏûÏ¢¡£
+    ///     äººç±»å¯è¯»çš„æ¶ˆæ¯ã€‚
     /// </summary>
     [JsonProperty("message")] public string? Message { get; set; }
 }
 
 /// <summary>
-/// ÁĞ±íÊı¾İ¶ÔÏó¡£
+///     åˆ—è¡¨æ•°æ®å¯¹è±¡ã€‚
 /// </summary>
 public sealed class FsListData
 {
     /// <summary>
-    /// ÎÄ¼ş/ÎÄ¼ş¼ĞÄÚÈİÁĞ±í¡£
+    ///     æ–‡ä»¶/æ–‡ä»¶å¤¹å†…å®¹åˆ—è¡¨ã€‚
     /// </summary>
     [JsonProperty("content")] public FsItem[]? Content { get; set; }
 
     /// <summary>
-    /// ¶îÍâÏìÓ¦Í·ĞÅÏ¢£¨Èç¹ûÓĞ£©¡£
+    ///     é¢å¤–å“åº”å¤´ä¿¡æ¯ï¼ˆå¦‚æœæœ‰ï¼‰ã€‚
     /// </summary>
     [JsonProperty("header")] public string? Header { get; set; }
 
     /// <summary>
-    /// Ìá¹©·½¡£
+    ///     æä¾›æ–¹ã€‚
     /// </summary>
     [JsonProperty("provider")] public string? Provider { get; set; }
 
     /// <summary>
-    /// Ä¿Â¼ËµÃ÷£¨README£©¡£
+    ///     ç›®å½•è¯´æ˜ï¼ˆREADMEï¼‰ã€‚
     /// </summary>
     [JsonProperty("readme")] public string? Readme { get; set; }
 
     /// <summary>
-    /// ÄÚÈİ×ÜÊı¡£
+    ///     å†…å®¹æ€»æ•°ã€‚
     /// </summary>
     [JsonProperty("total")] public long Total { get; set; }
 
     /// <summary>
-    /// µ±Ç°ÁîÅÆÊÇ·ñ¾ßÓĞĞ´ÈëÈ¨ÏŞ¡£
+    ///     å½“å‰ä»¤ç‰Œæ˜¯å¦å…·æœ‰å†™å…¥æƒé™ã€‚
     /// </summary>
     [JsonProperty("write")] public bool Write { get; set; }
 }
 
 /// <summary>
-/// µ¥¸öÎÄ¼ş/ÎÄ¼ş¼ĞÌõÄ¿¡£
+///     å•ä¸ªæ–‡ä»¶/æ–‡ä»¶å¤¹æ¡ç›®ã€‚
 /// </summary>
 public sealed class FsItem
 {
     /// <summary>
-    /// ´´½¨Ê±¼ä£¨×Ö·û´®¸ñÊ½£©¡£
+    ///     åˆ›å»ºæ—¶é—´ï¼ˆå­—ç¬¦ä¸²æ ¼å¼ï¼‰ã€‚
     /// </summary>
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)] public string? Created { get; set; }
 
     /// <summary>
-    /// ¹şÏ£ĞÅÏ¢£¨¿ÉÄÜÎª¶ÔÏó»òÈ±Ê¡£©¡£
+    ///     å“ˆå¸Œä¿¡æ¯ï¼ˆå¯èƒ½ä¸ºå¯¹è±¡æˆ–ç¼ºçœï¼‰ã€‚
     /// </summary>
     [JsonProperty("hash_info")] public object? HashInfo { get; set; }
 
     /// <summary>
-    /// ¼æÈİ×Ö¶Î£ºhashinfo¡£
+    ///     å…¼å®¹å­—æ®µï¼šhashinfoã€‚
     /// </summary>
     [JsonProperty("hashinfo", NullValueHandling = NullValueHandling.Ignore)] public string? Hashinfo { get; set; }
 
     /// <summary>
-    /// ÊÇ·ñÎªÄ¿Â¼¡£
+    ///     æ˜¯å¦ä¸ºç›®å½•ã€‚
     /// </summary>
     [JsonProperty("is_dir")] public bool IsDir { get; set; }
 
     /// <summary>
-    /// ×îºóĞŞ¸ÄÊ±¼ä£¨×Ö·û´®¸ñÊ½£©¡£
+    ///     æœ€åä¿®æ”¹æ—¶é—´ï¼ˆå­—ç¬¦ä¸²æ ¼å¼ï¼‰ã€‚
     /// </summary>
     [JsonProperty("modified")] public string? Modified { get; set; }
 
     /// <summary>
-    /// Ãû³Æ¡£
+    ///     åç§°ã€‚
     /// </summary>
     [JsonProperty("name")] public string? Name { get; set; }
 
     /// <summary>
-    /// Ç©Ãû¡£
+    ///     ç­¾åã€‚
     /// </summary>
     [JsonProperty("sign")] public string? Sign { get; set; }
 
     /// <summary>
-    /// ´óĞ¡£¨×Ö½Ú£©¡£
+    ///     å¤§å°ï¼ˆå­—èŠ‚ï¼‰ã€‚
     /// </summary>
     [JsonProperty("size")] public long Size { get; set; }
 
     /// <summary>
-    /// ËõÂÔÍ¼µØÖ·¡£
+    ///     ç¼©ç•¥å›¾åœ°å€ã€‚
     /// </summary>
     [JsonProperty("thumb")] public string? Thumb { get; set; }
 
     /// <summary>
-    /// ÀàĞÍ£¨ÓÉ·şÎñ¶Ë¶¨ÒåµÄÊıÖµ£©¡£
+    ///     ç±»å‹ï¼ˆç”±æœåŠ¡ç«¯å®šä¹‰çš„æ•°å€¼ï¼‰ã€‚
     /// </summary>
     [JsonProperty("type")] public long Type { get; set; }
 }
 
 /// <summary>
-/// ÅúÁ¿ÉÏ´«ÌõÄ¿¡£
+///     æ‰¹é‡ä¸Šä¼ æ¡ç›®ã€‚
 /// </summary>
 public sealed class FileUploadItem
 {
     /// <summary>
-    /// Ä¿±êÎÄ¼ş¾ø¶ÔÂ·¾¶¡£
+    ///     ç›®æ ‡æ–‡ä»¶ç»å¯¹è·¯å¾„ã€‚
     /// </summary>
     public string FilePath { get; set; } = string.Empty;
 
     /// <summary>
-    /// ÎÄ¼ş×Ö½ÚÄÚÈİ¡£
+    ///     æ–‡ä»¶å­—èŠ‚å†…å®¹ã€‚
     /// </summary>
     public byte[] Content { get; set; } = Array.Empty<byte>();
 }
 
 /// <summary>
-/// ÏÂÔØ½á¹û¡£
+///     ä¸‹è½½ç»“æœã€‚
 /// </summary>
 public sealed class DownloadResult
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë£¨200 ´ú±í³É¹¦£¬»ò 401 Î´ÊÚÈ¨£©¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ï¼ˆ200 ä»£è¡¨æˆåŠŸï¼Œæˆ– 401 æœªæˆæƒï¼‰ã€‚
     /// </summary>
     public int Code { get; set; }
 
     /// <summary>
-    /// ÎÄ¼şÄÚÈİ£¨³É¹¦Ê±£©¡£
+    ///     æ–‡ä»¶å†…å®¹ï¼ˆæˆåŠŸæ—¶ï¼‰ã€‚
     /// </summary>
     public byte[]? Content { get; set; }
 
     /// <summary>
-    /// ´íÎóÏûÏ¢£¨Ê§°ÜÊ±£©¡£
+    ///     é”™è¯¯æ¶ˆæ¯ï¼ˆå¤±è´¥æ—¶ï¼‰ã€‚
     /// </summary>
     public string? Message { get; set; }
 }
 
 /// <summary>
-/// Í³Ò»ÉÏ´«ÇëÇó£ºÖ§³Ö µ¥ÎÄ¼ş¡¢¶àÎÄ¼ş¡¢Ä¿Â¼ ÈıÖÖÄ£Ê½¡£
+///     ç»Ÿä¸€ä¸Šä¼ è¯·æ±‚ï¼šæ”¯æŒ å•æ–‡ä»¶ã€å¤šæ–‡ä»¶ã€ç›®å½• ä¸‰ç§æ¨¡å¼ã€‚
 /// </summary>
 public sealed class UploadRequest
 {
+
+    private UploadRequest() { }
     public UploadMode Mode { get; private set; }
 
     // Single file
@@ -172,16 +172,17 @@ public sealed class UploadRequest
     public string? LocalDirectory { get; private set; }
     public string? RemoteBasePath { get; private set; }
 
-    private UploadRequest() { }
-
     public static UploadRequest FromFile(string remotePath, byte[] content)
-        => new UploadRequest { Mode = UploadMode.Single, RemotePath = remotePath, Content = content };
+        => new()
+            { Mode = UploadMode.Single, RemotePath = remotePath, Content = content };
 
     public static UploadRequest FromFiles(IEnumerable<FileUploadItem> items)
-        => new UploadRequest { Mode = UploadMode.Multiple, Items = new List<FileUploadItem>(items ?? Array.Empty<FileUploadItem>()) };
+        => new()
+            { Mode = UploadMode.Multiple, Items = new List<FileUploadItem>(items ?? Array.Empty<FileUploadItem>()) };
 
     public static UploadRequest FromDirectory(string localDirectory, string remoteBasePath)
-        => new UploadRequest { Mode = UploadMode.Directory, LocalDirectory = localDirectory, RemoteBasePath = remoteBasePath };
+        => new()
+            { Mode = UploadMode.Directory, LocalDirectory = localDirectory, RemoteBasePath = remoteBasePath };
 }
 
 public enum UploadMode
@@ -192,7 +193,7 @@ public enum UploadMode
 }
 
 /// <summary>
-/// ÉÏ´«½ø¶ÈÊı¾İ¡£
+///     ä¸Šä¼ è¿›åº¦æ•°æ®ã€‚
 /// </summary>
 public sealed class UploadProgress
 {

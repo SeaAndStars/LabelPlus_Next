@@ -4,18 +4,12 @@ using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
-using System;
-using System.Collections.Generic;
+using NLog;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Encodings.Web;
-using System.Threading.Tasks;
-using NLog;
-using Avalonia.Controls;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.ViewModels;
@@ -24,45 +18,21 @@ public partial class UploadViewModel : ObservableObject
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    [ObservableProperty] private string? status;
+    private readonly ISettingsService _settingsService = new JsonSettingsService();
+    private IFileDialogService? _dialogs;
 
-    [ObservableProperty] private int uploadCompleted;
-    [ObservableProperty] private int uploadTotal;
+    // Track whether current flow is uploading to existing project (must merge existing JSON)
+    private bool _uploadToExistingProject;
     [ObservableProperty] private string? currentUploadingPath;
 
     [ObservableProperty] private string? searchText;
 
-    public ObservableCollection<string> Suggestions { get; } = new();
-    public ObservableCollection<string> Projects { get; } = new();
-
     [ObservableProperty] private string? selectedProject;
 
-    public IAsyncRelayCommand AddProjectCommand { get; }
-    public IAsyncRelayCommand RefreshCommand { get; }
+    [ObservableProperty] private string? status;
 
-    // New: dialog-backed commands for MVVM
-    public IAsyncRelayCommand PickUploadFolderCommand { get; }
-    public IAsyncRelayCommand PickUploadFilesCommand { get; }
-    public IAsyncRelayCommand OpenSettingsCommand { get; }
-
-    private readonly ISettingsService _settingsService = new JsonSettingsService();
-    private IFileDialogService? _dialogs;
-
-    // Keep last loaded mapping (name -> remote project json path)
-    public Dictionary<string, string> ProjectMap { get; } = new();
-
-    // For Add Project flow
-    public string? LastSelectedFolderPath { get; set; }
-    public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
-    public string? PendingProjectName { get; private set; }
-    public bool HasDuplicates { get; private set; }
-
-    // Track whether current flow is uploading to existing project (must merge existing JSON)
-    private bool _uploadToExistingProject;
-
-    public event EventHandler? MetadataReady; // Raised after PendingEpisodes prepared
-    public event EventHandler? OpenSettingsRequested; // Raised when settings should be shown
-    public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady; // New event for multiple VMs
+    [ObservableProperty] private int uploadCompleted;
+    [ObservableProperty] private int uploadTotal;
 
     public UploadViewModel()
     {
@@ -76,9 +46,40 @@ public partial class UploadViewModel : ObservableObject
         Logger.Info("UploadViewModel created.");
     }
 
-    public void InitializeServices(IFileDialogService dialogs) { _dialogs ??= dialogs; Logger.Debug("Dialogs service injected."); }
+    public ObservableCollection<string> Suggestions { get; } = new();
+    public ObservableCollection<string> Projects { get; } = new();
 
-    public static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
+    public IAsyncRelayCommand AddProjectCommand { get; }
+    public IAsyncRelayCommand RefreshCommand { get; }
+
+    // New: dialog-backed commands for MVVM
+    public IAsyncRelayCommand PickUploadFolderCommand { get; }
+    public IAsyncRelayCommand PickUploadFilesCommand { get; }
+    public IAsyncRelayCommand OpenSettingsCommand { get; }
+
+    // Keep last loaded mapping (name -> remote project json path)
+    public Dictionary<string, string> ProjectMap { get; } = new();
+
+    // For Add Project flow
+    public string? LastSelectedFolderPath { get; set; }
+    public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
+    public string? PendingProjectName { get; private set; }
+    public bool HasDuplicates { get; private set; }
+
+    public static string UploadSettingsPath
+    {
+        get => Path.Combine(AppContext.BaseDirectory, "upload.json");
+    }
+
+    public event EventHandler? MetadataReady; // Raised after PendingEpisodes prepared
+    public event EventHandler? OpenSettingsRequested; // Raised when settings should be shown
+    public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady; // New event for multiple VMs
+
+    public void InitializeServices(IFileDialogService dialogs)
+    {
+        _dialogs ??= dialogs;
+        Logger.Debug("Dialogs service injected.");
+    }
 
     private async Task<UploadSettings?> LoadUploadSettingsAsync()
     {
@@ -107,7 +108,7 @@ public partial class UploadViewModel : ObservableObject
     private async Task PickUploadFolderAsync()
     {
         if (_dialogs is null) return;
-        var folder = await _dialogs.PickFolderAsync("—°‘Ò“™…œ¥´µƒŒƒº˛º–");
+        var folder = await _dialogs.PickFolderAsync("ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑÊñá‰ª∂Â§π");
         if (string.IsNullOrEmpty(folder)) return;
         _uploadToExistingProject = true;
         LastSelectedFolderPath = folder;
@@ -115,13 +116,13 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = folderName;
         if (!string.Equals(SelectedProject, folderName, StringComparison.Ordinal))
         {
-            await _dialogs.ShowMessageAsync($"À˘—°Œƒº˛º–√˚°∞{folderName}°±”Îƒø±ÍœÓƒø√˚°∞{SelectedProject}°±≤ª“ª÷¬£¨«Î»∑»œ°£");
-            Status = "œÓƒø√˚≤ª“ª÷¬";
+            await _dialogs.ShowMessageAsync($"ÊâÄÈÄâÊñá‰ª∂Â§πÂêç‚Äú{folderName}‚Äù‰∏éÁõÆÊ†áÈ°πÁõÆÂêç‚Äú{SelectedProject}‚Äù‰∏ç‰∏ÄËá¥ÔºåËØ∑Á°ÆËÆ§„ÄÇ");
+            Status = "È°πÁõÆÂêç‰∏ç‰∏ÄËá¥";
             Logger.Warn("Folder name mismatch: folder={folderName} selectedProject={selected}", folderName, SelectedProject);
             return;
         }
         PendingProjectName = SelectedProject;
-        Status = $"“——°‘ÒŒƒº˛º–£∫{folderName}";
+        Status = $"Â∑≤ÈÄâÊã©Êñá‰ª∂Â§πÔºö{folderName}";
         Logger.Info("Picked upload folder: {folder}", folder);
 
         try
@@ -135,7 +136,7 @@ public partial class UploadViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = "Œ¥ƒ‹∂¡»°Œƒº˛";
+            Status = "Êú™ËÉΩËØªÂèñÊñá‰ª∂";
             Logger.Error(ex, "PickUploadFolderAsync prepare failed for {folder}", folder);
         }
     }
@@ -143,7 +144,7 @@ public partial class UploadViewModel : ObservableObject
     private async Task PickUploadFilesAsync()
     {
         if (_dialogs is null) return;
-        var files = await _dialogs.PickFilesAsync("—°‘Ò“™…œ¥´µƒŒƒº˛£®ø…∂‡—°£©");
+        var files = await _dialogs.PickFilesAsync("ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑÊñá‰ª∂ÔºàÂèØÂ§öÈÄâÔºâ");
         if (files is null || files.Count == 0) return;
         _uploadToExistingProject = true;
 
@@ -153,8 +154,8 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = parentFolder;
         if (!string.IsNullOrWhiteSpace(SelectedProject) && !string.Equals(SelectedProject, parentFolder, StringComparison.Ordinal))
         {
-            await _dialogs.ShowMessageAsync($"À˘—°Œƒº˛À˘‘⁄Œƒº˛º–√˚°∞{parentFolder}°±”Îƒø±ÍœÓƒø√˚°∞{SelectedProject}°±≤ª“ª÷¬£¨«Î»∑»œ°£");
-            Status = "œÓƒø√˚≤ª“ª÷¬";
+            await _dialogs.ShowMessageAsync($"ÊâÄÈÄâÊñá‰ª∂ÊâÄÂú®Êñá‰ª∂Â§πÂêç‚Äú{parentFolder}‚Äù‰∏éÁõÆÊ†áÈ°πÁõÆÂêç‚Äú{SelectedProject}‚Äù‰∏ç‰∏ÄËá¥ÔºåËØ∑Á°ÆËÆ§„ÄÇ");
+            Status = "È°πÁõÆÂêç‰∏ç‰∏ÄËá¥";
             Logger.Warn("PickUploadFilesAsync: parent folder mismatch. parent={parentFolder} selected={selected}", parentFolder, SelectedProject);
             return;
         }
@@ -173,24 +174,24 @@ public partial class UploadViewModel : ObservableObject
             }
             if (!byEpisode.TryGetValue(num, out var ep))
             {
-                ep = new EpisodeEntry { Number = num, Status = "¡¢œÓ" };
+                ep = new EpisodeEntry { Number = num, Status = "Á´ãÈ°π" };
                 byEpisode[num] = ep;
             }
             ep.LocalFiles.Add(path);
             // upgrade status depending on ext
             var ext = Path.GetExtension(path);
-            if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase)) ep.Status = PickHigherStatus(ep.Status, "«∂◊÷");
+            if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase)) ep.Status = PickHigherStatus(ep.Status, "ÂµåÂ≠ó");
             else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
             {
                 var lower = Path.GetFileName(path).ToLowerInvariant();
-                ep.Status = PickHigherStatus(ep.Status, lower.Contains("–£∂‘") || lower.Contains("–£Í†") || lower.Contains("check") ? "–£∂‘" : "∑≠“Î");
+                ep.Status = PickHigherStatus(ep.Status, lower.Contains("Ê†°ÂØπ") || lower.Contains("Ê†°Èöä") || lower.Contains("check") ? "Ê†°ÂØπ" : "ÁøªËØë");
             }
         }
 
         PendingEpisodes.Clear();
         foreach (var ep in byEpisode.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(ep);
         LastSelectedFolderPath = Path.GetDirectoryName(first); // remember base folder
-        Status = $"“——°‘ÒŒƒº˛£∫{files.Count} ∏ˆ";
+        Status = $"Â∑≤ÈÄâÊã©Êñá‰ª∂Ôºö{files.Count} ‰∏™";
         HasDuplicates = false;
         MetadataReady?.Invoke(this, EventArgs.Empty);
     }
@@ -216,29 +217,39 @@ public partial class UploadViewModel : ObservableObject
             else if (_dialogs is not null)
             {
                 // let user pick multiple episode folders
-                var pickedMany = await _dialogs.PickFoldersAsync("—°‘Ò“™…œ¥´µƒª∞ ˝Œƒº˛º–£®ø…∂‡—°£©");
+                var pickedMany = await _dialogs.PickFoldersAsync("ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑËØùÊï∞Êñá‰ª∂Â§πÔºàÂèØÂ§öÈÄâÔºâ");
                 if (pickedMany is { Count: > 0 }) candidateFolders.AddRange(pickedMany);
                 else
                 {
-                    var pickedSingle = await _dialogs.PickFolderAsync("—°‘Ò“™…œ¥´µƒŒƒº˛º–");
+                    var pickedSingle = await _dialogs.PickFolderAsync("ÈÄâÊã©Ë¶Å‰∏ä‰º†ÁöÑÊñá‰ª∂Â§π");
                     if (!string.IsNullOrEmpty(pickedSingle)) candidateFolders.Add(pickedSingle);
                 }
             }
 
             if (candidateFolders.Count == 0)
             {
-                Status = "«Îœ»—°‘Ò…œ¥´Œƒº˛º–";
+                Status = "ËØ∑ÂÖàÈÄâÊã©‰∏ä‰º†Êñá‰ª∂Â§π";
                 Logger.Warn("AddProject aborted: no valid folder.");
                 return;
             }
 
             // Login once and refresh aggregate for map
             var us = await LoadUploadSettingsAsync();
-            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "Œ¥≈‰÷√∑˛ŒÒ∆˜µÿ÷∑"; Logger.Warn("No server baseUrl."); return; }
+            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
+            {
+                Status = "Êú™ÈÖçÁΩÆÊúçÂä°Âô®Âú∞ÂùÄ";
+                Logger.Warn("No server baseUrl.");
+                return;
+            }
             var baseUrl = us.BaseUrl!.TrimEnd('/');
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
-            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"µ«¬º ß∞‹: {login.Code} {login.Message}"; Logger.Warn("Login failed: {code} {msg}", login.Code, login.Message); return; }
+            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
+            {
+                Status = $"ÁôªÂΩïÂ§±Ë¥•: {login.Code} {login.Message}";
+                Logger.Warn("Login failed: {code} {msg}", login.Code, login.Message);
+                return;
+            }
             var token = login.Data.Token!;
             await RefreshAsync();
             var fsApi = new FileSystemApi(baseUrl);
@@ -254,7 +265,7 @@ public partial class UploadViewModel : ObservableObject
                 if (ProjectMap.ContainsKey(projectName))
                 {
                     Logger.Warn("Aggregate already contains project {name}", projectName);
-                    await MessageBox.ShowAsync($"æ€∫œ«Âµ•÷–“—¥Ê‘⁄œÓƒø°∞{projectName}°±°£Ω®“È π”√°Æ…œ¥´µΩœÓƒø°Ø“‘±‹√‚≥ÂÕª°£", "Ã· æ", MessageBoxIcon.Information, MessageBoxButton.OK);
+                    await MessageBox.ShowAsync($"ËÅöÂêàÊ∏ÖÂçï‰∏≠Â∑≤Â≠òÂú®È°πÁõÆ‚Äú{projectName}‚Äù„ÄÇÂª∫ËÆÆ‰ΩøÁî®‚Äò‰∏ä‰º†Âà∞È°πÁõÆ‚Äô‰ª•ÈÅøÂÖçÂÜ≤Á™Å„ÄÇ", "ÊèêÁ§∫", MessageBoxIcon.Information);
                     return;
                 }
 
@@ -267,7 +278,7 @@ public partial class UploadViewModel : ObservableObject
                 HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                 if (HasDuplicates)
                 {
-                    await MessageBox.ShowAsync("ºÏ≤‚µΩ”Î‘∂∂ÀœÓƒø¥Ê‘⁄œ‡Õ¨ª∞ ˝°£Ω®“È π”√°Æ…œ¥´µΩœÓƒø°Øπ¶ƒ‹“‘±‹√‚∏≤∏«°£", "Ã· æ", MessageBoxIcon.Warning, MessageBoxButton.OK);
+                    await MessageBox.ShowAsync("Ê£ÄÊµãÂà∞‰∏éËøúÁ´ØÈ°πÁõÆÂ≠òÂú®Áõ∏ÂêåËØùÊï∞„ÄÇÂª∫ËÆÆ‰ΩøÁî®‚Äò‰∏ä‰º†Âà∞È°πÁõÆ‚ÄôÂäüËÉΩ‰ª•ÈÅøÂÖçË¶ÜÁõñ„ÄÇ", "ÊèêÁ§∫", MessageBoxIcon.Warning);
                     return;
                 }
                 PendingEpisodes.Clear();
@@ -286,7 +297,7 @@ public partial class UploadViewModel : ObservableObject
                     var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     if (ProjectMap.ContainsKey(projectName))
                     {
-                        await _dialogs!.ShowMessageAsync($"æ€∫œ«Âµ•÷–“—¥Ê‘⁄œÓƒø°∞{projectName}°±£¨“—Ã¯π˝°£");
+                        await _dialogs!.ShowMessageAsync($"ËÅöÂêàÊ∏ÖÂçï‰∏≠Â∑≤Â≠òÂú®È°πÁõÆ‚Äú{projectName}‚ÄùÔºåÂ∑≤Ë∑≥Ëøá„ÄÇ");
                         continue;
                     }
                     var projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
@@ -297,7 +308,7 @@ public partial class UploadViewModel : ObservableObject
                     var dup = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                     if (dup)
                     {
-                        await _dialogs!.ShowMessageAsync($"œÓƒø°∞{projectName}°±¥Ê‘⁄”Î‘∂∂Àœ‡Õ¨ª∞ ˝£¨“—Ã¯π˝°£«Î π”√°Æ…œ¥´µΩœÓƒø°Ø°£");
+                        await _dialogs!.ShowMessageAsync($"È°πÁõÆ‚Äú{projectName}‚ÄùÂ≠òÂú®‰∏éËøúÁ´ØÁõ∏ÂêåËØùÊï∞ÔºåÂ∑≤Ë∑≥Ëøá„ÄÇËØ∑‰ΩøÁî®‚Äò‰∏ä‰º†Âà∞È°πÁõÆ‚Äô„ÄÇ");
                         continue;
                     }
 
@@ -320,7 +331,7 @@ public partial class UploadViewModel : ObservableObject
 
             if (list.Count == 0)
             {
-                Status = "√ª”–ø……œ¥´µƒœÓƒø";
+                Status = "Ê≤°ÊúâÂèØ‰∏ä‰º†ÁöÑÈ°πÁõÆ";
                 return;
             }
 
@@ -328,7 +339,7 @@ public partial class UploadViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"–¬‘ˆœÓƒø ß∞‹: {ex.Message}";
+            Status = $"Êñ∞Â¢ûÈ°πÁõÆÂ§±Ë¥•: {ex.Message}";
             Logger.Error(ex, "AddProjectAsync failed.");
         }
     }
@@ -351,12 +362,18 @@ public partial class UploadViewModel : ObservableObject
                     if (doc.RootElement.TryGetProperty("episodes", out var eps) && eps.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var prop in eps.EnumerateObject())
-                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
+                        {
+                            if (TryParseEpisodeNumber(prop.Name, out var n))
+                                set.Add(n);
+                        }
                     }
-                    else if (doc.RootElement.TryGetProperty("œÓƒø", out var items) && items.ValueKind == JsonValueKind.Object)
+                    else if (doc.RootElement.TryGetProperty("È°πÁõÆ", out var items) && items.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var prop in items.EnumerateObject())
-                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
+                        {
+                            if (TryParseEpisodeNumber(prop.Name, out var n))
+                                set.Add(n);
+                        }
                     }
                 }
             }
@@ -369,10 +386,10 @@ public partial class UploadViewModel : ObservableObject
     {
         return status switch
         {
-            "∑¢≤º" => 4,
-            "«∂◊÷" => 3,
-            "–£∂‘" => 2,
-            "∑≠“Î" => 1,
+            "ÂèëÂ∏É" => 4,
+            "ÂµåÂ≠ó" => 3,
+            "Ê†°ÂØπ" => 2,
+            "ÁøªËØë" => 1,
             _ => 0
         };
     }
@@ -401,7 +418,10 @@ public partial class UploadViewModel : ObservableObject
                 {
                     var set = new HashSet<string>(existing.LocalFiles, StringComparer.OrdinalIgnoreCase);
                     foreach (var f in folderEp.LocalFiles)
-                        if (set.Add(f)) existing.LocalFiles.Add(f);
+                    {
+                        if (set.Add(f))
+                            existing.LocalFiles.Add(f);
+                    }
                     existing.Status = PickHigherStatus(existing.Status, folderEp.Status);
                 }
             }
@@ -414,7 +434,7 @@ public partial class UploadViewModel : ObservableObject
                     if (!TryParseEpisodeNumber(name, out var num)) continue;
                     if (!map.TryGetValue(num, out var existing))
                     {
-                        var ep = new EpisodeEntry { Number = num, Status = "¡¢œÓ" };
+                        var ep = new EpisodeEntry { Number = num, Status = "Á´ãÈ°π" };
                         ep.LocalFiles.Add(entry);
                         map[num] = ep;
                     }
@@ -422,13 +442,13 @@ public partial class UploadViewModel : ObservableObject
                     {
                         if (!existing.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase))
                             existing.LocalFiles.Add(entry);
-                        existing.Status = PickHigherStatus(existing.Status, "¡¢œÓ");
+                        existing.Status = PickHigherStatus(existing.Status, "Á´ãÈ°π");
                     }
                 }
             }
         }
 
-        // Robustness: any txt file with episode number in its file name marks that episode as ∑≠“Î (lower priority than –£∂‘)
+        // Robustness: any txt file with episode number in its file name marks that episode as ÁøªËØë (lower priority than Ê†°ÂØπ)
         try
         {
             var txtFiles = Directory.EnumerateFiles(localDir, "*.txt", SearchOption.AllDirectories).ToList();
@@ -443,15 +463,15 @@ public partial class UploadViewModel : ObservableObject
                 }
                 if (!map.TryGetValue(num, out var epEntry))
                 {
-                    epEntry = new EpisodeEntry { Number = num, Status = "¡¢œÓ" };
+                    epEntry = new EpisodeEntry { Number = num, Status = "Á´ãÈ°π" };
                     map[num] = epEntry;
                 }
                 if (!epEntry.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase))
                     epEntry.LocalFiles.Add(txt);
 
-                // Determine candidate status: prefer –£∂‘ if keywords, else ∑≠“Î
+                // Determine candidate status: prefer Ê†°ÂØπ if keywords, else ÁøªËØë
                 var lower = nameWithoutExt.ToLowerInvariant();
-                var candidate = (lower.Contains("–£∂‘") || lower.Contains("–£Í†") || lower.Contains("check")) ? "–£∂‘" : "∑≠“Î";
+                var candidate = lower.Contains("Ê†°ÂØπ") || lower.Contains("Ê†°Èöä") || lower.Contains("check") ? "Ê†°ÂØπ" : "ÁøªËØë";
                 epEntry.Status = PickHigherStatus(epEntry.Status, candidate);
             }
         }
@@ -467,12 +487,12 @@ public partial class UploadViewModel : ObservableObject
     private static EpisodeEntry BuildEpisodeFromFolder(string folder, int number)
     {
         var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
-        bool hasArchive = files.Any(f => new[] { ".zip", ".7z", ".rar" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
-        bool hasTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase));
-        bool hasPsd = files.Any(f => string.Equals(Path.GetExtension(f), ".psd", StringComparison.OrdinalIgnoreCase));
-        bool hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
-                                           ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "–£∂”", "–£∂‘" }));
-        string status = hasPsd ? "«∂◊÷" : (hasCheckTxt ? "–£∂‘" : (hasTxt ? "∑≠“Î" : (hasArchive ? "¡¢œÓ" : "¡¢œÓ")));
+        var hasArchive = files.Any(f => new[] { ".zip", ".7z", ".rar" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
+        var hasTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase));
+        var hasPsd = files.Any(f => string.Equals(Path.GetExtension(f), ".psd", StringComparison.OrdinalIgnoreCase));
+        var hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
+                                         ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "Ê†°Èòü", "Ê†°ÂØπ" }));
+        var status = hasPsd ? "ÂµåÂ≠ó" : hasCheckTxt ? "Ê†°ÂØπ" : hasTxt ? "ÁøªËØë" : hasArchive ? "Á´ãÈ°π" : "Á´ãÈ°π";
         var ep = new EpisodeEntry { Number = number, Status = status };
         ep.LocalFiles.AddRange(files);
         return ep;
@@ -481,7 +501,10 @@ public partial class UploadViewModel : ObservableObject
     private static bool ContainsAny(string s, IEnumerable<string> needles)
     {
         foreach (var n in needles)
-            if (s?.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        {
+            if (s?.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+        }
         return false;
     }
 
@@ -496,11 +519,14 @@ public partial class UploadViewModel : ObservableObject
     private static int ParseChineseNumeral(string s)
     {
         if (string.IsNullOrWhiteSpace(s)) return 0;
-        var map = new Dictionary<char, int> {
-            ['¡„']=0,['“ª']=1,['∂˛']=2,['¡Ω']=2,['»˝']=3,['Àƒ']=4,['ŒÂ']=5,['¡˘']=6,['∆ﬂ']=7,['∞À']=8,['æ≈']=9,
-            [' Æ']=10,['∞Ÿ']=100,['«ß']=1000,['©ñ']=0
+        var map = new Dictionary<char, int>
+        {
+            ['Èõ∂'] = 0, ['‰∏Ä'] = 1, ['‰∫å'] = 2, ['‰∏§'] = 2, ['‰∏â'] = 3, ['Âõõ'] = 4, ['‰∫î'] = 5, ['ÂÖ≠'] = 6, ['‰∏É'] = 7, ['ÂÖ´'] = 8, ['‰πù'] = 9,
+            ['ÂçÅ'] = 10, ['Áôæ'] = 100, ['ÂçÉ'] = 1000, ['„Äá'] = 0
         };
-        int total = 0; int section = 0; int number = 0;
+        var total = 0;
+        var section = 0;
+        var number = 0;
         foreach (var ch in s)
         {
             if (!map.TryGetValue(ch, out var val)) continue;
@@ -523,11 +549,11 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            Status = "’˝‘⁄À¢–¬œÓƒø¡–±Ì...";
+            Status = "Ê≠£Âú®Âà∑Êñ∞È°πÁõÆÂàóË°®...";
             var us = await LoadUploadSettingsAsync();
             if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
             {
-                Status = "Œ¥≈‰÷√∑˛ŒÒ∆˜µÿ÷∑";
+                Status = "Êú™ÈÖçÁΩÆÊúçÂä°Âô®Âú∞ÂùÄ";
                 Logger.Warn("Refresh aborted: missing baseUrl.");
                 return;
             }
@@ -539,7 +565,7 @@ public partial class UploadViewModel : ObservableObject
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
             if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
             {
-                Status = $"µ«¬º ß∞‹: {login.Code} {login.Message}";
+                Status = $"ÁôªÂΩïÂ§±Ë¥•: {login.Code} {login.Message}";
                 Logger.Warn("Refresh login failed: {code} {msg}", login.Code, login.Message);
                 return;
             }
@@ -549,7 +575,7 @@ public partial class UploadViewModel : ObservableObject
             var result = await fsApi.DownloadAsync(token, filePath);
             if (result.Code != 200 || result.Content is null)
             {
-                Status = $"œ¬‘ÿ ß∞‹: {result.Code} {result.Message}";
+                Status = $"‰∏ãËΩΩÂ§±Ë¥•: {result.Code} {result.Message}";
                 Logger.Warn("Download project.json failed: {code} {msg}", result.Code, result.Message);
                 return;
             }
@@ -561,7 +587,7 @@ public partial class UploadViewModel : ObservableObject
             using var doc = JsonDocument.Parse(json);
             if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
             {
-                Status = "«Âµ•∏Ò Ω¥ÌŒÛ£®»±…Ÿ projects£©";
+                Status = "Ê∏ÖÂçïÊ†ºÂºèÈîôËØØÔºàÁº∫Â∞ë projectsÔºâ";
                 Logger.Warn("Invalid manifest: projects missing.");
                 return;
             }
@@ -580,12 +606,12 @@ public partial class UploadViewModel : ObservableObject
                 Projects.Add(name);
             }
 
-            Status = $"“—º”‘ÿ {Projects.Count} ∏ˆœÓƒø";
+            Status = $"Â∑≤Âä†ËΩΩ {Projects.Count} ‰∏™È°πÁõÆ";
             Logger.Info("Projects loaded: {count}", Projects.Count);
         }
         catch (Exception ex)
         {
-            Status = $"À¢–¬ ß∞‹: {ex.Message}";
+            Status = $"Âà∑Êñ∞Â§±Ë¥•: {ex.Message}";
             Logger.Error(ex, "RefreshAsync failed.");
         }
     }
@@ -594,25 +620,35 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(PendingProjectName)) { Status = "ŒﬁœÓƒø"; Logger.Warn("Upload aborted: no project name."); return false; }
+            if (string.IsNullOrWhiteSpace(PendingProjectName))
+            {
+                Status = "Êó†È°πÁõÆ";
+                Logger.Warn("Upload aborted: no project name.");
+                return false;
+            }
             var us = await LoadUploadSettingsAsync();
-            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl)) { Status = "Œ¥≈‰÷√∑˛ŒÒ∆˜µÿ÷∑"; Logger.Warn("Upload aborted: no baseUrl."); return false; }
+            if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
+            {
+                Status = "Êú™ÈÖçÁΩÆÊúçÂä°Âô®Âú∞ÂùÄ";
+                Logger.Warn("Upload aborted: no baseUrl.");
+                return false;
+            }
 
             var toUpload = PendingEpisodes.Where(e => e.Include).ToList();
             var episodesCount = toUpload.Count;
             var plannedFilesCount = toUpload.Sum(e => e.LocalFiles.Count);
             var includeAggregate = !_uploadToExistingProject; // only for new project
-            int preSteps = 0
-                + 1  // µ«¬º
-                + 1  // ¥¥Ω®œÓƒøƒø¬º
-                + episodesCount // ¥¥Ω®∏˜ª∞ƒø¬º
-                + plannedFilesCount // ∂¡»°”ÎπÊªÆŒƒº˛
-                + (includeAggregate ? 2 : 0) // œ¬‘ÿ/…œ¥´∏˘«Âµ•
-                + 1  // œ¬‘ÿœÓƒøJSON
-                + 1  // ∫œ≤¢JSON
-                + 1; // …œ¥´œÓƒøJSON
-            int uploadSteps = plannedFilesCount;
-            int totalSteps = preSteps + uploadSteps;
+            var preSteps = 0
+                           + 1 // ÁôªÂΩï
+                           + 1 // ÂàõÂª∫È°πÁõÆÁõÆÂΩï
+                           + episodesCount // ÂàõÂª∫ÂêÑËØùÁõÆÂΩï
+                           + plannedFilesCount // ËØªÂèñ‰∏éËßÑÂàíÊñá‰ª∂
+                           + (includeAggregate ? 2 : 0) // ‰∏ãËΩΩ/‰∏ä‰º†Ê†πÊ∏ÖÂçï
+                           + 1 // ‰∏ãËΩΩÈ°πÁõÆJSON
+                           + 1 // ÂêàÂπ∂JSON
+                           + 1; // ‰∏ä‰º†È°πÁõÆJSON
+            var uploadSteps = plannedFilesCount;
+            var totalSteps = preSteps + uploadSteps;
 
             UploadCompleted = 0;
             UploadTotal = totalSteps;
@@ -624,26 +660,39 @@ public partial class UploadViewModel : ObservableObject
                 UploadCompleted = Math.Min(UploadCompleted + 1, UploadTotal);
             }
 
-            Status = "µ«¬º÷–...";
+            Status = "ÁôªÂΩï‰∏≠...";
             var baseUrl = us.BaseUrl!.TrimEnd('/');
             var auth = new AuthApi(baseUrl);
             var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
-            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"µ«¬º ß∞‹: {login.Code} {login.Message}"; Logger.Warn("Upload login failed: {code} {msg}", login.Code, login.Message); return false; }
-            Step("µ«¬ºÕÍ≥…");
+            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
+            {
+                Status = $"ÁôªÂΩïÂ§±Ë¥•: {login.Code} {login.Message}";
+                Logger.Warn("Upload login failed: {code} {msg}", login.Code, login.Message);
+                return false;
+            }
+            Step("ÁôªÂΩïÂÆåÊàê");
             var token = login.Data!.Token!;
             var fsApi = new FileSystemApi(baseUrl);
 
             var projectDir = "/" + PendingProjectName!.Trim('/') + "/";
             var mkProj = await fsApi.MkdirAsync(token, projectDir);
-            if (mkProj.Code is >= 400 and < 500) { Status = $"¥¥Ω®ƒø¬º ß∞‹: {mkProj.Message}"; return false; }
-            Step("“—¥¥Ω®œÓƒøƒø¬º", projectDir);
+            if (mkProj.Code is >= 400 and < 500)
+            {
+                Status = $"ÂàõÂª∫ÁõÆÂΩïÂ§±Ë¥•: {mkProj.Message}";
+                return false;
+            }
+            Step("Â∑≤ÂàõÂª∫È°πÁõÆÁõÆÂΩï", projectDir);
 
             foreach (var ep in toUpload)
             {
                 var epDir = projectDir + ep.Number + "/";
                 var mk = await fsApi.MkdirAsync(token, epDir);
-                if (mk.Code is >= 400 and < 500) { Status = $"¥¥Ω®ª∞ ˝ƒø¬º ß∞‹: {mk.Message}"; return false; }
-                Step($"ƒø¬ºæÕ–˜: {ep.Number}", epDir);
+                if (mk.Code is >= 400 and < 500)
+                {
+                    Status = $"ÂàõÂª∫ËØùÊï∞ÁõÆÂΩïÂ§±Ë¥•: {mk.Message}";
+                    return false;
+                }
+                Step($"ÁõÆÂΩïÂ∞±Áª™: {ep.Number}", epDir);
             }
 
             // Build items and map paths; count planning steps
@@ -652,10 +701,16 @@ public partial class UploadViewModel : ObservableObject
             foreach (var ep in toUpload)
             {
                 var epDir = projectDir + ep.Number + "/";
-                string? sourcePath = null; string? translatePath = null; string? typesetPath = null;
+                string? sourcePath = null;
+                string? translatePath = null;
+                string? typesetPath = null;
                 foreach (var file in ep.LocalFiles)
                 {
-                    if (!File.Exists(file)) { Step("Ã¯π˝»± ßŒƒº˛", file); continue; }
+                    if (!File.Exists(file))
+                    {
+                        Step("Ë∑≥ËøáÁº∫Â§±Êñá‰ª∂", file);
+                        continue;
+                    }
                     var name = Path.GetFileName(file);
                     var remote = epDir + name;
                     var content = await File.ReadAllBytesAsync(file);
@@ -667,17 +722,17 @@ public partial class UploadViewModel : ObservableObject
                     {
                         if (translatePath is null) translatePath = remote;
                         var lower = name.ToLowerInvariant();
-                        if (lower.Contains("–£∂‘") || lower.Contains("–£Í†") || lower.Contains("check")) translatePath = remote;
+                        if (lower.Contains("Ê†°ÂØπ") || lower.Contains("Ê†°Èöä") || lower.Contains("check")) translatePath = remote;
                     }
                     else if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase))
                         typesetPath ??= remote;
-                    Step("“—πÊªÆŒƒº˛", remote);
+                    Step("Â∑≤ËßÑÂàíÊñá‰ª∂", remote);
                 }
                 resultMap[ep.Number] = (sourcePath, translatePath, typesetPath);
             }
 
             // Update aggregate /project.json if creating a new project
-            string projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var pj) && !string.IsNullOrWhiteSpace(pj)
+            var projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var pj) && !string.IsNullOrWhiteSpace(pj)
                 ? pj
                 : projectDir + PendingProjectName + "_project.json";
 
@@ -687,10 +742,10 @@ public partial class UploadViewModel : ObservableObject
                 var agg = await fsApi.DownloadAsync(token, aggregatePath);
                 if (agg.Code != 200 || agg.Content is null)
                 {
-                    Status = $"œ¬‘ÿæ€∫œ«Âµ• ß∞‹: {agg.Code} {agg.Message}";
+                    Status = $"‰∏ãËΩΩËÅöÂêàÊ∏ÖÂçïÂ§±Ë¥•: {agg.Code} {agg.Message}";
                     return false;
                 }
-                Step("“—œ¬‘ÿæ€∫œ«Âµ•", aggregatePath);
+                Step("Â∑≤‰∏ãËΩΩËÅöÂêàÊ∏ÖÂçï", aggregatePath);
 
                 Dictionary<string, string> map = new();
                 try
@@ -698,7 +753,8 @@ public partial class UploadViewModel : ObservableObject
                     using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(agg.Content).TrimStart('\uFEFF'));
                     if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
                     {
-                        Status = "æ€∫œ«Âµ•∏Ò Ω¥ÌŒÛ"; return false;
+                        Status = "ËÅöÂêàÊ∏ÖÂçïÊ†ºÂºèÈîôËØØ";
+                        return false;
                     }
                     foreach (var prop in projects.EnumerateObject())
                     {
@@ -707,21 +763,26 @@ public partial class UploadViewModel : ObservableObject
                 }
                 catch
                 {
-                    Status = "Ω‚Œˆæ€∫œ«Âµ• ß∞‹"; return false;
+                    Status = "Ëß£ÊûêËÅöÂêàÊ∏ÖÂçïÂ§±Ë¥•";
+                    return false;
                 }
 
                 // merge
                 map[PendingProjectName] = projectJsonPath;
                 var aggObj = new AggregateProjects { Projects = map };
-                var aggOut = System.Text.Json.JsonSerializer.Serialize(aggObj, AppJsonContext.Default.AggregateProjects);
+                var aggOut = JsonSerializer.Serialize(aggObj, AppJsonContext.Default.AggregateProjects);
                 var putAgg = await fsApi.SafePutAsync(token, aggregatePath, Encoding.UTF8.GetBytes(aggOut));
-                if (putAgg.Code != 200) { Status = $"∏¸–¬æ€∫œ«Âµ• ß∞‹: {putAgg.Message}"; return false; }
-                Step("æ€∫œ«Âµ•“—∏¸–¬", aggregatePath);
+                if (putAgg.Code != 200)
+                {
+                    Status = $"Êõ¥Êñ∞ËÅöÂêàÊ∏ÖÂçïÂ§±Ë¥•: {putAgg.Message}";
+                    return false;
+                }
+                Step("ËÅöÂêàÊ∏ÖÂçïÂ∑≤Êõ¥Êñ∞", aggregatePath);
             }
 
             // Download and merge per-project JSON
             ProjectCn cn;
-            bool requireMergeExisting = _uploadToExistingProject;
+            var requireMergeExisting = _uploadToExistingProject;
             var getMeta = await fsApi.GetAsync(token, projectJsonPath);
             if (getMeta.Code == 200 && getMeta.Data is { IsDir: false })
             {
@@ -735,22 +796,34 @@ public partial class UploadViewModel : ObservableObject
                     }
                     catch
                     {
-                        if (requireMergeExisting) { Status = "Œﬁ∑®∂¡»°œÓƒøJSON£¨“—»°œ˚"; return false; }
+                        if (requireMergeExisting)
+                        {
+                            Status = "Êó†Ê≥ïËØªÂèñÈ°πÁõÆJSONÔºåÂ∑≤ÂèñÊ∂à";
+                            return false;
+                        }
                         cn = new ProjectCn();
                     }
                 }
                 else
                 {
-                    if (requireMergeExisting) { Status = "Œ¥ƒ‹œ¬‘ÿœÓƒøJSON£¨“—»°œ˚"; return false; }
+                    if (requireMergeExisting)
+                    {
+                        Status = "Êú™ËÉΩ‰∏ãËΩΩÈ°πÁõÆJSONÔºåÂ∑≤ÂèñÊ∂à";
+                        return false;
+                    }
                     cn = new ProjectCn();
                 }
             }
             else
             {
-                if (requireMergeExisting) { Status = "Œ¥’“µΩœÓƒøJSON£¨“—»°œ˚"; return false; }
+                if (requireMergeExisting)
+                {
+                    Status = "Êú™ÊâæÂà∞È°πÁõÆJSONÔºåÂ∑≤ÂèñÊ∂à";
+                    return false;
+                }
                 cn = new ProjectCn();
             }
-            Step("“—ªÒ»°œÓƒøJSON", projectJsonPath);
+            Step("Â∑≤Ëé∑ÂèñÈ°πÁõÆJSON", projectJsonPath);
 
             foreach (var ep in toUpload)
             {
@@ -759,7 +832,7 @@ public partial class UploadViewModel : ObservableObject
                 cn.Items[key] = new EpisodeCn { Status = ep.Status, SourcePath = pmap.source, TranslatePath = pmap.translate, TypesetPath = pmap.typeset };
             }
             cn.Items = cn.Items.OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0).ToDictionary(k => k.Key, v => v.Value);
-            Step("JSON ∫œ≤¢ÕÍ≥…", projectJsonPath);
+            Step("JSON ÂêàÂπ∂ÂÆåÊàê", projectJsonPath);
 
             var ctx = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
             {
@@ -770,8 +843,12 @@ public partial class UploadViewModel : ObservableObject
             var jsonOut = JsonSerializer.Serialize(cn, ctx.ProjectCn);
             var bytesOut = Encoding.UTF8.GetBytes(jsonOut);
             var putJson = await fsApi.SafePutAsync(token, projectJsonPath, bytesOut);
-            if (putJson.Code != 200) { Status = $"∏¸–¬œÓƒøJSON ß∞‹: {putJson.Message}"; return false; }
-            Step("JSON “—…œ¥´", projectJsonPath);
+            if (putJson.Code != 200)
+            {
+                Status = $"Êõ¥Êñ∞È°πÁõÆJSONÂ§±Ë¥•: {putJson.Message}";
+                return false;
+            }
+            Step("JSON Â∑≤‰∏ä‰º†", projectJsonPath);
 
             // Offset for upload progress
             var offset = UploadCompleted;
@@ -780,25 +857,25 @@ public partial class UploadViewModel : ObservableObject
                 UploadTotal = totalSteps; // keep total constant
                 UploadCompleted = Math.Min(offset + p.Completed, UploadTotal);
                 CurrentUploadingPath = p.CurrentRemotePath;
-                Status = $"…œ¥´÷– {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
+                Status = $"‰∏ä‰º†‰∏≠ {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
             });
 
-            var res = await fsApi.PutManyAsync(token, items, progress, maxConcurrency: 6, asTask: false);
+            var res = await fsApi.PutManyAsync(token, items, progress, 6);
             if (res.Any(r => r.Code != 200))
             {
                 var first = res.FirstOrDefault(r => r.Code != 200);
-                Status = $"…œ¥´ ß∞‹: {first?.Message}";
+                Status = $"‰∏ä‰º†Â§±Ë¥•: {first?.Message}";
                 return false;
             }
 
-            Status = "…œ¥´ÕÍ≥…";
+            Status = "‰∏ä‰º†ÂÆåÊàê";
             Logger.Info("Upload completed successfully.");
             await RefreshAsync();
             return true;
         }
         catch (Exception ex)
         {
-            Status = $"…œ¥´“Ï≥£: {ex.Message}";
+            Status = $"‰∏ä‰º†ÂºÇÂ∏∏: {ex.Message}";
             Logger.Error(ex, "UploadPendingAsync failed.");
             return false;
         }

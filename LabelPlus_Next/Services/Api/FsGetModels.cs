@@ -3,28 +3,28 @@ using Newtonsoft.Json;
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// /api/fs/get ½Ó¿ÚÏìÓ¦¡£
+///     /api/fs/get æ¥å£å“åº”ã€‚
 /// </summary>
 public sealed class FsGetResponse
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë£¬200 ±íÊ¾³É¹¦¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ï¼Œ200 è¡¨ç¤ºæˆåŠŸã€‚
     /// </summary>
     [JsonProperty("code")] public int Code { get; set; }
 
     /// <summary>
-    /// Êı¾İ¸ºÔØ¡£
+    ///     æ•°æ®è´Ÿè½½ã€‚
     /// </summary>
     [JsonProperty("data")] public FsGetData? Data { get; set; }
 
     /// <summary>
-    /// ÈËÀà¿É¶ÁµÄÏûÏ¢¡£
+    ///     äººç±»å¯è¯»çš„æ¶ˆæ¯ã€‚
     /// </summary>
     [JsonProperty("message")] public string? Message { get; set; }
 }
 
 /// <summary>
-/// /api/fs/get Êı¾İ¶ÔÏó¡£
+///     /api/fs/get æ•°æ®å¯¹è±¡ã€‚
 /// </summary>
 public sealed class FsGetData
 {

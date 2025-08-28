@@ -25,7 +25,7 @@
 
     <Grid RowDefinitions="30,*">
         <!-- Top spacer to push content down by 30 -->
-        <Border Height="30" Background="Transparent"/>
+        <Border Height="30" Background="Transparent" />
 
         <StackPanel
             Grid.Row="1"

@@ -1,27 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Downloader;
 using Newtonsoft.Json;
-using RestSharp;
 using NLog;
+using RestSharp;
+using System.Net;
 
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// �ļ�ϵͳ API �ͻ���ʵ�֡�
+///     文件系统 API 客户端实现。
 /// </summary>
 public sealed class FileSystemApi : IFileSystemApi
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private readonly string _baseUrl;
 
     private readonly RestClient _client;
-    private readonly string _baseUrl;
 
     public FileSystemApi(string baseUrl)
     {
@@ -125,78 +118,6 @@ public sealed class FileSystemApi : IFileSystemApi
         return parsed ?? new ApiResponse<object> { Code = -1, Message = "Deserialize failed" };
     }
 
-    private static string EncodePathForHeader(string filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath)) return "/";
-        var p = filePath.Replace('\\', '/');
-        if (!p.StartsWith('/')) p = "/" + p;
-        while (p.Contains("//")) p = p.Replace("//", "/");
-        var parts = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var encoded = string.Join('/', parts.Select(Uri.EscapeDataString));
-        return "/" + encoded;
-    }
-
-    private static DownloadConfiguration BuildDownloadConfig(DownloadConfiguration? baseCfg, bool needAuth, string token)
-    {
-        if (baseCfg is null)
-        {
-            baseCfg = new DownloadConfiguration
-            {
-                BufferBlockSize = 10240,
-                ChunkCount = 8,
-                MaximumBytesPerSecond = 2 * 1024 * 1024,
-                MaxTryAgainOnFailure = 5,
-                MaximumMemoryBufferBytes = 50 * 1024 * 1024,
-                ParallelDownload = true,
-                ParallelCount = 4,
-                Timeout = 10000,
-                RangeDownload = false,
-                ClearPackageOnCompletionWithFailure = true,
-                MinimumSizeOfChunking = 102400,
-                MinimumChunkSize = 10240,
-                ReserveStorageSpaceBeforeStartingDownload = true,
-                EnableLiveStreaming = false,
-            };
-        }
-        baseCfg.RequestConfiguration ??= new RequestConfiguration();
-        baseCfg.RequestConfiguration.Headers ??= new WebHeaderCollection();
-        if (needAuth)
-        {
-            if (string.IsNullOrWhiteSpace(baseCfg.RequestConfiguration.Headers["Authorization"]))
-            {
-                baseCfg.RequestConfiguration.Headers["Authorization"] = token;
-            }
-        }
-        else
-        {
-            baseCfg.RequestConfiguration.Headers.Remove("Authorization");
-        }
-        return baseCfg;
-    }
-
-    // Raw upload without safety checks
-    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[] content, bool asTask, CancellationToken cancellationToken)
-    {
-        var safePath = EncodePathForHeader(filePath);
-        var request = new RestRequest("/api/fs/put", Method.Put)
-            .AddHeader("Authorization", token)
-            .AddHeader("File-Path", safePath)
-            .AddHeader("As-Task", asTask ? "true" : "false")
-            .AddHeader("Content-Type", "application/octet-stream")
-            .AddParameter("application/octet-stream", content, ParameterType.RequestBody);
-        Logger.Debug("PutRaw path={path} asTask={asTask} size={size}", safePath, asTask, content?.Length);
-        var response = await _client.ExecuteAsync(request, cancellationToken);
-        var code = (int)response.StatusCode;
-        if (!response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content))
-        {
-            Logger.Warn("PutRaw fail {code} {msg}", code, response.ErrorMessage ?? response.StatusDescription);
-            return new FsPutResponse { Code = code, Message = response.ErrorMessage ?? response.StatusDescription ?? "Request failed" };
-        }
-        var parsed = JsonConvert.DeserializeObject<FsPutResponse>(response.Content);
-        Logger.Info("PutRaw ok code={code}", parsed?.Code);
-        return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
-    }
-
     public Task<FsPutResponse> PutAsync(string token, string filePath, byte[] content, bool asTask = false, CancellationToken cancellationToken = default)
         => SafePutAsync(token, filePath, content, asTask, cancellationToken);
 
@@ -254,51 +175,26 @@ public sealed class FileSystemApi : IFileSystemApi
         return res;
     }
 
-    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
-    {
-        return await PutManyAsync(token, items, progress: null, maxConcurrency: maxConcurrency, asTask: asTask, cancellationToken: cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, IProgress<UploadProgress>? progress, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
-    {
-        var list = items?.ToList() ?? new List<FileUploadItem>();
-        Logger.Debug("PutMany count={count} concurrency={cc}", list.Count, maxConcurrency);
-        var results = new FsPutResponse[list.Count];
-        using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
-        int done = 0;
-        var tasks = list.Select(async (item, idx) =>
-        {
-            await sem.WaitAsync(cancellationToken);
-            try
-            {
-                var res = await PutAsync(token, item.FilePath, item.Content, asTask, cancellationToken);
-                results[idx] = res;
-                var d = Interlocked.Increment(ref done);
-                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
-            }
-            finally { sem.Release(); }
-        });
-        await Task.WhenAll(tasks);
-        return results;
-    }
+    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default) => await PutManyAsync(token, items, null, maxConcurrency, asTask, cancellationToken);
 
     public async Task<DownloadResult> DownloadAsync(string token, string filePath, CancellationToken cancellationToken = default)
     {
         Logger.Debug("DownloadAsync path={path}", filePath);
         FsGetResponse meta = new() { Code = -1, Message = "init" };
         const int maxAttempts = 10;
-        int attempt = 0;
+        var attempt = 0;
         while (attempt++ < maxAttempts)
         {
             meta = await GetAsync(token, filePath, cancellationToken: cancellationToken);
             if (meta.Code == 200 && meta.Data is not null && !meta.Data.IsDir) break;
 
             var msg = meta.Message ?? string.Empty;
-            bool retryable = meta.Code == -1 || meta.Code == 404 || meta.Code >= 500 || msg.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0;
+            var retryable = meta.Code == -1 || meta.Code == 404 || meta.Code >= 500 || msg.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0;
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); } catch { }
+            try { await Task.Delay(delayMs, cancellationToken); }
+            catch { }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -331,7 +227,7 @@ public sealed class FileSystemApi : IFileSystemApi
         }
         catch (HttpRequestException hex)
         {
-            var code = (int?)(hex.StatusCode) ?? -1;
+            var code = (int?)hex.StatusCode ?? -1;
             Logger.Warn(hex, "DownloadAsync http error code={code}", code);
             return new DownloadResult { Code = code, Message = hex.Message };
         }
@@ -366,18 +262,19 @@ public sealed class FileSystemApi : IFileSystemApi
         Logger.Debug("DownloadToFile path={path} -> {local}", filePath, localPath);
         FsGetResponse meta = new() { Code = -1, Message = "init" };
         const int maxAttempts = 10;
-        int attempt = 0;
+        var attempt = 0;
         while (attempt++ < maxAttempts)
         {
             meta = await GetAsync(token, filePath, cancellationToken: cancellationToken);
             if (meta.Code == 200 && meta.Data is not null && !meta.Data.IsDir) break;
 
             var msg = meta.Message ?? string.Empty;
-            bool retryable = meta.Code == -1 || meta.Code == 404 || meta.Code >= 500 || msg.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0;
+            var retryable = meta.Code == -1 || meta.Code == 404 || meta.Code >= 500 || msg.IndexOf("not found", StringComparison.OrdinalIgnoreCase) >= 0;
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); } catch { }
+            try { await Task.Delay(delayMs, cancellationToken); }
+            catch { }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -394,7 +291,7 @@ public sealed class FileSystemApi : IFileSystemApi
 
         try
         {
-            var cfg = BuildDownloadConfig(config, needAuth: false, token: token);
+            var cfg = BuildDownloadConfig(config, false, token);
             var service = new DownloadService(cfg);
             await service.DownloadFileTaskAsync(url, localPath);
             Logger.Info("DownloadToFile ok -> {local}", localPath);
@@ -467,7 +364,7 @@ public sealed class FileSystemApi : IFileSystemApi
                     try
                     {
                         await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
-                        byte[] bytes = await File.ReadAllBytesAsync(pair.localPath, cancellationToken);
+                        var bytes = await File.ReadAllBytesAsync(pair.localPath, cancellationToken);
                         results[idx] = await SafePutAsync(token, pair.remotePath, bytes, asTask, cancellationToken);
                     }
                     finally { sem.Release(); }
@@ -478,6 +375,101 @@ public sealed class FileSystemApi : IFileSystemApi
             default:
                 return Array.Empty<FsPutResponse>();
         }
+    }
+
+    private static string EncodePathForHeader(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return "/";
+        var p = filePath.Replace('\\', '/');
+        if (!p.StartsWith('/')) p = "/" + p;
+        while (p.Contains("//")) p = p.Replace("//", "/");
+        var parts = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var encoded = string.Join('/', parts.Select(Uri.EscapeDataString));
+        return "/" + encoded;
+    }
+
+    private static DownloadConfiguration BuildDownloadConfig(DownloadConfiguration? baseCfg, bool needAuth, string token)
+    {
+        if (baseCfg is null)
+        {
+            baseCfg = new DownloadConfiguration
+            {
+                BufferBlockSize = 10240,
+                ChunkCount = 8,
+                MaximumBytesPerSecond = 2 * 1024 * 1024,
+                MaxTryAgainOnFailure = 5,
+                MaximumMemoryBufferBytes = 50 * 1024 * 1024,
+                ParallelDownload = true,
+                ParallelCount = 4,
+                Timeout = 10000,
+                RangeDownload = false,
+                ClearPackageOnCompletionWithFailure = true,
+                MinimumSizeOfChunking = 102400,
+                MinimumChunkSize = 10240,
+                ReserveStorageSpaceBeforeStartingDownload = true,
+                EnableLiveStreaming = false
+            };
+        }
+        baseCfg.RequestConfiguration ??= new RequestConfiguration();
+        baseCfg.RequestConfiguration.Headers ??= new WebHeaderCollection();
+        if (needAuth)
+        {
+            if (string.IsNullOrWhiteSpace(baseCfg.RequestConfiguration.Headers["Authorization"]))
+            {
+                baseCfg.RequestConfiguration.Headers["Authorization"] = token;
+            }
+        }
+        else
+        {
+            baseCfg.RequestConfiguration.Headers.Remove("Authorization");
+        }
+        return baseCfg;
+    }
+
+    // Raw upload without safety checks
+    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[] content, bool asTask, CancellationToken cancellationToken)
+    {
+        var safePath = EncodePathForHeader(filePath);
+        var request = new RestRequest("/api/fs/put", Method.Put)
+            .AddHeader("Authorization", token)
+            .AddHeader("File-Path", safePath)
+            .AddHeader("As-Task", asTask ? "true" : "false")
+            .AddHeader("Content-Type", "application/octet-stream")
+            .AddParameter("application/octet-stream", content, ParameterType.RequestBody);
+        Logger.Debug("PutRaw path={path} asTask={asTask} size={size}", safePath, asTask, content?.Length);
+        var response = await _client.ExecuteAsync(request, cancellationToken);
+        var code = (int)response.StatusCode;
+        if (!response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content))
+        {
+            Logger.Warn("PutRaw fail {code} {msg}", code, response.ErrorMessage ?? response.StatusDescription);
+            return new FsPutResponse { Code = code, Message = response.ErrorMessage ?? response.StatusDescription ?? "Request failed" };
+        }
+        var parsed = JsonConvert.DeserializeObject<FsPutResponse>(response.Content);
+        Logger.Info("PutRaw ok code={code}", parsed?.Code);
+        return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
+    }
+
+    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, IProgress<UploadProgress>? progress, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
+    {
+        var list = items?.ToList() ?? new List<FileUploadItem>();
+        Logger.Debug("PutMany count={count} concurrency={cc}", list.Count, maxConcurrency);
+        var results = new FsPutResponse[list.Count];
+        using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
+        var done = 0;
+        var tasks = list.Select(async (item, idx) =>
+        {
+            await sem.WaitAsync(cancellationToken);
+            try
+            {
+                var res = await PutAsync(token, item.FilePath, item.Content, asTask, cancellationToken);
+                results[idx] = res;
+                var d = Interlocked.Increment(ref done);
+                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
+            }
+            finally { sem.Release(); }
+        });
+        await Task.WhenAll(tasks);
+        return results;
     }
 
     private async Task EnsureRemoteDirectoriesAsync(string token, string? dir, CancellationToken ct)

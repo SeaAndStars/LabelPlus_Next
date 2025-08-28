@@ -25,23 +25,23 @@
         <StackPanel Spacing="6">
             <!-- Line 1 -->
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock VerticalAlignment="Center" Text="BaseUrl"/>
-                <TextBox Width="420" Text="{Binding BaseUrl}"/>
+                <TextBlock VerticalAlignment="Center" Text="BaseUrl" />
+                <TextBox Width="420" Text="{Binding BaseUrl}" />
 
-                <Button Content="Connect" Command="{Binding ConnectCommand}"/>
-                <Button Content="⭮" Command="{Binding RefreshCommand}"/>
+                <Button Content="Connect" Command="{Binding ConnectCommand}" />
+                <Button Content="⭮" Command="{Binding RefreshCommand}" />
             </StackPanel>
             <!-- Line 2 -->
             <StackPanel Orientation="Horizontal" Spacing="8">
-				<TextBlock VerticalAlignment="Center" Text="User"/>
-				<TextBox Width="160" Text="{Binding Username}"/>
-				<TextBlock VerticalAlignment="Center" Text="Password"/>
-				<TextBox Width="160" Text="{Binding Password}"/>
-				<TextBlock VerticalAlignment="Center" Text="TargetPath"/>
-				<TextBox Width="240" Text="{Binding TargetPath}"/>
-                <Button Content="打包并上传" Click="OnOpenPackWindow"/>
-                <Button Content="Upload to selected" Click="OnUploadToFolderClick"/>
-                <Button Content="Upload (root)" Click="OnUploadClick"/>
+                <TextBlock VerticalAlignment="Center" Text="User" />
+                <TextBox Width="160" Text="{Binding Username}" />
+                <TextBlock VerticalAlignment="Center" Text="Password" />
+                <TextBox Width="160" Text="{Binding Password}" />
+                <TextBlock VerticalAlignment="Center" Text="TargetPath" />
+                <TextBox Width="240" Text="{Binding TargetPath}" />
+                <Button Content="打包并上传" Click="OnOpenPackWindow" />
+                <Button Content="Upload to selected" Click="OnUploadToFolderClick" />
+                <Button Content="Upload (root)" Click="OnUploadClick" />
             </StackPanel>
         </StackPanel>
 
@@ -49,14 +49,14 @@
             <TreeView.DataTemplates>
                 <TreeDataTemplate x:DataType="m:DavNode" ItemsSource="{Binding Children}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{Binding Name}"/>
-                        <TextBlock Text="{Binding Uri}" Foreground="Gray" Opacity="0.6"/>
+                        <TextBlock Text="{Binding Name}" />
+                        <TextBlock Text="{Binding Uri}" Foreground="Gray" Opacity="0.6" />
                     </StackPanel>
                 </TreeDataTemplate>
             </TreeView.DataTemplates>
         </TreeView>
 
         <!-- Status -->
-        <TextBlock Grid.Row="2" Text="{Binding Status}"/>
+        <TextBlock Grid.Row="2" Text="{Binding Status}" />
     </Grid>
 </u:UrsaWindow>

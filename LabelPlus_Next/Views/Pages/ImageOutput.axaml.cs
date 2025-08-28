@@ -1,4 +1,3 @@
-using Avalonia.Controls;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Pages;

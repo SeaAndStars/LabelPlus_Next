@@ -13,8 +13,8 @@
     </Application.DataTemplates>
 
 
-	<Application.Styles>
-		<semi:SemiTheme Locale="zh-CN" />
-		<u-semi:SemiTheme Locale="zh-CN"/>
-	</Application.Styles>
+    <Application.Styles>
+        <semi:SemiTheme Locale="zh-CN" />
+        <u-semi:SemiTheme Locale="zh-CN" />
+    </Application.Styles>
 </Application>

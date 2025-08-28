@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace LabelPlus_Next.ViewModels;
+﻿namespace LabelPlus_Next.ViewModels;
 
 public class FileSettingsViewModel : ViewModelBase
 {

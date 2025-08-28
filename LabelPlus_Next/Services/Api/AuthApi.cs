@@ -1,35 +1,32 @@
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
 using RestSharp;
 
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// ÈÏÖ¤ API ¿Í»§¶ËÊµÏÖ£¬»ùÓÚ RestSharp Óë Newtonsoft.Json¡£
+///     è®¤è¯ API å®¢æˆ·ç«¯å®ç°ï¼ŒåŸºäº RestSharp ä¸ Newtonsoft.Jsonã€‚
 /// </summary>
 public sealed class AuthApi : IAuthApi
 {
     /// <summary>
-    /// RestSharp ¿Í»§¶ËÊµÀı¡£
+    ///     RestSharp å®¢æˆ·ç«¯å®ä¾‹ã€‚
     /// </summary>
     private readonly RestClient _client;
 
     /// <summary>
-    /// Ê¹ÓÃ»ù´¡µØÖ·´´½¨¿Í»§¶ËÊµÀı¡£
+    ///     ä½¿ç”¨åŸºç¡€åœ°å€åˆ›å»ºå®¢æˆ·ç«¯å®ä¾‹ã€‚
     /// </summary>
-    /// <param name="baseUrl">·şÎñ¶Ë»ù´¡µØÖ·¡£</param>
+    /// <param name="baseUrl">æœåŠ¡ç«¯åŸºç¡€åœ°å€ã€‚</param>
     public AuthApi(string baseUrl)
     {
         _client = new RestClient(new RestClientOptions(baseUrl));
     }
 
     /// <summary>
-    /// Ê¹ÓÃÍâ²¿ HttpClient Óë»ù´¡µØÖ·´´½¨¿Í»§¶ËÊµÀı£¨±ãÓÚ²âÊÔ»ò¸´ÓÃÁ¬½Ó£©¡£
+    ///     ä½¿ç”¨å¤–éƒ¨ HttpClient ä¸åŸºç¡€åœ°å€åˆ›å»ºå®¢æˆ·ç«¯å®ä¾‹ï¼ˆä¾¿äºæµ‹è¯•æˆ–å¤ç”¨è¿æ¥ï¼‰ã€‚
     /// </summary>
-    /// <param name="httpClient">Íâ²¿ HttpClient¡£</param>
-    /// <param name="baseUrl">·şÎñ¶Ë»ù´¡µØÖ·¡£</param>
+    /// <param name="httpClient">å¤–éƒ¨ HttpClientã€‚</param>
+    /// <param name="baseUrl">æœåŠ¡ç«¯åŸºç¡€åœ°å€ã€‚</param>
     public AuthApi(HttpClient httpClient, string baseUrl)
     {
         _client = new RestClient(httpClient, new RestClientOptions(baseUrl));

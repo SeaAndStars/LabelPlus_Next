@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using NLog;
 using System.Globalization;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
-using NLog;
 
 namespace LabelPlus_Next.Models;
 
@@ -30,7 +26,7 @@ public class LabelFileReader
 
         // 读取所有行以便支持多行文本解析
         var lines = await File.ReadAllLinesAsync(normalizedPath, Encoding.UTF8);
-        int i = 0;
+        var i = 0;
 
         // 先读取头部，直到遇到内容标记行为止（文件名或条目行）
         while (i < lines.Length && !headerRead)
@@ -41,11 +37,8 @@ public class LabelFileReader
                 headerRead = true;
                 break; // 让外层循环处理该行
             }
-            else
-            {
-                headerBuilder.AppendLine(line0);
-                i++;
-            }
+            headerBuilder.AppendLine(line0);
+            i++;
         }
 
         // 解析主体
@@ -74,7 +67,7 @@ public class LabelFileReader
                 var headerStart = line.IndexOf('[') + 1;
                 var headerEnd = line.IndexOf("]----------------", StringComparison.Ordinal);
                 var rightStart = headerEnd + "]----------------".Length;
-                int category = 1;
+                var category = 1;
                 float x = 0, y = 0;
                 if (headerEnd > headerStart && rightStart <= line.Length)
                 {
@@ -98,7 +91,7 @@ public class LabelFileReader
                 while (i < lines.Length)
                 {
                     var peek = lines[i];
-                    if (peek.StartsWith("----------------[") || (peek.StartsWith(">>>>>>>>") && peek.Contains("]<<<<<<<<")))
+                    if (peek.StartsWith("----------------[") || peek.StartsWith(">>>>>>>>") && peek.Contains("]<<<<<<<<"))
                     {
                         break; // 下一个块的开始，停止收集文本
                     }

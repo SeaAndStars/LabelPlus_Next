@@ -1,7 +1,7 @@
 ﻿<u:UrsaWindow
     Title="File Settings"
     d:DesignHeight="350"
-	xmlns:u="https://irihi.tech/ursa"
+    xmlns:u="https://irihi.tech/ursa"
     d:DesignWidth="600"
     mc:Ignorable="d"
     x:Class="LabelPlus_Next.Views.Pages.FileSettings"
@@ -35,7 +35,7 @@
             Grid.Row="2"
             ItemsSource="{Binding GroupList, Mode=TwoWay}"
             MinHeight="215" />
-		<TextBox
+        <TextBox
             VerticalContentAlignment="Top"
             AcceptsReturn="True"
             Grid.Column="1"

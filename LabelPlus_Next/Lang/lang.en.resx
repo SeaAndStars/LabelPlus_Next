@@ -1,351 +1,357 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
+    <!-- 
+      Microsoft ResX Schema 
+      
+      Version 2.0
+      
+      The primary goals of this format is to allow a simple XML format 
+      that is mostly human readable. The generation and parsing of the 
+      various data types are done through the TypeConverter classes 
+      associated with the data types.
+      
+      Example:
+      
+      ... ado.net/XML headers & schema ...
+      <resheader name="resmimetype">text/microsoft-resx</resheader>
+      <resheader name="version">2.0</resheader>
+      <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+      <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+      <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+      <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+      <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+          <value>[base64 mime encoded serialized .NET Framework object]</value>
+      </data>
+      <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+          <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+          <comment>This is a comment</comment>
+      </data>
+                  
+      There are any number of "resheader" rows that contain simple 
+      name/value pairs.
+      
+      Each data row contains a name, and value. The row also contains a 
+      type or mimetype. Type corresponds to a .NET class that support 
+      text/value conversion through the TypeConverter architecture. 
+      Classes that don't support this are serialized and stored with the 
+      mimetype set.
+      
+      The mimetype is used for serialized objects, and tells the 
+      ResXResourceReader how to depersist the object. This is currently not 
+      extensible. For a given mimetype the value must be set accordingly:
+      
+      Note - application/x-microsoft.net.object.binary.base64 is the format 
+      that the ResXResourceWriter will generate, however the reader can 
+      read any of the formats listed below.
+      
+      mimetype: application/x-microsoft.net.object.binary.base64
+      value   : The object must be serialized with 
+              : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+              : and then encoded with base64 encoding.
+      
+      mimetype: application/x-microsoft.net.object.soap.base64
+      value   : The object must be serialized with 
+              : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+              : and then encoded with base64 encoding.
+  
+      mimetype: application/x-microsoft.net.object.bytearray.base64
+      value   : The object must be serialized into a byte array 
+              : using a System.ComponentModel.TypeConverter
+              : and then encoded with base64 encoding.
+      -->
+    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata"
+                id="root"
+                xmlns="">
+        <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+        <xsd:element name="root" msdata:IsDataSet="true">
             <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
+                <xsd:choice maxOccurs="unbounded">
+                    <xsd:element name="metadata">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" use="required" type="xsd:string"/>
+                            <xsd:attribute name="type" type="xsd:string"/>
+                            <xsd:attribute name="mimetype" type="xsd:string"/>
+                            <xsd:attribute ref="xml:space"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="assembly">
+                        <xsd:complexType>
+                            <xsd:attribute name="alias" type="xsd:string"/>
+                            <xsd:attribute name="name" type="xsd:string"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="data">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
+                            <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
+                            <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
+                            <xsd:attribute ref="xml:space"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                    <xsd:element name="resheader">
+                        <xsd:complexType>
+                            <xsd:sequence>
+                                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                            </xsd:sequence>
+                            <xsd:attribute name="name" type="xsd:string" use="required"/>
+                        </xsd:complexType>
+                    </xsd:element>
+                </xsd:choice>
             </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <data name="fileToolStripMenuItem" xml:space="preserve">
+        </xsd:element>
+    </xsd:schema>
+    <resheader name="resmimetype">
+        <value>text/microsoft-resx</value>
+    </resheader>
+    <resheader name="version">
+        <value>2.0</value>
+    </resheader>
+    <resheader name="reader">
+        <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <resheader name="writer">
+        <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+            PublicKeyToken=b77a5c561934e089
+        </value>
+    </resheader>
+    <data name="fileToolStripMenuItem" xml:space="preserve">
     <value>File(_F)</value>
   </data>
-  <data name="newToolStripMenuItem" xml:space="preserve">
+    <data name="newToolStripMenuItem" xml:space="preserve">
     <value>New File(_N)</value>
   </data>
-  <data name="openToolStripMenuItem" xml:space="preserve">
+    <data name="openToolStripMenuItem" xml:space="preserve">
     <value>Open File(_O)</value>
   </data>
-  <data name="saveProjectSToolStripMenuItem" xml:space="preserve">
+    <data name="saveProjectSToolStripMenuItem" xml:space="preserve">
     <value>Save(_S)</value>
   </data>
-  <data name="saveAsDToolStripMenuItem" xml:space="preserve">
+    <data name="saveAsDToolStripMenuItem" xml:space="preserve">
     <value>Save As(_S)</value>
   </data>
-  <data name="exitEToolStripMenuItem" xml:space="preserve">
+    <data name="exitEToolStripMenuItem" xml:space="preserve">
     <value>Exit(_E)</value>
   </data>
-  <data name="imageToolStripMenuItem" xml:space="preserve">
+    <data name="imageToolStripMenuItem" xml:space="preserve">
     <value>Image Manager(_I)</value>
   </data>
-  <data name="outputPToolStripMenuItem" xml:space="preserve">
+    <data name="outputPToolStripMenuItem" xml:space="preserve">
     <value>Output(_O)</value>
   </data>
-  <data name="outputAllToolStripMenuItem" xml:space="preserve">
+    <data name="outputAllToolStripMenuItem" xml:space="preserve">
     <value>Output All Image(_O)</value>
   </data>
-  <data name="outputPhotoshopScriptToolStripMenuItem" xml:space="preserve">
+    <data name="outputPhotoshopScriptToolStripMenuItem" xml:space="preserve">
     <value>Photoshop Script(_P)</value>
   </data>
-  <data name="helpAToolStripMenuItem" xml:space="preserve">
+    <data name="helpAToolStripMenuItem" xml:space="preserve">
     <value>Help(_H)</value>
   </data>
-  <data name="viewHelpHToolStripMenuItem" xml:space="preserve">
+    <data name="viewHelpHToolStripMenuItem" xml:space="preserve">
     <value>View Help(_H)</value>
   </data>
-  <data name="aboutAToolStripMenuItem" xml:space="preserve">
+    <data name="aboutAToolStripMenuItem" xml:space="preserve">
     <value>About(_A)</value>
   </data>
-  <data name="toolStripButton_BrowseMode" xml:space="preserve">
+    <data name="toolStripButton_BrowseMode" xml:space="preserve">
     <value>Browse Mode(_Q)</value>
   </data>
-  <data name="toolStripButton_EditLabelMode" xml:space="preserve">
+    <data name="toolStripButton_EditLabelMode" xml:space="preserve">
     <value>Label Mode(_W)</value>
   </data>
-  <data name="toolStripButton_InputMode" xml:space="preserve">
+    <data name="toolStripButton_InputMode" xml:space="preserve">
     <value>Input Mode(_E)</value>
   </data>
-  <data name="toolStripButton_CheckMode" xml:space="preserve">
+    <data name="toolStripButton_CheckMode" xml:space="preserve">
     <value>Check Mode(_R)</value>
   </data>
-  <data name="toolStripButton_HideWindow" xml:space="preserve">
+    <data name="toolStripButton_HideWindow" xml:space="preserve">
     <value>Hide Window(_T)</value>
   </data>
-  <data name="fileToolStripLabel" xml:space="preserve">
+    <data name="fileToolStripLabel" xml:space="preserve">
     <value>Image</value>
   </data>
-  <data name="toolStripButton_EditBig" xml:space="preserve">
+    <data name="toolStripButton_EditBig" xml:space="preserve">
     <value>▲ Font Size Up</value>
   </data>
-  <data name="toolStripButton_EditSmall" xml:space="preserve">
+    <data name="toolStripButton_EditSmall" xml:space="preserve">
     <value>▼ Font Size Down</value>
   </data>
-  <data name="toolStripButton_FileSetting" xml:space="preserve">
+    <data name="toolStripButton_FileSetting" xml:space="preserve">
     <value>File Setting</value>
   </data>
-  <data name="labelCtrlEnterTip" xml:space="preserve">
+    <data name="labelCtrlEnterTip" xml:space="preserve">
     <value>Ctrl+Enter = Next Label</value>
   </data>
-  <data name="toolStripLabelTipSetCategory" xml:space="preserve">
+    <data name="toolStripLabelTipSetCategory" xml:space="preserve">
     <value>Key1-4 for Setting Category</value>
   </data>
-  <data name="OutputScriptFrm.Text" xml:space="preserve">
+    <data name="OutputScriptFrm.Text" xml:space="preserve">
     <value>Output Photoshop Script</value>
   </data>
-  <data name="LabelNumCheckBox" xml:space="preserve">
+    <data name="LabelNumCheckBox" xml:space="preserve">
     <value>Output labels(1,2,3...)</value>
   </data>
-  <data name="notLabelNumCheckBox" xml:space="preserve">
+    <data name="notLabelNumCheckBox" xml:space="preserve">
     <value>Add start and end flags (startN, endN) to facilitate the use of actions</value>
   </data>
-  <data name="checkBoxMakeUnLabeledFile" xml:space="preserve">
+    <data name="checkBoxMakeUnLabeledFile" xml:space="preserve">
     <value>Deal file without label</value>
   </data>
-  <data name="checkBoxSetFont" xml:space="preserve">
+    <data name="checkBoxSetFont" xml:space="preserve">
     <value>Set Font</value>
   </data>
-  <data name="checkBoxSetFontSize" xml:space="preserve">
+    <data name="checkBoxSetFontSize" xml:space="preserve">
     <value>Set Font Size</value>
   </data>
-  <data name="outputButton" xml:space="preserve">
+    <data name="outputButton" xml:space="preserve">
     <value>Output</value>
   </data>
-  <data name="checkBoxUseOtherFileType" xml:space="preserve">
+    <data name="checkBoxUseOtherFileType" xml:space="preserve">
     <value>Use other file type</value>
   </data>
-  <data name="checkBoxAutoGroupAction" xml:space="preserve">
+    <data name="checkBoxAutoGroupAction" xml:space="preserve">
     <value>execute action GroupN to layer group</value>
   </data>
-  <data name="labelAutoGroupActionTip" xml:space="preserve">
+    <data name="labelAutoGroupActionTip" xml:space="preserve">
     <value>(action group name)</value>
   </data>
-  <data name="labelOutputItemTip" xml:space="preserve">
+    <data name="labelOutputItemTip" xml:space="preserve">
     <value>Output Item</value>
   </data>
-  <data name="labelDefaultFormatTip" xml:space="preserve">
+    <data name="labelDefaultFormatTip" xml:space="preserve">
     <value>Default Format</value>
   </data>
-  <data name="labelAutodoTip" xml:space="preserve">
+    <data name="labelAutodoTip" xml:space="preserve">
     <value>Auto Do</value>
   </data>
-  <data name="ImageOutputFrm.Text" xml:space="preserve">
+    <data name="ImageOutputFrm.Text" xml:space="preserve">
     <value>Output All Images</value>
   </data>
-  <data name="labelOutputFormat" xml:space="preserve">
+    <data name="labelOutputFormat" xml:space="preserve">
     <value>File Format</value>
   </data>
-  <data name="labelZoom" xml:space="preserve">
+    <data name="labelZoom" xml:space="preserve">
     <value>Zoom Ratio</value>
   </data>
-  <data name="button_output" xml:space="preserve">
+    <data name="button_output" xml:space="preserve">
     <value>Output</value>
   </data>
-  <data name="buttonAbort" xml:space="preserve">
+    <data name="buttonAbort" xml:space="preserve">
     <value>Abort</value>
   </data>
-  <data name="checkBoxJumpNoNum" xml:space="preserve">
+    <data name="checkBoxJumpNoNum" xml:space="preserve">
     <value>Skip unlabeled Images</value>
   </data>
-  <data name="ManageImageFrm.Text" xml:space="preserve">
+    <data name="ManageImageFrm.Text" xml:space="preserve">
     <value>Image Manager</value>
   </data>
-  <data name="labelFolderFile" xml:space="preserve">
+    <data name="labelFolderFile" xml:space="preserve">
     <value>File in the same folder</value>
   </data>
-  <data name="labelIncludedFile" xml:space="preserve">
+    <data name="labelIncludedFile" xml:space="preserve">
     <value>Included File</value>
   </data>
-  <data name="button_OK" xml:space="preserve">
+    <data name="button_OK" xml:space="preserve">
     <value>OK</value>
   </data>
-  <data name="buttonCancel" xml:space="preserve">
+    <data name="buttonCancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
-  <data name="FileSettingFrm.Text" xml:space="preserve">
+    <data name="FileSettingFrm.Text" xml:space="preserve">
     <value>File Setting</value>
   </data>
-  <data name="labelGroup" xml:space="preserve">
+    <data name="labelGroup" xml:space="preserve">
     <value>Group Settings</value>
   </data>
-  <data name="labelComment" xml:space="preserve">
+    <data name="labelComment" xml:space="preserve">
     <value>Comment</value>
   </data>
-  <data name="save_question" xml:space="preserve">
+    <data name="save_question" xml:space="preserve">
     <value>File changed, save？</value>
   </data>
-  <data name="save_complete" xml:space="preserve">
+    <data name="save_complete" xml:space="preserve">
     <value>Save Complete</value>
   </data>
-  <data name="input_images_need_save" xml:space="preserve">
+    <data name="input_images_need_save" xml:space="preserve">
     <value>File did not saved, you should save it first!</value>
   </data>
-  <data name="clear_all_label_question" xml:space="preserve">
+    <data name="clear_all_label_question" xml:space="preserve">
     <value>Sure to DELETE all labels！？</value>
   </data>
-  <data name="can_not_output_file" xml:space="preserve">
+    <data name="can_not_output_file" xml:space="preserve">
     <value>Could not output the file：</value>
   </data>
-  <data name="output_complete" xml:space="preserve">
+    <data name="output_complete" xml:space="preserve">
     <value>Output complete</value>
   </data>
-  <data name="output_fail" xml:space="preserve">
+    <data name="output_fail" xml:space="preserve">
     <value>Failed to output the file</value>
   </data>
-  <data name="output_aborted" xml:space="preserve">
+    <data name="output_aborted" xml:space="preserve">
     <value>Output progress is aborted</value>
   </data>
-  <data name="ps_output_complete" xml:space="preserve">
+    <data name="ps_output_complete" xml:space="preserve">
     <value>auto_label_for_photoshop.jsx is you script file \n Method to use it：1.drag it into Photoshop \n2.Select the Dir of images</value>
   </data>
-  <data name="tip_chose_photo_dir" xml:space="preserve">
+    <data name="tip_chose_photo_dir" xml:space="preserve">
     <value>Please choose directory of images。\nProgram will create a text file in this directory.</value>
   </data>
-  <data name="tip_new_file_be_saved" xml:space="preserve">
+    <data name="tip_new_file_be_saved" xml:space="preserve">
     <value>New file saved:{0}</value>
   </data>
-  <data name="tip_setting_group" xml:space="preserve">
+    <data name="tip_setting_group" xml:space="preserve">
     <value>Please set the group with correct format，each group write in one line, 1 to 9 groups</value>
   </data>
-  <data name="tip_sure_del_label" xml:space="preserve">
+    <data name="tip_sure_del_label" xml:space="preserve">
     <value>Sure to delete the selected labels?</value>
   </data>
-  <data name="tip_setting_comment" xml:space="preserve">
+    <data name="tip_setting_comment" xml:space="preserve">
     <value>The "-" cannot be alone a line in the comment!</value>
   </data>
-  <data name="default_file_name" xml:space="preserve">
+    <data name="default_file_name" xml:space="preserve">
     <value>translation</value>
   </data>
-  <data name="error_openfilefail" xml:space="preserve">
+    <data name="error_openfilefail" xml:space="preserve">
     <value>Fail to open the file</value>
   </data>
-  <data name="error_file_version_over" xml:space="preserve">
+    <data name="error_file_version_over" xml:space="preserve">
     <value>Version too high!</value>
   </data>
-  <data name="error_file_startblocks_lost" xml:space="preserve">
+    <data name="error_file_startblocks_lost" xml:space="preserve">
     <value>Start Blocks lost</value>
   </data>
-  <data name="listview_menustrip_del" xml:space="preserve">
+    <data name="listview_menustrip_del" xml:space="preserve">
     <value>Del(_D)</value>
   </data>
-  <data name="languageblock" xml:space="preserve">
+    <data name="languageblock" xml:space="preserve">
     <value>Language:</value>
   </data>
-  <data name="toolStripButton_zoomIn" xml:space="preserve">
+    <data name="toolStripButton_zoomIn" xml:space="preserve">
     <value>Zoom In</value>
   </data>
-  <data name="toolStripButton_zoomOut" xml:space="preserve">
+    <data name="toolStripButton_zoomOut" xml:space="preserve">
     <value>Zoom Out</value>
   </data>
-  <data name="notCloseFileCheckBox" xml:space="preserve">
+    <data name="notCloseFileCheckBox" xml:space="preserve">
     <value>Do not close the file after edit</value>
   </data>
-  <data name="notHeadFootSignCheckBox" xml:space="preserve">
+    <data name="notHeadFootSignCheckBox" xml:space="preserve">
     <value>Add the mark:start,end </value>
   </data>
-  <data name="button_yes" xml:space="preserve">
+    <data name="button_yes" xml:space="preserve">
     <value>Yes</value>
   </data>
-  <data name="button_start" xml:space="preserve">
+    <data name="button_start" xml:space="preserve">
     <value>Start</value>
   </data>
 </root>

@@ -1,18 +1,17 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace LabelPlus_Next.Models;
 
 public sealed class ProjectCn
 {
-    [JsonPropertyName("ÏîÄ¿")]
+    [JsonPropertyName("é¡¹ç›®")]
     public Dictionary<string, EpisodeCn> Items { get; set; } = new();
 }
 
 public sealed class EpisodeCn
 {
-    [JsonPropertyName("×´Ì¬")] public string? Status { get; set; }
-    [JsonPropertyName("Í¼Ô´ÎÄ¼şÂ·¾¶")] public string? SourcePath { get; set; }
-    [JsonPropertyName("·­ÒëÎÄ¼şÂ·¾¶")] public string? TranslatePath { get; set; }
-    [JsonPropertyName("Ç¶×ÖÎÄ¼şÂ·¾¶")] public string? TypesetPath { get; set; }
+    [JsonPropertyName("çŠ¶æ€")] public string? Status { get; set; }
+    [JsonPropertyName("å›¾æºæ–‡ä»¶è·¯å¾„")] public string? SourcePath { get; set; }
+    [JsonPropertyName("ç¿»è¯‘æ–‡ä»¶è·¯å¾„")] public string? TranslatePath { get; set; }
+    [JsonPropertyName("åµŒå­—æ–‡ä»¶è·¯å¾„")] public string? TypesetPath { get; set; }
 }

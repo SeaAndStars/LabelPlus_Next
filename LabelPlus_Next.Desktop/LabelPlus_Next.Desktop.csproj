@@ -1,43 +1,43 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
-    One for Windows with net9.0-windows TFM, one for MacOS with net9.0-macos and one with net9.0 TFM for Linux.-->
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
+        One for Windows with net9.0-windows TFM, one for MacOS with net9.0-macos and one with net9.0 TFM for Linux.-->
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
-  </PropertyGroup>
+    <PropertyGroup>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <ApplicationIcon>LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
+    </PropertyGroup>
 
-  <!-- Single-file publish to avoid many DLLs in publish folder (Release only) -->
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <!-- Set the RID you are publishing for. Change to win-arm64/linux-x64/osx-x64 as needed. -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <!-- Avalonia apps rely on dynamic features; keep trimming disabled unless fully annotated. -->
-    <PublishTrimmed>false</PublishTrimmed>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-  </PropertyGroup>
-  <ItemGroup>
-    <Content Include="LabelPlus_Next_rounded_icon_transparent.ico" />
-  </ItemGroup>
+    <!-- Single-file publish to avoid many DLLs in publish folder (Release only) -->
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <!-- Set the RID you are publishing for. Change to win-arm64/linux-x64/osx-x64 as needed. -->
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <!-- Avalonia apps rely on dynamic features; keep trimming disabled unless fully annotated. -->
+        <PublishTrimmed>false</PublishTrimmed>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    </PropertyGroup>
+    <ItemGroup>
+        <Content Include="LabelPlus_Next_rounded_icon_transparent.ico"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Desktop" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Downloader" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Desktop"/>
+        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="Avalonia.Diagnostics">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Downloader"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\LabelPlus_Next\LabelPlus_Next.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\LabelPlus_Next\LabelPlus_Next.csproj"/>
+    </ItemGroup>
 </Project>

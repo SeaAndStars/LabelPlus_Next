@@ -1,8 +1,6 @@
-using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Ursa.Controls;
 using LabelPlus_Next.ViewModels;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Windows;
 

@@ -17,12 +17,14 @@ using WebDav;
 
 namespace LabelPlus_Next.Tools.ViewModels;
 
-public partial class MainWindowViewModel : ObservableObject
+public class MainWindowViewModel : ObservableObject
 {
+
+    private const int MaxDepth = 10; // 可调整：树最大深度
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private static IWebDavClient? _client;
 
-    private static readonly PropfindParameters ListParams = new PropfindParameters
+    private static readonly PropfindParameters ListParams = new()
     {
         Headers = new List<KeyValuePair<string, string>>
         {
@@ -32,37 +34,27 @@ public partial class MainWindowViewModel : ObservableObject
         }
     };
 
-    private const int MaxDepth = 10; // 可调整：树最大深度
-
     private string? baseUrl;
-    public string? BaseUrl { get => baseUrl; set => SetProperty(ref baseUrl, value); }
-
-    private string? username;
-    public string? Username { get => username; set => SetProperty(ref username, value); }
-
-    private string? password;
-    public string? Password { get => password; set => SetProperty(ref password, value); }
-
-    private string? targetPath;
-    public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
-
-    private string? status;
-    public string? Status { get => status; set { SetProperty(ref status, value); Logger.Info("Status: {status}", value); } }
-
-    private int uploadConcurrency = Math.Clamp(Environment.ProcessorCount / 2, 2, 8);
-    public int UploadConcurrency { get => uploadConcurrency; set => SetProperty(ref uploadConcurrency, Math.Max(1, value)); }
-
-    public ObservableCollection<DavNode> Nodes { get; } = new();
-
-    public IAsyncRelayCommand ConnectCommand { get; }
-    public IAsyncRelayCommand RefreshCommand { get; }
-
-    private string SettingsPath => Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
 
     // Track current client configuration to decide recreation
     private string? currentClientBaseUrl;
-    private string? currentClientUser;
     private string? currentClientPassword;
+    private string? currentClientUser;
+
+    // 拆分忙碌状态：加载目录与上传互不阻塞
+    private bool isLoading;
+
+    private bool isUploading;
+
+    private string? password;
+
+    private string? status;
+
+    private string? targetPath;
+
+    private int uploadConcurrency = Math.Clamp(Environment.ProcessorCount / 2, 2, 8);
+
+    private string? username;
 
     public MainWindowViewModel()
     {
@@ -70,22 +62,44 @@ public partial class MainWindowViewModel : ObservableObject
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         _ = LoadSettingsAsync();
     }
+    public string? BaseUrl { get => baseUrl; set => SetProperty(ref baseUrl, value); }
+    public string? Username { get => username; set => SetProperty(ref username, value); }
+    public string? Password { get => password; set => SetProperty(ref password, value); }
+    public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
 
-    // 拆分忙碌状态：加载目录与上传互不阻塞
-    private bool isLoading;
+    public string? Status
+    {
+        get => status;
+        set
+        {
+            SetProperty(ref status, value);
+            Logger.Info("Status: {status}", value);
+        }
+    }
+
+    public int UploadConcurrency { get => uploadConcurrency; set => SetProperty(ref uploadConcurrency, Math.Max(1, value)); }
+
+    public ObservableCollection<DavNode> Nodes { get; } = new();
+
+    public IAsyncRelayCommand ConnectCommand { get; }
+    public IAsyncRelayCommand RefreshCommand { get; }
+
+    private string SettingsPath
+    {
+        get => Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
+    }
+
     public bool IsLoading { get => isLoading; set => SetProperty(ref isLoading, value); }
-
-    private bool isUploading;
     public bool IsUploading { get => isUploading; set => SetProperty(ref isUploading, value); }
 
     private void EnsureClient(bool forceRecreate = false)
     {
         if (string.IsNullOrWhiteSpace(BaseUrl)) throw new InvalidOperationException("BaseUrl 未配置");
         var needRecreate = forceRecreate
-            || _client == null
-            || !string.Equals(currentClientBaseUrl, BaseUrl, StringComparison.Ordinal)
-            || !string.Equals(currentClientUser, Username, StringComparison.Ordinal)
-            || !string.Equals(currentClientPassword, Password, StringComparison.Ordinal);
+                           || _client == null
+                           || !string.Equals(currentClientBaseUrl, BaseUrl, StringComparison.Ordinal)
+                           || !string.Equals(currentClientUser, Username, StringComparison.Ordinal)
+                           || !string.Equals(currentClientPassword, Password, StringComparison.Ordinal);
 
         if (!needRecreate) return;
 
@@ -93,7 +107,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             PreAuthenticate = true,
             UseCookies = true,
-            AllowAutoRedirect = true,
+            AllowAutoRedirect = true
         };
         if (!string.IsNullOrEmpty(Username))
         {
@@ -176,8 +190,8 @@ public partial class MainWindowViewModel : ObservableObject
         var res = await _client!.Propfind(new Uri(BaseUrl!, UriKind.Absolute), ListParams);
         if (!res.IsSuccessful)
         {
-            Logger.Warn("Propfind root failed: {code} {desc}", (int)res.StatusCode, res.Description);
-            Status = $"列目录失败: {(int)res.StatusCode} {res.Description}";
+            Logger.Warn("Propfind root failed: {code} {desc}", res.StatusCode, res.Description);
+            Status = $"列目录失败: {res.StatusCode} {res.Description}";
             return;
         }
 
@@ -223,7 +237,11 @@ public partial class MainWindowViewModel : ObservableObject
         abs = EnsureSlash(abs); // 目录请求需以斜杠结尾
         Logger.Debug("LoadChildren depth={depth} uri={uri}", depth, abs);
         var res = await _client!.Propfind(new Uri(abs, UriKind.Absolute), ListParams);
-        if (!res.IsSuccessful) { Logger.Warn("Propfind failed: {code} {desc}", (int)res.StatusCode, res.Description); return; }
+        if (!res.IsSuccessful)
+        {
+            Logger.Warn("Propfind failed: {code} {desc}", res.StatusCode, res.Description);
+            return;
+        }
         foreach (var r in res.Resources)
         {
             var resUri = r.Uri ?? string.Empty;
@@ -269,7 +287,7 @@ public partial class MainWindowViewModel : ObservableObject
             if (failures.IsEmpty)
                 Status = $"上传完成，共 {paths.Count} 个文件";
             else
-                Status = $"部分失败：{paths.Count - failures.Count}/{paths.Count} 成功，失败：{string.Join(", ", failures.Take(5))}{(failures.Count>5?" 等":"")}";
+                Status = $"部分失败：{paths.Count - failures.Count}/{paths.Count} 成功，失败：{string.Join(", ", failures.Take(5))}{(failures.Count > 5 ? " 等" : "")}";
 
             Logger.Info("UploadFilesAsync completed: {count} total, {success} success, {failures} failures",
                 paths.Count, paths.Count - failures.Count, failures.Count);
@@ -293,7 +311,7 @@ public partial class MainWindowViewModel : ObservableObject
         const int baseDelayMs = 600;
         var name = Path.GetFileName(path);
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
@@ -307,7 +325,7 @@ public partial class MainWindowViewModel : ObservableObject
                     return true;
                 }
 
-                var code = (int)result.StatusCode;
+                var code = result.StatusCode;
                 Logger.Warn("Upload attempt {attempt} failed: {code} {desc}", attempt, code, result.Description);
                 if (!IsTransientStatus(code))
                     return false;
@@ -329,15 +347,9 @@ public partial class MainWindowViewModel : ObservableObject
         return false;
     }
 
-    private static bool IsTransientStatus(int code)
-    {
-        return code == 408 || code == 429 || (code >= 500 && code <= 599);
-    }
+    private static bool IsTransientStatus(int code) => code == 408 || code == 429 || code >= 500 && code <= 599;
 
-    private static bool IsTransientException(Exception ex)
-    {
-        return ex is TaskCanceledException || ex is IOException || ex is HttpRequestException;
-    }
+    private static bool IsTransientException(Exception ex) => ex is TaskCanceledException || ex is IOException || ex is HttpRequestException;
 
     private string BuildAbsoluteTarget(string? destFolderUri, string fileName)
     {
@@ -387,10 +399,7 @@ public partial class MainWindowViewModel : ObservableObject
         return string.Join('/', parts);
     }
 
-    private static string EnsureSlash(string url)
-    {
-        return url.EndsWith('/') ? url : url + "/";
-    }
+    private static string EnsureSlash(string url) => url.EndsWith('/') ? url : url + "/";
 
     private static string? NormalizeUrl(string? url)
     {
@@ -418,17 +427,14 @@ public partial class MainWindowViewModel : ObservableObject
             // Root-relative path: combine with site origin to avoid duplicating base path
             return new Uri(origin, possiblyRelative).ToString();
         }
-        else
+        var rel = possiblyRelative.Replace('\\', '/');
+        // If rel already contains the base path prefix (e.g. "dav/..."), combine with origin
+        if (!string.IsNullOrEmpty(basePath) && (rel.Equals(basePath, StringComparison.OrdinalIgnoreCase) || rel.StartsWith(basePath + "/", StringComparison.OrdinalIgnoreCase)))
         {
-            var rel = possiblyRelative.Replace('\\', '/');
-            // If rel already contains the base path prefix (e.g. "dav/..."), combine with origin
-            if (!string.IsNullOrEmpty(basePath) && (rel.Equals(basePath, StringComparison.OrdinalIgnoreCase) || rel.StartsWith(basePath + "/", StringComparison.OrdinalIgnoreCase)))
-            {
-                return new Uri(origin, "/" + rel).ToString();
-            }
-            // Normal relative to BaseUrl
-            return new Uri(baseUri, rel).ToString();
+            return new Uri(origin, "/" + rel).ToString();
         }
+        // Normal relative to BaseUrl
+        return new Uri(baseUri, rel).ToString();
     }
 
     private string? ToRelativePath(string absolute)
@@ -495,7 +501,7 @@ public partial class MainWindowViewModel : ObservableObject
             var res = await _client!.Propfind(new Uri(abs, UriKind.Absolute), ListParams);
             if (!res.IsSuccessful)
             {
-                Logger.Warn("RefreshNodeAsync failed: {code} {desc}", (int)res.StatusCode, res.Description);
+                Logger.Warn("RefreshNodeAsync failed: {code} {desc}", res.StatusCode, res.Description);
                 return;
             }
             node.Children.Clear();

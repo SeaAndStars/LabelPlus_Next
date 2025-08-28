@@ -2,31 +2,30 @@
     x:Class="LabelPlus_Next.Views.Windows.ProjectMetaDataWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     x:DataType="vm:UploadViewModel"
     Title="确认上传话数"
     Width="720" Height="560">
-  <Grid Margin="25" RowDefinitions="Auto * Auto Auto" RowSpacing="8">
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <TextBlock Text="项目：" />
-      <TextBlock FontWeight="SemiBold" Text="{Binding PendingProjectName}" />
-    </StackPanel>
+    <Grid Margin="25" RowDefinitions="Auto * Auto Auto" RowSpacing="8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="项目：" />
+            <TextBlock FontWeight="SemiBold" Text="{Binding PendingProjectName}" />
+        </StackPanel>
 
-    <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" />
+        <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" />
 
-    <!-- Progress area -->
-    <StackPanel Grid.Row="2" Orientation="Vertical" Spacing="6">
-      <TextBlock Text="{Binding Status}"/>
-      <ProgressBar Minimum="0" Maximum="{Binding UploadTotal}" Value="{Binding UploadCompleted}" Height="8"/>
-      <TextBlock FontSize="12" Foreground="#666" Text="{Binding CurrentUploadingPath}" TextTrimming="CharacterEllipsis"/>
-    </StackPanel>
+        <!-- Progress area -->
+        <StackPanel Grid.Row="2" Orientation="Vertical" Spacing="6">
+            <TextBlock Text="{Binding Status}" />
+            <ProgressBar Minimum="0" Maximum="{Binding UploadTotal}" Value="{Binding UploadCompleted}" Height="8" />
+            <TextBlock FontSize="12" Foreground="#666" Text="{Binding CurrentUploadingPath}"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
 
-    <StackPanel Grid.Row="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-      <Button Content="取消" Click="OnCancelClick" />
-      <Button Click="OnConfirmClick" Content="开始上传" IsDefault="True" />
-    </StackPanel>
-  </Grid>
+        <StackPanel Grid.Row="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+            <Button Content="取消" Click="OnCancelClick" />
+            <Button Click="OnConfirmClick" Content="开始上传" IsDefault="True" />
+        </StackPanel>
+    </Grid>
 </u:UrsaWindow>

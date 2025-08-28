@@ -1,12 +1,10 @@
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using LabelPlus_Next.Models;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -15,14 +13,36 @@ public class LabelOverlay : Control
     public static readonly StyledProperty<IEnumerable<LabelItem>?> LabelsProperty =
         AvaloniaProperty.Register<LabelOverlay, IEnumerable<LabelItem>?>(nameof(Labels));
 
+    public static readonly StyledProperty<double> ImageWidthProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageWidth));
+
+    public static readonly StyledProperty<double> ImageHeightProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageHeight));
+
+    // Content area of the image when Stretch != Fill (letterboxing). Values are in overlay coordinates.
+    public static readonly StyledProperty<double> ContentWidthProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentWidth));
+
+    public static readonly StyledProperty<double> ContentHeightProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentHeight));
+
+    public static readonly StyledProperty<double> ContentOffsetXProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetX));
+
+    public static readonly StyledProperty<double> ContentOffsetYProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetY));
+
+    public static readonly StyledProperty<int> HighlightIndexProperty =
+        AvaloniaProperty.Register<LabelOverlay, int>(nameof(HighlightIndex), -1);
+    private readonly List<INotifyPropertyChanged> _itemSubscriptions = new();
+
+    private INotifyCollectionChanged? _labelsCollectionChanged;
+
     public IEnumerable<LabelItem>? Labels
     {
         get => GetValue(LabelsProperty);
         set => SetValue(LabelsProperty, value);
     }
-
-    public static readonly StyledProperty<double> ImageWidthProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageWidth));
 
     public double ImageWidth
     {
@@ -30,43 +50,22 @@ public class LabelOverlay : Control
         set => SetValue(ImageWidthProperty, value);
     }
 
-    public static readonly StyledProperty<double> ImageHeightProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageHeight));
-
     public double ImageHeight
     {
         get => GetValue(ImageHeightProperty);
         set => SetValue(ImageHeightProperty, value);
     }
 
-    // Content area of the image when Stretch != Fill (letterboxing). Values are in overlay coordinates.
-    public static readonly StyledProperty<double> ContentWidthProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentWidth));
     public double ContentWidth { get => GetValue(ContentWidthProperty); set => SetValue(ContentWidthProperty, value); }
-
-    public static readonly StyledProperty<double> ContentHeightProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentHeight));
     public double ContentHeight { get => GetValue(ContentHeightProperty); set => SetValue(ContentHeightProperty, value); }
-
-    public static readonly StyledProperty<double> ContentOffsetXProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetX));
     public double ContentOffsetX { get => GetValue(ContentOffsetXProperty); set => SetValue(ContentOffsetXProperty, value); }
-
-    public static readonly StyledProperty<double> ContentOffsetYProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetY));
     public double ContentOffsetY { get => GetValue(ContentOffsetYProperty); set => SetValue(ContentOffsetYProperty, value); }
-
-    public static readonly StyledProperty<int> HighlightIndexProperty =
-        AvaloniaProperty.Register<LabelOverlay, int>(nameof(HighlightIndex), -1);
 
     public int HighlightIndex
     {
         get => GetValue(HighlightIndexProperty);
         set => SetValue(HighlightIndexProperty, value);
     }
-
-    private INotifyCollectionChanged? _labelsCollectionChanged;
-    private readonly List<INotifyPropertyChanged> _itemSubscriptions = new();
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -153,28 +152,28 @@ public class LabelOverlay : Control
         if (cw <= 0 || ch <= 0)
             return;
 
-        double side = LabelSideLength(cw, ch);
+        var side = LabelSideLength(cw, ch);
         var innerBrush = Brushes.OrangeRed;
         var outerBrush = Brushes.DodgerBlue;
-        double radius = side / 4.0;
+        var radius = side / 4.0;
 
-        int i = 0;
+        var i = 0;
         foreach (var label in Labels)
         {
             i++;
             // Local coordinates in content space [0,cw]x[0,ch]
-            double x = label.XPercent * cw;
-            double y = label.YPercent * ch;
+            var x = label.XPercent * cw;
+            var y = label.YPercent * ch;
 
             var rect = GetLabelRect(x, y, side);
             var brush = label.Category == 1 ? innerBrush : outerBrush;
             // Thinner borders
-            var penThickness = (i - 1) == HighlightIndex ? side / 14.0 : side / 24.0;
+            var penThickness = i - 1 == HighlightIndex ? side / 14.0 : side / 24.0;
             var pen = new Pen(brush, penThickness);
 
             var rrect = new RoundedRect(rect, radius, radius);
 
-            if ((i - 1) == HighlightIndex)
+            if (i - 1 == HighlightIndex)
             {
                 if (brush is ISolidColorBrush scb)
                     context.FillRectangle(new SolidColorBrush(scb.Color, 0.18), rrect.Rect);
@@ -192,19 +191,19 @@ public class LabelOverlay : Control
             double textW = 0, textH = 0;
             foreach (var r in layout.HitTestTextRange(0, head.Length))
             {
-                textW = System.Math.Max(textW, r.Right);
-                textH = System.Math.Max(textH, r.Bottom);
+                textW = Math.Max(textW, r.Right);
+                textH = Math.Max(textH, r.Bottom);
             }
             if (textW <= 0) textW = indexFontSize; // fallback approx
             if (textH <= 0) textH = indexFontSize;
             var drawX = rect.X + (rect.Width - textW) / 2;
             var drawY = rect.Y + (rect.Height - textH) / 2;
-            layout.Draw(context, new Avalonia.Point(drawX, drawY));
+            layout.Draw(context, new Point(drawX, drawY));
 
             // Tip text for highlighted label
-            if ((i - 1) == HighlightIndex && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
+            if (i - 1 == HighlightIndex && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
             {
-                var maxTipWidth = System.Math.Min(cw * 0.6, 480);
+                var maxTipWidth = Math.Min(cw * 0.6, 480);
                 var tipFontSize = side / 2.2;
                 var tipLayout = new TextLayout(
                     tip,
@@ -216,13 +215,13 @@ public class LabelOverlay : Control
                     TextTrimming.None,
                     null,
                     FlowDirection.LeftToRight,
-                    maxWidth: maxTipWidth);
+                    maxTipWidth);
 
                 double tW = 0, tH = 0;
                 foreach (var rr in tipLayout.HitTestTextRange(0, tip.Length))
                 {
-                    tW = System.Math.Max(tW, rr.Right);
-                    tH = System.Math.Max(tH, rr.Bottom);
+                    tW = Math.Max(tW, rr.Right);
+                    tH = Math.Max(tH, rr.Bottom);
                 }
                 if (tW <= 0) tW = maxTipWidth;
                 if (tH <= 0) tH = tipFontSize;
@@ -232,27 +231,27 @@ public class LabelOverlay : Control
                 var bgW = tW + padW * 2;
                 var bgH = tH + padH * 2;
 
-                double tipX = rect.X;
-                double tipY = rect.Y - bgH - 4;
+                var tipX = rect.X;
+                var tipY = rect.Y - bgH - 4;
                 // Clamp to content bounds [0,cw]x[0,ch]
                 if (tipX + bgW > cw)
-                    tipX = System.Math.Max(0, cw - bgW - 1);
+                    tipX = Math.Max(0, cw - bgW - 1);
                 if (tipX < 0) tipX = 0;
                 if (tipY < 0)
                     tipY = rect.Bottom + 4;
                 if (tipY + bgH > ch)
-                    tipY = System.Math.Max(0, rect.Y - bgH - 4);
+                    tipY = Math.Max(0, rect.Y - bgH - 4);
 
                 var bg = new SolidColorBrush(Colors.Black, 0.7);
                 var bgRect = new Rect(tipX, tipY, bgW, bgH);
                 context.FillRectangle(bg, bgRect);
-                tipLayout.Draw(context, new Avalonia.Point(tipX + padW, tipY + padH));
+                tipLayout.Draw(context, new Point(tipX + padW, tipY + padH));
             }
         }
     }
 
     internal static double LabelSideLength(double w, double h)
-        => System.Math.Min(w, h) * 0.035;
+        => Math.Min(w, h) * 0.035;
 
     internal static Rect GetLabelRect(double x, double y, double side)
     {

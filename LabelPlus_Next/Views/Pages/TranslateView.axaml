@@ -22,17 +22,17 @@
     <UserControl.Styles>
         <!-- Remove hover highlight and blue focus border for the bottom-right TextBox -->
         <Style Selector="TextBox#LabelTextBox">
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style Selector="TextBox#LabelTextBox:pointerover">
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
         <Style Selector="TextBox#LabelTextBox:focus">
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
         <Style Selector="TextBox#LabelTextBox:focus:pointerover">
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
     </UserControl.Styles>
@@ -46,13 +46,17 @@
             <Button Content="{I18N {x:Static lang:LangKeys.fileToolStripMenuItem}}">
                 <Button.Flyout>
                     <MenuFlyout HorizontalOffset="5">
-                        <MenuItem Command="{Binding NewTranslationCommandCommand}" Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}" />
+                        <MenuItem Command="{Binding NewTranslationCommandCommand}"
+                                  Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Command="{Binding OpenTranslationFileCommandCommand}" Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}" />
+                        <MenuItem Command="{Binding OpenTranslationFileCommandCommand}"
+                                  Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Command="{Binding SaveCurrentCommandCommand}" Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}" />
+                        <MenuItem Command="{Binding SaveCurrentCommandCommand}"
+                                  Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}" />
                         <MenuItem Header="-" />
-                        <MenuItem Command="{Binding SaveAsCommandCommand}" Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
+                        <MenuItem Command="{Binding SaveAsCommandCommand}"
+                                  Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -220,7 +224,8 @@
                         Command="{Binding UndoRemoveLabelCommand}"
                         Icon="↺" />
                     <u:ToolBarSeparator />
-                    <Button Click="FileSetting_OnClick" Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
+                    <Button Click="FileSetting_OnClick"
+                            Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
                 </u:ToolBar>
                 <dataGrid:DataGrid
                     x:Name="LabelsGrid"
@@ -245,7 +250,9 @@
                         <dataGrid:DataGridTemplateColumn Header="分类" SortMemberPath="CategoryString">
                             <dataGrid:DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Foreground="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}" Text="{Binding CategoryString}" />
+                                    <TextBlock
+                                        Foreground="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}"
+                                        Text="{Binding CategoryString}" />
                                 </DataTemplate>
                             </dataGrid:DataGridTemplateColumn.CellTemplate>
                         </dataGrid:DataGridTemplateColumn>
@@ -264,7 +271,7 @@
                     Margin="-2,0,0,0"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
-					VerticalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
                     VerticalContentAlignment="Top"
                     AcceptsReturn="True"
                     FontSize="20"

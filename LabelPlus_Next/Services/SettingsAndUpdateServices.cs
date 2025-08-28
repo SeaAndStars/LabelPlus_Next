@@ -1,13 +1,8 @@
-using System;
-using System.IO;
-using System.Net.Http;
+using LabelPlus_Next.Models;
+using LabelPlus_Next.Serialization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using LabelPlus_Next.Models;
-using LabelPlus_Next.Serialization;
 
 namespace LabelPlus_Next.Services;
 
@@ -59,7 +54,7 @@ public class WebDavUpdateService : IUpdateService
     public async Task<UpdateManifest?> FetchManifestAsync(UpdateSettings upd, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(upd.BaseUrl) || string.IsNullOrWhiteSpace(upd.ManifestPath))
-            throw new InvalidOperationException("BaseUrl/ManifestPath Œ¥≈‰÷√°£");
+            throw new InvalidOperationException("BaseUrl/ManifestPath Êú™ÈÖçÁΩÆ„ÄÇ");
 
         var uri = new Uri(new Uri(AppendSlash(upd.BaseUrl!)), upd.ManifestPath);
         using var req = new HttpRequestMessage(HttpMethod.Get, uri);

@@ -1,441 +1,445 @@
+using LabelPlus_Next.Services.Api;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using LabelPlus_Next.Services.Api;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LabelPlus_Next.Test
+namespace LabelPlus_Next.Test;
+
+[TestClass]
+public sealed class Test1
 {
-    [TestClass]
-    public sealed class Test1
+    private static TestConfig _cfg = null!;
+
+    private static string FileRoot
     {
-        private static TestConfig _cfg = null!;
-        private static string FileRoot => string.IsNullOrWhiteSpace(_cfg.Path) ? "/test" : _cfg.Path!;
+        get => string.IsNullOrWhiteSpace(_cfg.Path) ? "/test" : _cfg.Path!;
+    }
 
-        [ClassInitialize]
-        public static void ClassInit(TestContext _)
+    [ClassInitialize]
+    public static void ClassInit(TestContext _)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "test.json");
+        var json = File.Exists(path) ? File.ReadAllText(path) : "{}";
+        _cfg = JsonSerializer.Deserialize<TestConfig>(json, new JsonSerializerOptions
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "test.json");
-            var json = File.Exists(path) ? File.ReadAllText(path) : "{}";
-            _cfg = JsonSerializer.Deserialize<TestConfig>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                ReadCommentHandling = JsonCommentHandling.Skip,
-                AllowTrailingCommas = true
-            }) ?? new TestConfig();
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        }) ?? new TestConfig();
 
-            if (string.IsNullOrWhiteSpace(_cfg.BaseUrl))
-                Assert.Inconclusive("test.json È±ÉÙ BaseUrl");
+        if (string.IsNullOrWhiteSpace(_cfg.BaseUrl))
+            Assert.Inconclusive("test.json ç¼ºå°‘ BaseUrl");
+    }
+
+    [TestMethod]
+    public async Task ç™»å½•æˆåŠŸ_åº”è¿”å›Token()
+    {
+        var api = new AuthApi(_cfg.BaseUrl!);
+        var result = await api.LoginAsync(_cfg.Username ?? "test", _cfg.Password ?? "123456");
+
+        Assert.AreEqual(200, result.Code, $"æœŸæœ› 200ï¼Œå®é™… {result.Code}: {result.Message}");
+        Assert.IsNotNull(result.Data);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(result.Data!.Token));
+    }
+
+    [TestMethod]
+    public async Task å‚æ•°ä¸ºç©º_åº”è¿”å›400()
+    {
+        var api = new AuthApi(_cfg.BaseUrl!);
+        var result = await api.LoginAsync("", "");
+
+        // å¦‚æœæœåŠ¡ç«¯æœªæŒ‰çº¦å®šå®ç° 400ï¼Œå¯è§†ä¸ºæ­¤ç”¨ä¾‹ä¸é€‚ç”¨
+        if (result.Code == 200)
+            Assert.Inconclusive("æœåŠ¡ç«¯æœªå¯¹ç©ºå‚æ•°è¿”å› 400ï¼Œæ­¤ç”¨ä¾‹è·³è¿‡");
+
+        Assert.AreEqual((int)HttpStatusCode.BadRequest, result.Code);
+    }
+
+    [TestMethod]
+    public async Task åˆ—è¡¨æ¥å£_åº”è¿”å›å†…å®¹æˆ–ä¸ºç©º()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var resp = await fs.ListAsync(token!, FileRoot, 1, 0, true);
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+        if (resp.Code == 200)
+        {
+            Assert.IsNotNull(resp.Data);
+            Assert.IsNotNull(resp.Data!.Content);
+        }
+    }
+
+    [TestMethod]
+    public async Task è·å–å•é¡¹_åº”è¿”å›è¯¦æƒ…æˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var resp = await fs.GetAsync(token!, FileRoot);
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+        if (resp.Code == 200)
+        {
+            Assert.IsNotNull(resp.Data);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(resp.Data!.Name));
+        }
+    }
+
+    [TestMethod]
+    public async Task æœç´¢æ¥å£_åº”è¿”å›ç»“æœæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var resp = await fs.SearchAsync(token!, FileRoot, _cfg.Keywords ?? "test", 0, 1, 1);
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+        if (resp.Code == 200)
+        {
+            Assert.IsNotNull(resp.Data);
+            Assert.IsNotNull(resp.Data!.Content);
+        }
+    }
+
+    [TestMethod]
+    public async Task åˆ›å»ºç›®å½•_åº”æˆåŠŸæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var newDir = FileRoot.TrimEnd('/') + "/unit-" + Guid.NewGuid().ToString("N");
+        var resp = await fs.MkdirAsync(token!, newDir);
+
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+    }
+
+    [TestMethod]
+    public async Task å¤åˆ¶æ¡ç›®_åº”æˆåŠŸæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+
+        // å…ˆå‡†å¤‡æºæ–‡ä»¶
+        var srcName = "copy-src-" + Guid.NewGuid().ToString("N") + ".txt";
+        var srcPath = FileRoot.TrimEnd('/') + "/" + srcName;
+        var srcBytes = Encoding.UTF8.GetBytes("COPY-SRC-" + Guid.NewGuid());
+        var up = await fs.PutAsync(token!, srcPath, srcBytes);
+        if (up.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        Assert.AreEqual(200, up.Code, $"å‡†å¤‡æºæ–‡ä»¶å¤±è´¥: {up.Message}");
+
+        // å†å‡†å¤‡ç›®æ ‡ç›®å½•
+        var dstDir = FileRoot.TrimEnd('/') + "/copy-dst-" + Guid.NewGuid().ToString("N");
+        var mk = await fs.MkdirAsync(token!, dstDir);
+        if (mk.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        Assert.IsTrue(mk.Code == 200 || mk.Code == 409 || mk.Code == 201, $"åˆ›å»ºç›®æ ‡ç›®å½•å¤±è´¥: {mk.Code} {mk.Message}");
+
+        // æ‰§è¡Œå¤åˆ¶
+        var resp = await fs.CopyAsync(token!, FileRoot.TrimEnd('/'), dstDir, new[] { srcName });
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+    }
+
+    [TestMethod]
+    public async Task ä¸Šä¼ æ–‡ä»¶_åº”è¿”å›ä»»åŠ¡æˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var targetFile = FileRoot.TrimEnd('/') + "/unit-" + Guid.NewGuid().ToString("N") + ".txt";
+        var bytes = Encoding.UTF8.GetBytes("hello from LabelPlus_Next tests");
+        var resp = await fs.PutAsync(token!, targetFile, bytes, false);
+        Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"æ„å¤–çš„è¿”å›ç : {resp.Code} {resp.Message}");
+    }
+
+    [TestMethod]
+    public async Task å¤šçº¿ç¨‹ä¸Šä¼ _åº”å…¨éƒ¨æˆåŠŸæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var tasks = new List<Task<FsPutResponse>>();
+        for (var i = 0; i < 5; i++)
+        {
+            var name = FileRoot.TrimEnd('/') + $"/concurrent-{i}-" + Guid.NewGuid().ToString("N") + ".txt";
+            var bytes = Encoding.UTF8.GetBytes($"content-{i}-" + Guid.NewGuid());
+            tasks.Add(fs.PutAsync(token!, name, bytes));
         }
 
-        [TestMethod]
-        public async Task µÇÂ¼³É¹¦_Ó¦·µ»ØToken()
+        var results = await Task.WhenAll(tasks);
+        if (Array.Exists(results, r => r.Code == (int)HttpStatusCode.Unauthorized))
         {
-            var api = new AuthApi(_cfg.BaseUrl!);
-            var result = await api.LoginAsync(_cfg.Username ?? "test", _cfg.Password ?? "123456");
+            Assert.Inconclusive("æœåŠ¡ç«¯æœªæˆæƒï¼Œè·³è¿‡å¹¶å‘ä¸Šä¼ éªŒè¯");
+        }
+        foreach (var r in results)
+        {
+            Assert.AreEqual(200, r.Code, $"ä¸Šä¼ å¤±è´¥: {r.Message}");
+        }
+    }
 
-            Assert.AreEqual(200, result.Code, $"ÆÚÍû 200£¬Êµ¼Ê {result.Code}: {result.Message}");
-            Assert.IsNotNull(result.Data);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(result.Data!.Token));
+    [TestMethod]
+    public async Task åŒåæ–‡ä»¶_SafePut_åº”å¤‡ä»½å¹¶æ›¿æ¢æˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token))
+            Assert.Inconclusive("æ— æ³•è·å– Tokenï¼Œè¯·æ£€æŸ¥ test.json æˆ–ç™»å½•é…ç½®");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var baseName = "same-test.txt";
+        var fullPath = FileRoot.TrimEnd('/') + "/" + baseName;
+
+        // 1) åˆæ¬¡ä¸Šä¼  A
+        var a = Encoding.UTF8.GetBytes("AAAA-" + Guid.NewGuid());
+        var r1 = await fs.PutAsync(token!, fullPath, a);
+        if (r1.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        Assert.AreEqual(200, r1.Code, $"åˆæ¬¡ä¸Šä¼ å¤±è´¥: {r1.Message}");
+
+        // 2) SafePut ä¸Šä¼  B
+        var b = Encoding.UTF8.GetBytes("BBBB-" + Guid.NewGuid());
+        var r2 = await fs.SafePutAsync(token!, fullPath, b);
+        if (r2.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        Assert.AreEqual(200, r2.Code, $"SafePut ä¸Šä¼ å¤±è´¥: {r2.Message}");
+
+        // 3) æ‹‰å–æœ€æ–°åŸè·¯å¾„å†…å®¹åº”ä¸º B
+        var g = await fs.GetAsync(token!, fullPath);
+        Assert.AreEqual(200, g.Code, $"è·å–è¯¦æƒ…å¤±è´¥: {g.Message}");
+        Assert.IsNotNull(g.Data);
+        if (!string.IsNullOrWhiteSpace(g.Data!.RawUrl))
+        {
+            var downloaded = await DownloadBytesAsync(g.Data.RawUrl!);
+            CollectionAssert.AreEqual(b, downloaded, "åŸè·¯å¾„å†…å®¹æœªæ›¿æ¢ä¸ºæ–°å†…å®¹");
         }
 
-        [TestMethod]
-        public async Task ²ÎÊıÎª¿Õ_Ó¦·µ»Ø400()
+        // 4) ç›®å½•ä¸‹åº”å­˜åœ¨å¤‡ä»½ same-test_yyyyMMddHHmmss.txtï¼ˆæ¨¡ç³ŠåŒ¹é…ï¼‰
+        var list = await fs.ListAsync(token!, FileRoot);
+        if (list.Code == 200 && list.Data?.Content is not null)
         {
-            var api = new AuthApi(_cfg.BaseUrl!);
-            var result = await api.LoginAsync("", "");
+            var foundBackup = list.Data.Content.Any(i => i.Name != null && i.Name.StartsWith("same-test_") && i.Name.EndsWith(".txt"));
+            Assert.IsTrue(foundBackup, "æœªæ‰¾åˆ°æ—¶é—´æˆ³å¤‡ä»½æ–‡ä»¶");
+        }
+    }
 
-            // Èç¹û·şÎñ¶ËÎ´°´Ô¼¶¨ÊµÏÖ 400£¬¿ÉÊÓÎª´ËÓÃÀı²»ÊÊÓÃ
-            if (result.Code == 200)
-                Assert.Inconclusive("·şÎñ¶ËÎ´¶Ô¿Õ²ÎÊı·µ»Ø 400£¬´ËÓÃÀıÌø¹ı");
+    [TestMethod]
+    public async Task å¤šçº¿ç¨‹ä¸Šä¼ æ§åˆ¶_å—é™å¹¶å‘åº”å®Œæˆ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
 
-            Assert.AreEqual((int)HttpStatusCode.BadRequest, result.Code);
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var items = Enumerable.Range(0, 8).Select(i => new FileUploadItem
+        {
+            FilePath = FileRoot.TrimEnd('/') + $"/pm-{i}-" + Guid.NewGuid().ToString("N") + ".txt",
+            Content = Encoding.UTF8.GetBytes($"payload-{i}-" + Guid.NewGuid())
+        });
+        var res = await fs.PutManyAsync(token!, items, 3);
+        if (Array.Exists(res.ToArray(), r => r.Code == (int)HttpStatusCode.Unauthorized))
+            Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        foreach (var r in res) Assert.AreEqual(200, r.Code, r.Message);
+    }
+
+    [TestMethod]
+    public async Task å¤šçº¿ç¨‹ä¸‹è½½æ§åˆ¶_å—é™å¹¶å‘åº”å®Œæˆ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+
+        // æ„é€  3 ä¸ªå°æ–‡ä»¶ä»¥ä¾›ä¸‹è½½
+        var files = new List<string>();
+        for (var i = 0; i < 3; i++)
+        {
+            var p = FileRoot.TrimEnd('/') + $"/dl-{i}-" + Guid.NewGuid().ToString("N") + ".txt";
+            var r = await fs.PutAsync(token!, p, Encoding.UTF8.GetBytes($"DL-{i}"));
+            if (r.Code == 200) files.Add(p);
         }
 
-        [TestMethod]
-        public async Task ÁĞ±í½Ó¿Ú_Ó¦·µ»ØÄÚÈİ»òÎª¿Õ()
+        if (files.Count == 0) Assert.Inconclusive("æœªèƒ½åˆ›å»ºä¸‹è½½æµ‹è¯•æ–‡ä»¶");
+
+        var results = await fs.DownloadManyAsync(token!, files, 2);
+        foreach (var d in results)
         {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var resp = await fs.ListAsync(token!, FileRoot, page: 1, perPage: 0, refresh: true);
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-            if (resp.Code == 200)
-            {
-                Assert.IsNotNull(resp.Data);
-                Assert.IsNotNull(resp.Data!.Content);
-            }
+            if (d.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+            Assert.AreEqual(200, d.Code, d.Message);
+            Assert.IsNotNull(d.Content);
+            Assert.IsTrue(d.Content!.Length > 0);
         }
+    }
 
-        [TestMethod]
-        public async Task »ñÈ¡µ¥Ïî_Ó¦·µ»ØÏêÇé»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
+    [TestMethod]
+    public async Task åŒåæ–‡ä»¶_SafePut_åº”å¤‡ä»½å¹¶æ›¿æ¢()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
 
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var resp = await fs.GetAsync(token!, FileRoot);
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-            if (resp.Code == 200)
-            {
-                Assert.IsNotNull(resp.Data);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(resp.Data!.Name));
-            }
-        }
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var name = FileRoot.TrimEnd('/') + "/same-multi.txt";
+        var a = Encoding.UTF8.GetBytes("A-" + Guid.NewGuid());
+        var r1 = await fs.PutAsync(token!, name, a);
+        if (r1.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+        Assert.AreEqual(200, r1.Code, r1.Message);
 
-        [TestMethod]
-        public async Task ËÑË÷½Ó¿Ú_Ó¦·µ»Ø½á¹û»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
+        var b = Encoding.UTF8.GetBytes("B-" + Guid.NewGuid());
+        var r2 = await fs.SafePutAsync(token!, name, b);
+        Assert.AreEqual(200, r2.Code, r2.Message);
 
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var resp = await fs.SearchAsync(token!, parent: FileRoot, keywords: _cfg.Keywords ?? "test", scope: 0, page: 1, perPage: 1);
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-            if (resp.Code == 200)
-            {
-                Assert.IsNotNull(resp.Data);
-                Assert.IsNotNull(resp.Data!.Content);
-            }
-        }
-
-        [TestMethod]
-        public async Task ´´½¨Ä¿Â¼_Ó¦³É¹¦»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var newDir = FileRoot.TrimEnd('/') + "/unit-" + Guid.NewGuid().ToString("N");
-            var resp = await fs.MkdirAsync(token!, newDir);
-
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-        }
-
-        [TestMethod]
-        public async Task ¸´ÖÆÌõÄ¿_Ó¦³É¹¦»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-
-            // ÏÈ×¼±¸Ô´ÎÄ¼ş
-            var srcName = "copy-src-" + Guid.NewGuid().ToString("N") + ".txt";
-            var srcPath = FileRoot.TrimEnd('/') + "/" + srcName;
-            var srcBytes = Encoding.UTF8.GetBytes("COPY-SRC-" + Guid.NewGuid());
-            var up = await fs.PutAsync(token!, srcPath, srcBytes);
-            if (up.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            Assert.AreEqual(200, up.Code, $"×¼±¸Ô´ÎÄ¼şÊ§°Ü: {up.Message}");
-
-            // ÔÙ×¼±¸Ä¿±êÄ¿Â¼
-            var dstDir = FileRoot.TrimEnd('/') + "/copy-dst-" + Guid.NewGuid().ToString("N");
-            var mk = await fs.MkdirAsync(token!, dstDir);
-            if (mk.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            Assert.IsTrue(mk.Code == 200 || mk.Code == 409 || mk.Code == 201, $"´´½¨Ä¿±êÄ¿Â¼Ê§°Ü: {mk.Code} {mk.Message}");
-
-            // Ö´ĞĞ¸´ÖÆ
-            var resp = await fs.CopyAsync(token!, FileRoot.TrimEnd('/'), dstDir, new[] { srcName });
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-        }
-
-        [TestMethod]
-        public async Task ÉÏ´«ÎÄ¼ş_Ó¦·µ»ØÈÎÎñ»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var targetFile = FileRoot.TrimEnd('/') + "/unit-" + Guid.NewGuid().ToString("N") + ".txt";
-            var bytes = Encoding.UTF8.GetBytes("hello from LabelPlus_Next tests");
-            var resp = await fs.PutAsync(token!, targetFile, bytes, asTask: false);
-            Assert.IsTrue(resp.Code == 200 || resp.Code == (int)HttpStatusCode.Unauthorized, $"ÒâÍâµÄ·µ»ØÂë: {resp.Code} {resp.Message}");
-        }
-
-        [TestMethod]
-        public async Task ¶àÏß³ÌÉÏ´«_Ó¦È«²¿³É¹¦»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var tasks = new List<Task<FsPutResponse>>();
-            for (int i = 0; i < 5; i++)
-            {
-                var name = FileRoot.TrimEnd('/') + $"/concurrent-{i}-" + Guid.NewGuid().ToString("N") + ".txt";
-                var bytes = Encoding.UTF8.GetBytes($"content-{i}-" + Guid.NewGuid());
-                tasks.Add(fs.PutAsync(token!, name, bytes));
-            }
-
-            var results = await Task.WhenAll(tasks);
-            if (Array.Exists(results, r => r.Code == (int)HttpStatusCode.Unauthorized))
-            {
-                Assert.Inconclusive("·şÎñ¶ËÎ´ÊÚÈ¨£¬Ìø¹ı²¢·¢ÉÏ´«ÑéÖ¤");
-            }
-            foreach (var r in results)
-            {
-                Assert.AreEqual(200, r.Code, $"ÉÏ´«Ê§°Ü: {r.Message}");
-            }
-        }
-
-        [TestMethod]
-        public async Task Í¬ÃûÎÄ¼ş_SafePut_Ó¦±¸·İ²¢Ìæ»»»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token))
-                Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token£¬Çë¼ì²é test.json »òµÇÂ¼ÅäÖÃ");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var baseName = "same-test.txt";
-            var fullPath = FileRoot.TrimEnd('/') + "/" + baseName;
-
-            // 1) ³õ´ÎÉÏ´« A
-            var a = Encoding.UTF8.GetBytes("AAAA-" + Guid.NewGuid());
-            var r1 = await fs.PutAsync(token!, fullPath, a);
-            if (r1.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            Assert.AreEqual(200, r1.Code, $"³õ´ÎÉÏ´«Ê§°Ü: {r1.Message}");
-
-            // 2) SafePut ÉÏ´« B
-            var b = Encoding.UTF8.GetBytes("BBBB-" + Guid.NewGuid());
-            var r2 = await fs.SafePutAsync(token!, fullPath, b);
-            if (r2.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            Assert.AreEqual(200, r2.Code, $"SafePut ÉÏ´«Ê§°Ü: {r2.Message}");
-
-            // 3) À­È¡×îĞÂÔ­Â·¾¶ÄÚÈİÓ¦Îª B
-            var g = await fs.GetAsync(token!, fullPath);
-            Assert.AreEqual(200, g.Code, $"»ñÈ¡ÏêÇéÊ§°Ü: {g.Message}");
-            Assert.IsNotNull(g.Data);
-            if (!string.IsNullOrWhiteSpace(g.Data!.RawUrl))
-            {
-                var downloaded = await DownloadBytesAsync(g.Data.RawUrl!);
-                CollectionAssert.AreEqual(b, downloaded, "Ô­Â·¾¶ÄÚÈİÎ´Ìæ»»ÎªĞÂÄÚÈİ");
-            }
-
-            // 4) Ä¿Â¼ÏÂÓ¦´æÔÚ±¸·İ same-test_yyyyMMddHHmmss.txt£¨Ä£ºıÆ¥Åä£©
-            var list = await fs.ListAsync(token!, FileRoot);
-            if (list.Code == 200 && list.Data?.Content is not null)
-            {
-                var foundBackup = list.Data.Content.Any(i => i.Name != null && i.Name.StartsWith("same-test_") && i.Name.EndsWith(".txt"));
-                Assert.IsTrue(foundBackup, "Î´ÕÒµ½Ê±¼ä´Á±¸·İÎÄ¼ş");
-            }
-        }
-
-        [TestMethod]
-        public async Task ¶àÏß³ÌÉÏ´«¿ØÖÆ_ÊÜÏŞ²¢·¢Ó¦Íê³É()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var items = Enumerable.Range(0, 8).Select(i => new FileUploadItem
-            {
-                FilePath = FileRoot.TrimEnd('/') + $"/pm-{i}-" + Guid.NewGuid().ToString("N") + ".txt",
-                Content = Encoding.UTF8.GetBytes($"payload-{i}-" + Guid.NewGuid())
-            });
-            var res = await fs.PutManyAsync(token!, items, maxConcurrency: 3, asTask: false);
-            if (Array.Exists(res.ToArray(), r => r.Code == (int)HttpStatusCode.Unauthorized))
-                Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            foreach (var r in res) Assert.AreEqual(200, r.Code, r.Message);
-        }
-
-        [TestMethod]
-        public async Task ¶àÏß³ÌÏÂÔØ¿ØÖÆ_ÊÜÏŞ²¢·¢Ó¦Íê³É()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-
-            // ¹¹Ôì 3 ¸öĞ¡ÎÄ¼şÒÔ¹©ÏÂÔØ
-            var files = new List<string>();
-            for (int i = 0; i < 3; i++)
-            {
-                var p = FileRoot.TrimEnd('/') + $"/dl-{i}-" + Guid.NewGuid().ToString("N") + ".txt";
-                var r = await fs.PutAsync(token!, p, Encoding.UTF8.GetBytes($"DL-{i}"));
-                if (r.Code == 200) files.Add(p);
-            }
-
-            if (files.Count == 0) Assert.Inconclusive("Î´ÄÜ´´½¨ÏÂÔØ²âÊÔÎÄ¼ş");
-
-            var results = await fs.DownloadManyAsync(token!, files, maxConcurrency: 2);
-            foreach (var d in results)
-            {
-                if (d.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-                Assert.AreEqual(200, d.Code, d.Message);
-                Assert.IsNotNull(d.Content);
-                Assert.IsTrue(d.Content!.Length > 0);
-            }
-        }
-
-        [TestMethod]
-        public async Task Í¬ÃûÎÄ¼ş_SafePut_Ó¦±¸·İ²¢Ìæ»»()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var name = FileRoot.TrimEnd('/') + "/same-multi.txt";
-            var a = Encoding.UTF8.GetBytes("A-" + Guid.NewGuid());
-            var r1 = await fs.PutAsync(token!, name, a);
-            if (r1.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-            Assert.AreEqual(200, r1.Code, r1.Message);
-
-            var b = Encoding.UTF8.GetBytes("B-" + Guid.NewGuid());
-            var r2 = await fs.SafePutAsync(token!, name, b);
-            Assert.AreEqual(200, r2.Code, r2.Message);
-
-            var meta = await fs.GetAsync(token!, name);
-            Assert.AreEqual(200, meta.Code, meta.Message);
-            if (!string.IsNullOrEmpty(meta.Data?.RawUrl))
-            {
-                using var http = new HttpClient();
-                var bytes = await http.GetByteArrayAsync(meta.Data.RawUrl);
-                CollectionAssert.AreEqual(b, bytes);
-            }
-        }
-
-        [TestMethod]
-        public async Task Downloader_µ¥ÎÄ¼ş¶ÏµãĞø´«_Ó¦³É¹¦»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-            var name = FileRoot.TrimEnd('/') + "/dl-resume-" + Guid.NewGuid().ToString("N") + ".bin";
-            // ÏÈÉÏ´«Ò»¸ö½Ï´óµÄÎÄ¼ş£¨ÕâÀïÓÃÖØ¸´ÄÚÈİÄ£Äâ£©
-            var big = new byte[256 * 1024]; // 256KB£¬ÓÃÓÚ²âÊÔ
-            new Random().NextBytes(big);
-            var up = await fs.PutAsync(token!, name, big);
-            if (up.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨");
-            Assert.AreEqual(200, up.Code, up.Message);
-
-            var local = Path.Combine(Path.GetTempPath(), Path.GetFileName(name));
-            if (File.Exists(local)) File.Delete(local);
-
-            // µÚÒ»´ÎÏÂÔØ£¬ËæºóÖĞ¶Ï
-            var result = await fs.DownloadToFileAsync(token!, name, local);
-            if (result.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨");
-            Assert.AreEqual(200, result.Code, result.Message);
-        }
-
-        [TestMethod]
-        public async Task Downloader_¶àÎÄ¼ş²¢·¢_Ó¦Íê³É»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-
-            // ´´½¨ 3 ¸öÔ¶¶ËÎÄ¼ş
-            var paths = new List<string>();
-            for (int i = 0; i < 3; i++)
-            {
-                var p = FileRoot.TrimEnd('/') + $"/dl-par-{i}-" + Guid.NewGuid().ToString("N") + ".bin";
-                var data = Encoding.UTF8.GetBytes("DATA-" + Guid.NewGuid());
-                var r = await fs.PutAsync(token!, p, data);
-                if (r.Code == 200) paths.Add(p);
-            }
-            if (paths.Count == 0) Assert.Inconclusive("´´½¨Ô¶¶ËÎÄ¼şÊ§°Ü");
-
-            var pairs = paths.Select(p => (remotePath: p, localPath: Path.Combine(Path.GetTempPath(), Path.GetFileName(p)))).ToList();
-            var results = await fs.DownloadManyToFilesAsync(token!, pairs, maxConcurrency: 2);
-            foreach (var res in results)
-            {
-                if (res.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("Î´ÊÚÈ¨");
-                Assert.AreEqual(200, res.Code, res.Message);
-            }
-        }
-
-        [TestMethod]
-        public async Task Í³Ò»ÉÏ´«_ÎÄ¼ş¼Ğ_Ó¦±£³ÖÄ¿Â¼½á¹¹»òÎ´ÊÚÈ¨()
-        {
-            var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
-            if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("ÎŞ·¨»ñÈ¡ Token");
-
-            var fs = new FileSystemApi(_cfg.BaseUrl!);
-
-            // ¹¹Ôì±¾µØÁÙÊ±Ä¿Â¼½á¹¹
-            var localRoot = Path.Combine(Path.GetTempPath(), "lp_up_" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(localRoot);
-            try
-            {
-                var sub1 = Path.Combine(localRoot, "many");
-                var sub2 = Path.Combine(localRoot, "nested", "deep");
-                Directory.CreateDirectory(sub1);
-                Directory.CreateDirectory(sub2);
-
-                // Ğ´ÈëÎÄ¼ş
-                var fileA = Path.Combine(localRoot, "a.txt");
-                var fileB = Path.Combine(sub1, "b.txt");
-                var fileC = Path.Combine(sub1, "c.bin");
-                var fileD = Path.Combine(sub2, "d.txt");
-
-                var aBytes = Encoding.UTF8.GetBytes("A-" + Guid.NewGuid());
-                var bBytes = Encoding.UTF8.GetBytes("B-" + Guid.NewGuid());
-                var cBytes = new byte[1024]; new Random().NextBytes(cBytes);
-                var dBytes = Encoding.UTF8.GetBytes("D-" + Guid.NewGuid());
-
-                await File.WriteAllBytesAsync(fileA, aBytes);
-                await File.WriteAllBytesAsync(fileB, bBytes);
-                await File.WriteAllBytesAsync(fileC, cBytes);
-                await File.WriteAllBytesAsync(fileD, dBytes);
-
-                // Ô¶¶Ë»ùÂ·¾¶Ê¹ÓÃ /test ÏÂµÄÎ¨Ò»×ÓÄ¿Â¼
-                var remoteBase = FileRoot.TrimEnd('/') + "/dir-" + Guid.NewGuid().ToString("N");
-
-                var req = UploadRequest.FromDirectory(localRoot, remoteBase);
-                var results = await fs.SafeUploadAsync(token!, req, maxConcurrency: 3, asTask: false);
-                if (Array.Exists(results.ToArray(), r => r.Code == (int)HttpStatusCode.Unauthorized))
-                    Assert.Inconclusive("Î´ÊÚÈ¨£¬Ìø¹ı");
-                foreach (var r in results) Assert.AreEqual(200, r.Code, r.Message);
-
-                // ÑéÖ¤Ô¶¶Ë´æÔÚÇÒÄÚÈİÒ»ÖÂ
-                async Task AssertRemoteEqualsAsync(string rel, byte[] expected)
-                {
-                    var remotePath = remoteBase.TrimEnd('/') + "/" + rel.Replace('\\', '/');
-                    var get = await fs.GetAsync(token!, remotePath);
-                    Assert.AreEqual(200, get.Code, get.Message);
-                    Assert.IsNotNull(get.Data);
-                    Assert.IsFalse(get.Data!.IsDir, "Ó¦ÎªÎÄ¼ş¶ø·ÇÄ¿Â¼");
-                    if (!string.IsNullOrWhiteSpace(get.Data.RawUrl))
-                    {
-                        var downloaded = await DownloadBytesAsync(get.Data.RawUrl!);
-                        CollectionAssert.AreEqual(expected, downloaded, $"ÄÚÈİ²»Ò»ÖÂ: {rel}");
-                    }
-                }
-
-                await AssertRemoteEqualsAsync("a.txt", aBytes);
-                await AssertRemoteEqualsAsync("many/b.txt", bBytes);
-                await AssertRemoteEqualsAsync("many/c.bin", cBytes);
-                await AssertRemoteEqualsAsync("nested/deep/d.txt", dBytes);
-            }
-            finally
-            {
-                try { Directory.Delete(localRoot, recursive: true); } catch { }
-            }
-        }
-
-        private static async Task<byte[]> DownloadBytesAsync(string url)
+        var meta = await fs.GetAsync(token!, name);
+        Assert.AreEqual(200, meta.Code, meta.Message);
+        if (!string.IsNullOrEmpty(meta.Data?.RawUrl))
         {
             using var http = new HttpClient();
-            return await http.GetByteArrayAsync(url);
+            var bytes = await http.GetByteArrayAsync(meta.Data.RawUrl);
+            CollectionAssert.AreEqual(b, bytes);
         }
+    }
 
-        private sealed class TestConfig
+    [TestMethod]
+    public async Task Downloader_å•æ–‡ä»¶æ–­ç‚¹ç»­ä¼ _åº”æˆåŠŸæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+        var name = FileRoot.TrimEnd('/') + "/dl-resume-" + Guid.NewGuid().ToString("N") + ".bin";
+        // å…ˆä¸Šä¼ ä¸€ä¸ªè¾ƒå¤§çš„æ–‡ä»¶ï¼ˆè¿™é‡Œç”¨é‡å¤å†…å®¹æ¨¡æ‹Ÿï¼‰
+        var big = new byte[256 * 1024]; // 256KBï¼Œç”¨äºæµ‹è¯•
+        new Random().NextBytes(big);
+        var up = await fs.PutAsync(token!, name, big);
+        if (up.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒ");
+        Assert.AreEqual(200, up.Code, up.Message);
+
+        var local = Path.Combine(Path.GetTempPath(), Path.GetFileName(name));
+        if (File.Exists(local)) File.Delete(local);
+
+        // ç¬¬ä¸€æ¬¡ä¸‹è½½ï¼Œéšåä¸­æ–­
+        var result = await fs.DownloadToFileAsync(token!, name, local);
+        if (result.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒ");
+        Assert.AreEqual(200, result.Code, result.Message);
+    }
+
+    [TestMethod]
+    public async Task Downloader_å¤šæ–‡ä»¶å¹¶å‘_åº”å®Œæˆæˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+
+        // åˆ›å»º 3 ä¸ªè¿œç«¯æ–‡ä»¶
+        var paths = new List<string>();
+        for (var i = 0; i < 3; i++)
         {
-            [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; }
-            [JsonPropertyName("username")] public string? Username { get; set; }
-            [JsonPropertyName("password")] public string? Password { get; set; }
-            [JsonPropertyName("token")] public string? Token { get; set; }
-            [JsonPropertyName("path")] public string? Path { get; set; }
-            [JsonPropertyName("keywords")] public string? Keywords { get; set; }
+            var p = FileRoot.TrimEnd('/') + $"/dl-par-{i}-" + Guid.NewGuid().ToString("N") + ".bin";
+            var data = Encoding.UTF8.GetBytes("DATA-" + Guid.NewGuid());
+            var r = await fs.PutAsync(token!, p, data);
+            if (r.Code == 200) paths.Add(p);
         }
+        if (paths.Count == 0) Assert.Inconclusive("åˆ›å»ºè¿œç«¯æ–‡ä»¶å¤±è´¥");
+
+        var pairs = paths.Select(p => (remotePath: p, localPath: Path.Combine(Path.GetTempPath(), Path.GetFileName(p)))).ToList();
+        var results = await fs.DownloadManyToFilesAsync(token!, pairs, 2);
+        foreach (var res in results)
+        {
+            if (res.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("æœªæˆæƒ");
+            Assert.AreEqual(200, res.Code, res.Message);
+        }
+    }
+
+    [TestMethod]
+    public async Task ç»Ÿä¸€ä¸Šä¼ _æ–‡ä»¶å¤¹_åº”ä¿æŒç›®å½•ç»“æ„æˆ–æœªæˆæƒ()
+    {
+        var token = await TokenCache.GetOrLoginAsync(_cfg.BaseUrl!, _cfg.Token, _cfg.Username, _cfg.Password);
+        if (string.IsNullOrWhiteSpace(token)) Assert.Inconclusive("æ— æ³•è·å– Token");
+
+        var fs = new FileSystemApi(_cfg.BaseUrl!);
+
+        // æ„é€ æœ¬åœ°ä¸´æ—¶ç›®å½•ç»“æ„
+        var localRoot = Path.Combine(Path.GetTempPath(), "lp_up_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(localRoot);
+        try
+        {
+            var sub1 = Path.Combine(localRoot, "many");
+            var sub2 = Path.Combine(localRoot, "nested", "deep");
+            Directory.CreateDirectory(sub1);
+            Directory.CreateDirectory(sub2);
+
+            // å†™å…¥æ–‡ä»¶
+            var fileA = Path.Combine(localRoot, "a.txt");
+            var fileB = Path.Combine(sub1, "b.txt");
+            var fileC = Path.Combine(sub1, "c.bin");
+            var fileD = Path.Combine(sub2, "d.txt");
+
+            var aBytes = Encoding.UTF8.GetBytes("A-" + Guid.NewGuid());
+            var bBytes = Encoding.UTF8.GetBytes("B-" + Guid.NewGuid());
+            var cBytes = new byte[1024];
+            new Random().NextBytes(cBytes);
+            var dBytes = Encoding.UTF8.GetBytes("D-" + Guid.NewGuid());
+
+            await File.WriteAllBytesAsync(fileA, aBytes);
+            await File.WriteAllBytesAsync(fileB, bBytes);
+            await File.WriteAllBytesAsync(fileC, cBytes);
+            await File.WriteAllBytesAsync(fileD, dBytes);
+
+            // è¿œç«¯åŸºè·¯å¾„ä½¿ç”¨ /test ä¸‹çš„å”¯ä¸€å­ç›®å½•
+            var remoteBase = FileRoot.TrimEnd('/') + "/dir-" + Guid.NewGuid().ToString("N");
+
+            var req = UploadRequest.FromDirectory(localRoot, remoteBase);
+            var results = await fs.SafeUploadAsync(token!, req, 3);
+            if (Array.Exists(results.ToArray(), r => r.Code == (int)HttpStatusCode.Unauthorized))
+                Assert.Inconclusive("æœªæˆæƒï¼Œè·³è¿‡");
+            foreach (var r in results) Assert.AreEqual(200, r.Code, r.Message);
+
+            // éªŒè¯è¿œç«¯å­˜åœ¨ä¸”å†…å®¹ä¸€è‡´
+            async Task AssertRemoteEqualsAsync(string rel, byte[] expected)
+            {
+                var remotePath = remoteBase.TrimEnd('/') + "/" + rel.Replace('\\', '/');
+                var get = await fs.GetAsync(token!, remotePath);
+                Assert.AreEqual(200, get.Code, get.Message);
+                Assert.IsNotNull(get.Data);
+                Assert.IsFalse(get.Data!.IsDir, "åº”ä¸ºæ–‡ä»¶è€Œéç›®å½•");
+                if (!string.IsNullOrWhiteSpace(get.Data.RawUrl))
+                {
+                    var downloaded = await DownloadBytesAsync(get.Data.RawUrl!);
+                    CollectionAssert.AreEqual(expected, downloaded, $"å†…å®¹ä¸ä¸€è‡´: {rel}");
+                }
+            }
+
+            await AssertRemoteEqualsAsync("a.txt", aBytes);
+            await AssertRemoteEqualsAsync("many/b.txt", bBytes);
+            await AssertRemoteEqualsAsync("many/c.bin", cBytes);
+            await AssertRemoteEqualsAsync("nested/deep/d.txt", dBytes);
+        }
+        finally
+        {
+            try { Directory.Delete(localRoot, true); }
+            catch { }
+        }
+    }
+
+    private static async Task<byte[]> DownloadBytesAsync(string url)
+    {
+        using var http = new HttpClient();
+        return await http.GetByteArrayAsync(url);
+    }
+
+    private sealed class TestConfig
+    {
+        [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; }
+        [JsonPropertyName("username")] public string? Username { get; set; }
+        [JsonPropertyName("password")] public string? Password { get; set; }
+        [JsonPropertyName("token")] public string? Token { get; set; }
+        [JsonPropertyName("path")] public string? Path { get; set; }
+        [JsonPropertyName("keywords")] public string? Keywords { get; set; }
     }
 }

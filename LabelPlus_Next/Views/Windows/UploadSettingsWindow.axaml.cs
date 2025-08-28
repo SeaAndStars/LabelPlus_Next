@@ -1,11 +1,11 @@
-using Avalonia;
-using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.ViewModels;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Windows;
 
-public partial class UploadSettingsWindow : Ursa.Controls.UrsaWindow
+public partial class UploadSettingsWindow : UrsaWindow
 {
     public UploadSettingsWindow()
     {
@@ -18,16 +18,16 @@ public partial class UploadSettingsWindow : Ursa.Controls.UrsaWindow
         AvaloniaXamlLoader.Load(this);
     }
 
-    private async void OnSaveAndRefreshClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void OnSaveAndRefreshClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is UploadSettingsViewModel vm)
         {
             await vm.SaveCommand.ExecuteAsync(null);
-            this.Close(true);
+            Close(true);
         }
         else
         {
-            this.Close(false);
+            Close(false);
         }
     }
 }

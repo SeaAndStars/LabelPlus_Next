@@ -4,7 +4,7 @@
     Width="650"
     d:DesignHeight="500"
     d:DesignWidth="650"
-	xmlns:u="https://irihi.tech/ursa"
+    xmlns:u="https://irihi.tech/ursa"
     mc:Ignorable="d"
     x:Class="LabelPlus_Next.Views.Pages.ImageManager"
     x:DataType="viewModels:ImageManagerViewModel"

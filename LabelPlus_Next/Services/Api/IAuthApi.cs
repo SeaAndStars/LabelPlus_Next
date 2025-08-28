@@ -1,19 +1,16 @@
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// ÈÏÖ¤Ïà¹Ø API ³éÏó¡£
+///     è®¤è¯ç›¸å…³ API æŠ½è±¡ã€‚
 /// </summary>
 public interface IAuthApi
 {
     /// <summary>
-    /// µÇÂ¼½Ó¿Ú¡£
+    ///     ç™»å½•æ¥å£ã€‚
     /// </summary>
-    /// <param name="username">ÓÃ»§Ãû¡£</param>
-    /// <param name="password">ÃÜÂë¡£</param>
-    /// <param name="cancellationToken">È¡ÏûÁîÅÆ¡£</param>
-    /// <returns>·µ»Ø°üº¬ÒµÎñÂë¡¢ÏûÏ¢ÓëÊı¾İ£¨ÁîÅÆ£©µÄ±ê×¼ÏìÓ¦¡£</returns>
+    /// <param name="username">ç”¨æˆ·åã€‚</param>
+    /// <param name="password">å¯†ç ã€‚</param>
+    /// <param name="cancellationToken">å–æ¶ˆä»¤ç‰Œã€‚</param>
+    /// <returns>è¿”å›åŒ…å«ä¸šåŠ¡ç ã€æ¶ˆæ¯ä¸æ•°æ®ï¼ˆä»¤ç‰Œï¼‰çš„æ ‡å‡†å“åº”ã€‚</returns>
     Task<ApiResponse<LoginData>> LoginAsync(string username, string password, CancellationToken cancellationToken = default);
 }

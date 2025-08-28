@@ -1,10 +1,11 @@
-using Avalonia;
-using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using LabelPlus_Next.ViewModels;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Windows;
 
-public partial class CustomServerWindow : Ursa.Controls.UrsaWindow
+public partial class CustomServerWindow : UrsaWindow
 {
     public CustomServerWindow()
     {
@@ -16,9 +17,9 @@ public partial class CustomServerWindow : Ursa.Controls.UrsaWindow
         AvaloniaXamlLoader.Load(this);
     }
 
-    private async void OnVerifyClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void OnVerifyClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.SettingsViewModel vm)
+        if (DataContext is SettingsViewModel vm)
         {
             await vm.VerifyHttpAsync();
         }

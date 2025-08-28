@@ -3,34 +3,34 @@ using Newtonsoft.Json;
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// Í¨ÓÃ API ÏìÓ¦°ü×°ÀàĞÍ¡£
+///     é€šç”¨ API å“åº”åŒ…è£…ç±»å‹ã€‚
 /// </summary>
-/// <typeparam name="T">Êı¾İ¸ºÔØÀàĞÍ¡£</typeparam>
+/// <typeparam name="T">æ•°æ®è´Ÿè½½ç±»å‹ã€‚</typeparam>
 public sealed class ApiResponse<T>
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë£¬200 ±íÊ¾³É¹¦¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ï¼Œ200 è¡¨ç¤ºæˆåŠŸã€‚
     /// </summary>
     [JsonProperty("code")] public int Code { get; set; }
 
     /// <summary>
-    /// Êı¾İ¸ºÔØ¡£
+    ///     æ•°æ®è´Ÿè½½ã€‚
     /// </summary>
     [JsonProperty("data")] public T? Data { get; set; }
 
     /// <summary>
-    /// ÈËÀà¿É¶ÁµÄÌáÊ¾ÏûÏ¢¡£
+    ///     äººç±»å¯è¯»çš„æç¤ºæ¶ˆæ¯ã€‚
     /// </summary>
     [JsonProperty("message")] public string? Message { get; set; }
 }
 
 /// <summary>
-/// µÇÂ¼³É¹¦ºó·µ»ØµÄÊı¾İÄ£ĞÍ¡£
+///     ç™»å½•æˆåŠŸåè¿”å›çš„æ•°æ®æ¨¡å‹ã€‚
 /// </summary>
 public sealed class LoginData
 {
     /// <summary>
-    /// ·ÃÎÊÁîÅÆ¡£
+    ///     è®¿é—®ä»¤ç‰Œã€‚
     /// </summary>
     [JsonProperty("token")] public string Token { get; set; } = string.Empty;
 }

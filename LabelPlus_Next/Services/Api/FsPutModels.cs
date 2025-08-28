@@ -3,39 +3,39 @@ using Newtonsoft.Json;
 namespace LabelPlus_Next.Services.Api;
 
 /// <summary>
-/// /api/fs/put ÏìÓ¦¡£
+///     /api/fs/put å“åº”ã€‚
 /// </summary>
 public sealed class FsPutResponse
 {
     /// <summary>
-    /// ÒµÎñ×´Ì¬Âë¡£
+    ///     ä¸šåŠ¡çŠ¶æ€ç ã€‚
     /// </summary>
     [JsonProperty("code")] public int Code { get; set; }
 
     /// <summary>
-    /// Êı¾İ¸ºÔØ£º°üº¬ÈÎÎñĞÅÏ¢¡£
+    ///     æ•°æ®è´Ÿè½½ï¼šåŒ…å«ä»»åŠ¡ä¿¡æ¯ã€‚
     /// </summary>
     [JsonProperty("data")] public FsPutData? Data { get; set; }
 
     /// <summary>
-    /// ÏûÏ¢¡£
+    ///     æ¶ˆæ¯ã€‚
     /// </summary>
     [JsonProperty("message")] public string? Message { get; set; }
 }
 
 /// <summary>
-/// /api/fs/put Êı¾İ¶ÔÏó¡£
+///     /api/fs/put æ•°æ®å¯¹è±¡ã€‚
 /// </summary>
 public sealed class FsPutData
 {
     /// <summary>
-    /// ÈÎÎñĞÅÏ¢¡£
+    ///     ä»»åŠ¡ä¿¡æ¯ã€‚
     /// </summary>
     [JsonProperty("task")] public FsTask? Task { get; set; }
 }
 
 /// <summary>
-/// ÈÎÎñĞÅÏ¢Í¨ÓÃ½á¹¹¡£
+///     ä»»åŠ¡ä¿¡æ¯é€šç”¨ç»“æ„ã€‚
 /// </summary>
 public sealed class FsTask
 {

@@ -1,23 +1,19 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
-using System.Linq;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views;
-using System;
-using System.IO;
 using NLog;
 using NLog.Config;
-using NLog.Targets;
 using NLog.Layouts;
+using NLog.Targets;
 using NLog.Targets.Wrappers;
 using System.Diagnostics.CodeAnalysis;
 
 namespace LabelPlus_Next;
 
-public partial class App : Application
+public class App : Application
 {
     public override void Initialize()
     {
@@ -40,7 +36,7 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainWindow()
+            singleViewPlatform.MainView = new MainWindow
             {
                 DataContext = new MainWindowViewModel()
             };
@@ -59,15 +55,15 @@ public partial class App : Application
             var logDir = Path.Combine(baseDir, "logs");
             Directory.CreateDirectory(logDir);
 
-            Layout fileLayout = Layout.FromString("${longdate} [${level:uppercase=true}] ${logger} - ${message} ${exception:format=tostring}");
-            Layout consoleLayout = Layout.FromString("${time} [${level:uppercase=true}] ${message}");
+            var fileLayout = Layout.FromString("${longdate} [${level:uppercase=true}] ${logger} - ${message} ${exception:format=tostring}");
+            var consoleLayout = Layout.FromString("${time} [${level:uppercase=true}] ${message}");
 
             // File targets per level
             FileTarget mkFile(string name, string file) => new(name) { FileName = Layout.FromString(Path.Combine(logDir, file)), Layout = fileLayout };
             var traceFile = mkFile("log_trace", "${shortdate}_trace.log");
             var debugFile = mkFile("log_debug", "${shortdate}_debug.log");
-            var infoFile  = mkFile("log_info",  "${shortdate}_info.log");
-            var warnFile  = mkFile("log_warn",  "${shortdate}_warn.log");
+            var infoFile = mkFile("log_info", "${shortdate}_info.log");
+            var warnFile = mkFile("log_warn", "${shortdate}_warn.log");
             var errorFile = mkFile("log_error", "${shortdate}_error.log");
             var fatalFile = mkFile("log_fatal", "${shortdate}_fatal.log");
 
@@ -80,8 +76,8 @@ public partial class App : Application
 
             var traceAsync = wrap(traceFile);
             var debugAsync = wrap(debugFile);
-            var infoAsync  = wrap(infoFile);
-            var warnAsync  = wrap(warnFile);
+            var infoAsync = wrap(infoFile);
+            var warnAsync = wrap(warnFile);
             var errorAsync = wrap(errorFile);
             var fatalAsync = wrap(fatalFile);
             var consoleAsync = wrap(consoleTarget);
@@ -99,8 +95,8 @@ public partial class App : Application
             // Rules
             config.AddRule(LogLevel.Trace, LogLevel.Trace, traceAsync);
             config.AddRule(LogLevel.Debug, LogLevel.Debug, debugAsync);
-            config.AddRule(LogLevel.Info,  LogLevel.Info,  infoAsync);
-            config.AddRule(LogLevel.Warn,  LogLevel.Warn,  warnAsync);
+            config.AddRule(LogLevel.Info, LogLevel.Info, infoAsync);
+            config.AddRule(LogLevel.Warn, LogLevel.Warn, warnAsync);
             config.AddRule(LogLevel.Error, LogLevel.Error, errorAsync);
             config.AddRule(LogLevel.Fatal, LogLevel.Fatal, fatalAsync);
 

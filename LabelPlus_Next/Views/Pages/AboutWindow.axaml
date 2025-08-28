@@ -2,7 +2,7 @@
     x:Class="LabelPlus_Next.Views.Pages.AboutWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:u="https://irihi.tech/ursa"
+    xmlns:u="https://irihi.tech/ursa"
     Title="关于"
     Width="520"
     Height="460"

@@ -1,69 +1,69 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <AssemblyName>LabelPlus_Next</AssemblyName>
-    <ApplicationIcon>Assets\LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <IsAotCompatible>True</IsAotCompatible>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <IsAotCompatible>True</IsAotCompatible>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <AvaloniaResource Remove="Assets\20210801绿茶汉化组logo.ico" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Content Include="Assets\LabelPlus_Next_rounded_icon_transparent.ico" />
-    <Content Include="Assets\20210801绿茶汉化组logo.ico" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <AssemblyName>LabelPlus_Next</AssemblyName>
+        <ApplicationIcon>Assets\LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <IsAotCompatible>True</IsAotCompatible>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+        <IsAotCompatible>True</IsAotCompatible>
+    </PropertyGroup>
 
-  <!-- Suppress specific warnings only for auto-generated resource designer file -->
-  <ItemGroup>
-    <Compile Update="Lang\lang.Designer.cs">
-      <NoWarn>$(NoWarn);CS8981</NoWarn>
-    </Compile>
-  </ItemGroup>
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\**"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Antelcat.I18N.Avalonia" />
-    <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Controls.DataGrid" />
-    <PackageReference Include="Avalonia.Controls.TreeDataGrid" />
-    <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Include="Avalonia.Fonts.Inter" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm" />
-    <PackageReference Include="Downloader" />
-    <PackageReference Include="Irihi.Ursa" />
-    <PackageReference Include="Irihi.Ursa.Themes.Semi" />
-    <PackageReference Include="NLog" />
-    <PackageReference Include="NLog.Extensions.Logging" />
-    <PackageReference Include="ReactiveUI" />
-    <PackageReference Include="RestSharp" />
-    <PackageReference Include="WebDav.Client" />
-    <PackageReference Include="Semi.Avalonia" />
-    <PackageReference Include="Newtonsoft.Json" />
-  </ItemGroup>
+    <ItemGroup>
+        <AvaloniaResource Remove="Assets\20210801绿茶汉化组logo.ico"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <None Update="Client.version.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+    <ItemGroup>
+        <Content Include="Assets\LabelPlus_Next_rounded_icon_transparent.ico"/>
+        <Content Include="Assets\20210801绿茶汉化组logo.ico"/>
+    </ItemGroup>
+
+    <!-- Suppress specific warnings only for auto-generated resource designer file -->
+    <ItemGroup>
+        <Compile Update="Lang\lang.Designer.cs">
+            <NoWarn>$(NoWarn);CS8981</NoWarn>
+        </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Antelcat.I18N.Avalonia"/>
+        <PackageReference Include="Avalonia"/>
+        <PackageReference Include="Avalonia.Controls.DataGrid"/>
+        <PackageReference Include="Avalonia.Controls.TreeDataGrid"/>
+        <PackageReference Include="Avalonia.Themes.Fluent"/>
+        <PackageReference Include="Avalonia.Fonts.Inter"/>
+        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="Avalonia.Diagnostics">
+            <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+            <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="CommunityToolkit.Mvvm"/>
+        <PackageReference Include="Downloader"/>
+        <PackageReference Include="Irihi.Ursa"/>
+        <PackageReference Include="Irihi.Ursa.Themes.Semi"/>
+        <PackageReference Include="NLog"/>
+        <PackageReference Include="NLog.Extensions.Logging"/>
+        <PackageReference Include="ReactiveUI"/>
+        <PackageReference Include="RestSharp"/>
+        <PackageReference Include="WebDav.Client"/>
+        <PackageReference Include="Semi.Avalonia"/>
+        <PackageReference Include="Newtonsoft.Json"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="Client.version.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
 </Project>

@@ -1,8 +1,7 @@
-using System;
-using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using LabelPlus_Next.ViewModels;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LabelPlus_Next;
 
@@ -28,8 +27,5 @@ public class ViewLocator : IDataTemplate
         return new TextBlock { Text = "Not Found: " + viewTypeName };
     }
 
-    public bool Match(object? data)
-    {
-        return data is ViewModelBase;
-    }
+    public bool Match(object? data) => data is ViewModelBase;
 }
