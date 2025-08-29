@@ -36,7 +36,7 @@
                 <u:NavMenuItem Header="收起" Tag="toggle" Icon="◀" />
                 <u:NavMenuItem Header="翻译" Tag="translate" Icon="📝" />
                 <u:NavMenuItem Header="校对" Tag="proof" Icon="✅" />
-                <u:NavMenuItem Header="协作" Tag="collab" Icon="🤝" />
+                <u:NavMenuItem Header="协作" Tag="teamwork" Icon="🤝" />
                 <u:NavMenuItem Header="上传" Tag="upload" Icon="⤴" />
                 <u:NavMenuItem Header="交付" Tag="deliver" Icon="📦" />
             </u:NavMenu>

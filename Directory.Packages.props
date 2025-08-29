@@ -39,6 +39,7 @@
         <PackageVersion Include="Semi.Avalonia.TreeDataGrid" Version="11.0.10.4"/>
         <PackageVersion Include="WebDav.Client" Version="2.9.0"/>
         <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15"/>
+    <PackageVersion Include="SharpCompress" Version="0.37.0"/>
         <!-- Config -->
         <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.0"/>
         <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0"/>

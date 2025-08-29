@@ -34,7 +34,7 @@
             <u:AutoCompleteBox
                 Width="360"
                 ItemsSource="{Binding Suggestions}"
-                MinimumPrefixLength="1"
+                MinimumPrefixLength="0"
                 Text="{Binding SelectedProject, Mode=TwoWay}"
                 Watermark="在此处键入或是在下方选择要上传到的项目" />
             <TextBlock

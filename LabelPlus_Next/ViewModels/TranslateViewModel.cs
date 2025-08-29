@@ -28,6 +28,7 @@ public partial class TranslateViewModel : ViewModelBase
     private Timer? _autoSaveTimer;
     private IFileDialogService? _dialogs;
     private string? _lastBackupSignature;
+    public CollaborationSession? Collab { get; set; } // null for local-only
 
     [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
     [ObservableProperty] private string? currentText;
@@ -151,6 +152,22 @@ public partial class TranslateViewModel : ViewModelBase
                 Logger.Info("Autosave created: {outPath}", outPath);
             }
             catch (Exception ex) { Logger.Error(ex, "Autosave write failed: {outPath}", outPath); }
+
+            // Remote auto-upload when in collaboration session
+            try
+            {
+                if (Collab is not null)
+                {
+                    var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
+                    var bytes = Encoding.UTF8.GetBytes(snapshot);
+                    await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, bytes);
+                    Logger.Info("Autosave remote uploaded: {remote}", Collab.RemoteTranslatePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, "Autosave remote upload failed.");
+            }
         }
         finally { Interlocked.Exchange(ref _autoSaveBusy, 0); }
     }
@@ -224,9 +241,19 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(SelectedImageFile))
         {
+            // Keep selection near the deleted item instead of jumping to the last
+            var oldIndex = SelectedLabel is null ? -1 : CurrentLabels.IndexOf(SelectedLabel);
             await LabelManager.Instance.RemoveSelectedAsync(LabelFileManager1, SelectedImageFile, CurrentLabels, SelectedLabel);
             UpdateCurrentLabels();
-            SelectedLabel = CurrentLabels.Count > 0 ? CurrentLabels[^1] : null;
+            if (CurrentLabels.Count > 0)
+            {
+                var newIndex = oldIndex >= 0 ? Math.Min(oldIndex, CurrentLabels.Count - 1) : 0;
+                SelectedLabel = CurrentLabels[newIndex];
+            }
+            else
+            {
+                SelectedLabel = null;
+            }
             CurrentText = SelectedLabel?.Text ?? string.Empty;
         }
     }
@@ -247,20 +274,11 @@ public partial class TranslateViewModel : ViewModelBase
         if (string.IsNullOrEmpty(folder)) return;
         var selected = await _dialogs.ChooseImagesAsync(folder);
         if (selected == null || selected.Count == 0) return;
-        var header = string.Join(Environment.NewLine, new[] { "1,0", "-", "框内", "框外", "-", "Default Comment", " You can edit me", string.Empty });
-        var nl = Environment.NewLine;
-        var sb = new StringBuilder();
-        sb.Append(header);
-        foreach (var name in selected)
-        {
-            sb.Append($">>>>>>>>[{name}]<<<<<<<");
-            sb.Append(nl);
-            sb.Append($">>>>>>>>[{name}]<<<<<<<<");
-            sb.Append(nl);
-        }
-        var outPath = Path.Combine(folder, "translation.txt");
-        await File.WriteAllTextAsync(outPath, sb.ToString(), Encoding.UTF8);
-        await _dialogs.ShowMessageAsync($"创建完成:{nl}{outPath}{nl}共 {selected.Count} 个文件。");
+    var names = selected.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n))!.Cast<string>(); // 保证与 txt 同层 & 过滤空
+    var content = TranslationFileUtils.BuildInitialContent(names);
+    var outPath = Path.Combine(folder, "translation.txt");
+    await File.WriteAllTextAsync(outPath, content, Encoding.UTF8);
+    await _dialogs.ShowMessageAsync($"创建完成:{Environment.NewLine}{outPath}{Environment.NewLine}共 {selected.Count} 个文件。");
         OpenTranslationFilePath = outPath;
         await LoadTranslationFile(outPath);
     }
@@ -302,6 +320,82 @@ public partial class TranslateViewModel : ViewModelBase
         try
         {
             await FileSave(OpenTranslationFilePath);
+            // Remote upload on manual save if collaboration, with conflict detection
+            try
+            {
+                if (Collab is not null)
+                {
+                    var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
+                    // fetch remote to compute current hash
+                    var remoteRes = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath);
+                    string? remoteHash = null;
+                    if (remoteRes.Code == 200 && remoteRes.Content is not null)
+                    {
+                        var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
+                        remoteHash = ComputeHash(remoteTxt);
+                    }
+
+                    var localBytes = await File.ReadAllBytesAsync(OpenTranslationFilePath);
+                    var localTxt = Encoding.UTF8.GetString(localBytes);
+                    var localHash = ComputeHash(localTxt);
+
+                    if (!string.IsNullOrEmpty(Collab.LastRemoteHash) && !string.Equals(remoteHash, Collab.LastRemoteHash, StringComparison.Ordinal))
+                    {
+                        // conflict detected: open merge assistant
+                        var remoteTxt = remoteRes.Content is not null ? Encoding.UTF8.GetString(remoteRes.Content) : string.Empty;
+                        var fileName = Path.GetFileName(OpenTranslationFilePath);
+                        string? merged = null;
+                        try
+                        {
+                            var win = LabelPlus_Next.Views.MainWindow.Instance;
+                            if (win is not null)
+                            {
+                                var dlg = new LabelPlus_Next.Views.Windows.MergeConflictWindow();
+                                merged = await dlg.ShowAsync(win, remoteTxt, localTxt, fileName);
+                            }
+                        }
+                        catch { }
+                        if (merged is null)
+                        {
+                            // fallback: just backup and notify
+                            var dir = Path.GetDirectoryName(OpenTranslationFilePath)!;
+                            var conflictDir = Path.Combine(dir, "conflict");
+                            Directory.CreateDirectory(conflictDir);
+                            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                            var baseName = Path.GetFileNameWithoutExtension(OpenTranslationFilePath);
+                            var ext = Path.GetExtension(OpenTranslationFilePath);
+                            var remoteBackup = Path.Combine(conflictDir, $"{baseName}_remote_{ts}{ext}");
+                            var localBackup = Path.Combine(conflictDir, $"{baseName}_local_{ts}{ext}");
+                            if (remoteRes.Content is not null) await File.WriteAllBytesAsync(remoteBackup, remoteRes.Content);
+                            await File.WriteAllBytesAsync(localBackup, localBytes);
+                            var msg = $"检测到保存冲突：远端译文已更新。已备份两份：\n{remoteBackup}\n{localBackup}\n请手动合并后再上传。";
+                            if (NotificationManager is not null)
+                                await Dispatcher.UIThread.InvokeAsync(() => NotificationManager.Show(new Notification("保存冲突", msg), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+                            else
+                                await _dialogs.ShowMessageAsync(msg);
+                            Logger.Warn("Save conflict: remote changed since last known hash.");
+                            return;
+                        }
+
+                        // user provided merged content -> upload
+                        var mergedBytes = Encoding.UTF8.GetBytes(merged);
+                        await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, mergedBytes);
+                        Collab.LastRemoteHash = ComputeHash(merged);
+                        await File.WriteAllBytesAsync(OpenTranslationFilePath, mergedBytes);
+                        Logger.Info("Merged content uploaded and written locally.");
+                        return;
+                    }
+
+                    // no conflict -> upload and update last remote hash
+                    await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, localBytes);
+                    Collab.LastRemoteHash = localHash;
+                    Logger.Info("Save uploaded to remote: {remote}", Collab.RemoteTranslatePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, "Manual save remote upload failed.");
+            }
             if (NotificationManager is not null)
             {
                 var file = Path.GetFileName(OpenTranslationFilePath);
@@ -347,7 +441,24 @@ public partial class TranslateViewModel : ViewModelBase
     }
     [RelayCommand] public async Task LoadTranslationFile(string path)
     {
+        OpenTranslationFilePath = path;
         await LabelFileManager1.LoadAsync(path);
+        // Initialize remote hash if in collaboration session
+        try
+        {
+            if (Collab is not null)
+            {
+                var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
+                var res = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath);
+                if (res.Code == 200 && res.Content is not null)
+                {
+                    var txt = Encoding.UTF8.GetString(res.Content);
+                    Collab.LastRemoteHash = ComputeHash(txt);
+                }
+                else Collab.LastRemoteHash = null;
+            }
+        }
+        catch (Exception ex) { Logger.Warn(ex, "Init remote hash on load failed"); }
         ImageFileNames.Clear();
         foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
         if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
@@ -367,16 +478,17 @@ public partial class TranslateViewModel : ViewModelBase
         if (!string.IsNullOrEmpty(value))
         {
             var translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
-            string? translationDir = null;
-            if (!string.IsNullOrEmpty(translationFilePath)) translationDir = Path.GetDirectoryName(translationFilePath);
+            var translationDir = !string.IsNullOrEmpty(translationFilePath) ? Path.GetDirectoryName(translationFilePath) : null;
             var imagePath = value;
-            if (translationDir != null && !Path.IsPathRooted(imagePath)) imagePath = Path.Combine(translationDir, imagePath);
-            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString());
+            if (!string.IsNullOrEmpty(translationDir) && !Path.IsPathRooted(imagePath))
+                imagePath = Path.Combine(translationDir!, imagePath);
+            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar);
             imagePath = Uri.UnescapeDataString(imagePath);
-            imagePath = Path.GetFullPath(imagePath);
-            if (File.Exists(imagePath))
+            var fullPath = Path.GetFullPath(imagePath);
+            Logger.Debug("Resolve image path: base={base}, value={value}, full={full}, exists={exists}", translationDir, value, fullPath, File.Exists(fullPath));
+            if (File.Exists(fullPath))
             {
-                try { PicImageSource = new Bitmap(imagePath); }
+                try { PicImageSource = new Bitmap(fullPath); }
                 catch { PicImageSource = null; }
             }
             else { PicImageSource = null; }

@@ -59,6 +59,7 @@
         <PackageReference Include="WebDav.Client"/>
         <PackageReference Include="Semi.Avalonia"/>
         <PackageReference Include="Newtonsoft.Json"/>
+    <PackageReference Include="SharpCompress"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using LabelPlus_Next.ViewModels;
+using LabelPlus_Next.Services;
 using LabelPlus_Next.Views.Pages;
 using LabelPlus_Next.Views.Windows;
 using System.Collections;
@@ -13,16 +14,22 @@ namespace LabelPlus_Next.Views;
 
 public partial class MainWindow : UrsaWindow
 {
+    public static MainWindow? Instance { get; private set; }
     private readonly NavMenu? _menuFooter;
     private readonly NavMenu? _menuMain;
     private readonly ContentControl? _navHost;
     private readonly SettingsViewModel _settingsVm = new();
     private bool _didStartupCheck;
     private bool _navCollapsed;
+    // Cache pages to preserve state between navigations
+    private TranslateView? _translateView;
+    private TeamWorkPage? _teamWorkPage;
+    private UploadPage? _uploadPage;
 
     public MainWindow()
     {
         InitializeComponent();
+    Instance = this;
         _navHost = this.FindControl<ContentControl>("NavContent");
         _menuMain = this.FindControl<NavMenu>("NavMenuMain");
         _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
@@ -32,7 +39,7 @@ public partial class MainWindow : UrsaWindow
         UpdateToggleItemVisual();
 
         // Set default page and selection
-        SetContent("translate");
+    SetContent("translate");
         SelectMenuItemByTag(_menuMain, "translate");
         ClearMenuSelection(_menuFooter);
 
@@ -168,7 +175,12 @@ public partial class MainWindow : UrsaWindow
         switch (tag)
         {
             case "translate":
-                host.Content = new TranslateView { DataContext = new TranslateViewModel() };
+                _translateView ??= new TranslateView { DataContext = new TranslateViewModel() };
+                host.Content = _translateView;
+                break;
+            case "teamwork":
+                _teamWorkPage ??= new TeamWorkPage { DataContext = new TeamWorkViewModel() };
+                host.Content = _teamWorkPage;
                 break;
             case "proof":
                 host.Content = new SimpleTextPage("校对页面");
@@ -177,7 +189,8 @@ public partial class MainWindow : UrsaWindow
                 host.Content = new SimpleTextPage("协作页面");
                 break;
             case "upload":
-                host.Content = new UploadPage { DataContext = new UploadViewModel() };
+                _uploadPage ??= new UploadPage { DataContext = new UploadViewModel() };
+                host.Content = _uploadPage;
                 break;
             case "deliver":
                 host.Content = new SimpleTextPage("交付页面");
@@ -194,6 +207,28 @@ public partial class MainWindow : UrsaWindow
             default:
                 host.Content = new SimpleTextPage("欢迎");
                 break;
+        }
+    }
+
+    public void OpenTranslateWithFile(string path)
+    {
+        if (_navHost is null) return;
+    // Ensure translate page exists and is active
+    SetContent("translate");
+    if (_translateView?.DataContext is TranslateViewModel tvm)
+        {
+            _ = tvm.LoadTranslationFile(path);
+        }
+    }
+
+    public void OpenTranslateWithFile(string path, CollaborationSession? session)
+    {
+        if (_navHost is null) return;
+        SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm)
+        {
+            if (session is not null) tvm.Collab = session;
+            _ = tvm.LoadTranslationFile(path);
         }
     }
 }
