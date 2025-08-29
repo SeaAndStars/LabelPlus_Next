@@ -19,7 +19,26 @@ public class LabelFileWriter
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            using var sw = new StreamWriter(path, false, Encoding.UTF8);
+            // 避免被其他进程短暂占用导致失败：增加轻量重试与共享读取
+            const int maxAttempts = 3;
+            const int delayMs = 150;
+            StreamWriter? sw = null;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+                    sw = new StreamWriter(fs, Encoding.UTF8);
+                    break;
+                }
+                catch (IOException) when (attempt < maxAttempts)
+                {
+                    await Task.Delay(delayMs);
+                }
+            }
+            if (sw is null)
+                throw new IOException("Failed to open file for writing after retries: " + path);
+            await using var _ = sw.ConfigureAwait(false);
             await sw.WriteLineAsync(header);
 
             foreach (var kvp in store)

@@ -15,6 +15,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using Ursa.Controls;
 
@@ -617,7 +618,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static async Task<string?> DownloadStringWithAuthFallbackAsync(string url, string? token)
     {
-        using var http = new HttpClient();
+    using var http = new HttpClient();
+    http.Timeout = Timeout.InfiniteTimeSpan;
         try
         {
             using var req1 = new HttpRequestMessage(HttpMethod.Get, url);

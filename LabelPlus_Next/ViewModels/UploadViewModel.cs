@@ -616,11 +616,11 @@ public partial class UploadViewModel : ObservableObject
             Logger.Warn(ex, "ScanEpisodes: txt pass failed");
         }
 
-    // Tankobon fallback: if nothing parsed OR root hints single-volume, treat as 单行本（1卷）
+    // Tankobon fallback: if nothing parsed, treat as 单行本（1卷）
     try
         {
             var rootName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (map.Count == 0 || IsTankobonName(rootName))
+            if (map.Count == 0)
             {
                 var files = Directory.EnumerateFiles(localDir, "*", SearchOption.AllDirectories).ToList();
                 if (files.Count > 0)
@@ -714,7 +714,7 @@ public partial class UploadViewModel : ObservableObject
         };
 
         // 先尝试 key + 数字
-        foreach (var (kind, keys) in map)
+    foreach (var (kind, keys) in map)
         {
             foreach (var k in keys)
             {
@@ -722,8 +722,10 @@ public partial class UploadViewModel : ObservableObject
                 if (idx >= 0)
                 {
                     var tail = s[(idx + k.Length)..];
-                    var digits = new string(tail.Where(char.IsDigit).ToArray());
-                    if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
+            // 优先识别区间，如 15-51/15~51
+            if (TryParseRangeNumber(tail, out var nRange) && nRange > 0) return (kind, nRange);
+            var digits = new string(tail.Where(char.IsDigit).ToArray());
+            if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
                     // 中文数字
                     var ncn = ParseChineseNumeral(tail);
                     if (ncn > 0) return (kind, ncn);
@@ -743,6 +745,9 @@ public partial class UploadViewModel : ObservableObject
             }
         }
         // 只有数字
+        // 只有数字/或包含区间
+        if (TryParseRangeNumber(s, out var numRange) && numRange > 0)
+            return (NameKind.Episode, numRange);
         if (int.TryParse(new string(s.Where(char.IsDigit).ToArray()), out var num) && num > 0)
             return (NameKind.Episode, num);
         // 只有中文数字
@@ -753,10 +758,91 @@ public partial class UploadViewModel : ObservableObject
 
     private static bool TryParseEpisodeNumber(string name, out int number)
     {
-        var digits = new string(name.Where(char.IsDigit).ToArray());
-        if (!string.IsNullOrEmpty(digits) && int.TryParse(digits, out number)) return true;
+        number = 0;
+        if (string.IsNullOrWhiteSpace(name)) return false;
+
+        // 1) 匹配 “第 N 话/集/章” 优先（N 可以是阿拉伯数字或中文数字）
+    var m1 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)\s*(话|話|集|章)?", RegexOptions.IgnoreCase);
+        if (m1.Success)
+        {
+            var grp = m1.Groups[1].Value;
+            if (int.TryParse(grp, out var n1)) { number = n1; return number > 0; }
+            number = ParseChineseNumeral(grp);
+            if (number > 0) return true;
+        }
+
+        // 2) 匹配 “N 话/集/章” （避免把小数当连在一起的数字）
+    var m2 = Regex.Match(name, @"(?<![0-9\.])(\d{1,4})(?!\d|\.\d)\s*(话|話|集|章)", RegexOptions.IgnoreCase);
+        if (m2.Success && int.TryParse(m2.Groups[1].Value, out var n2) && n2 > 0) { number = n2; return true; }
+
+        // 3) 匹配 “第 N”
+    var m3 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)", RegexOptions.IgnoreCase);
+        if (m3.Success)
+        {
+            var grp = m3.Groups[1].Value;
+            if (int.TryParse(grp, out var n3)) { number = n3; return number > 0; }
+            number = ParseChineseNumeral(grp);
+            if (number > 0) return true;
+        }
+
+        // 3.5) 识别区间（如 113-115 / 108~112 / 90～107），取右端最大值
+        if (TryParseRangeNumber(name, out var nRange) && nRange > 0)
+        {
+            number = nRange;
+            return true;
+        }
+
+        // 4) 常见命名：62.1/62-1 代表“第62话 Part1” —— 取主数字 62
+        var mPart = Regex.Match(name, @"(?<!\d)(\d{1,4})[\.-_](\d+)(?!\d)");
+        if (mPart.Success && int.TryParse(mPart.Groups[1].Value, out var nMain) && nMain > 0) { number = nMain; return true; }
+
+        // 5) 兜底：取最后一个不在小数中的整数 token
+        // 移除日期和分辨率等噪声
+        var s = Regex.Replace(name, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
+        s = Regex.Replace(s, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
+        var matches = Regex.Matches(s, @"(?<![0-9\.])(\d{1,4})(?!\d|\.\d)");
+        if (matches.Count > 0 && int.TryParse(matches[^1].Groups[1].Value, out var nLast) && nLast > 0)
+        {
+            number = nLast;
+            return true;
+        }
+
+        // 6) 中文数字兜底
         number = ParseChineseNumeral(name);
         return number > 0;
+    }
+
+    // 尝试解析数字区间（15-51 / 15~51 / 15_51 / 15～51 / 15至51 / 15到51），
+    // 支持一条字符串中出现多个区间，取所有区间的较大值中的最大值；
+    // 如果字符串中出现了任意区间分隔符，则直接取（去除日期/分辨率噪声后）所有数字的最大值，
+    // 以适配类似 “1-3-8.15” 这种复合写法（解析为 15）。
+    private static bool TryParseRangeNumber(string s, out int hi)
+    {
+        hi = 0;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var hasRangeSep = s.IndexOf('-') >= 0 || s.IndexOf('_') >= 0 || s.IndexOf('~') >= 0 || s.IndexOf('～') >= 0 || s.IndexOf('—') >= 0 || s.IndexOf('–') >= 0 || s.Contains("至") || s.Contains("到");
+        var matches = Regex.Matches(s, @"(\d{1,5})\s*[-_~～—–至到]\s*(\d{1,5})");
+        foreach (Match m in matches)
+        {
+            if (m.Success && int.TryParse(m.Groups[1].Value, out var a) && int.TryParse(m.Groups[2].Value, out var b))
+            {
+                hi = Math.Max(hi, Math.Max(a, b));
+            }
+        }
+        if (hi > 0) return true;
+        if (hasRangeSep)
+        {
+            // 去除日期和分辨率等噪声后，取全部数字的最大值
+            var cleaned = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
+            cleaned = Regex.Replace(cleaned, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
+            // 注意：这里不要避开小数，直接抽取所有数字片段（如 1.3-8.15 -> 1,3,8,15），取最大值
+            var nums = Regex.Matches(cleaned, @"\d{1,5}");
+            foreach (Match m in nums)
+            {
+                if (int.TryParse(m.Value, out var n)) hi = Math.Max(hi, n);
+            }
+        }
+        return hi > 0;
     }
 
     private static int ParseChineseNumeral(string s)
@@ -799,7 +885,8 @@ public partial class UploadViewModel : ObservableObject
         if (ep.IsVolume)
         {
             var n = TryPickNumberFromFiles(ep.LocalFiles);
-            return n > 0 ? $"卷{n:00}" : ep.Number.ToString();
+            var use = n > 0 ? n : ep.Number;
+            return $"卷{use:00}";
         }
         return ep.Number.ToString();
     }
@@ -814,7 +901,8 @@ public partial class UploadViewModel : ObservableObject
         if (ep.IsVolume)
         {
             var n = TryPickNumberFromFiles(ep.LocalFiles);
-            return n > 0 ? $"卷{n:00}" : $"卷{useNum:00}";
+            var use = n > 0 ? n : useNum;
+            return $"卷{use:00}";
         }
         return useNum.ToString("00");
     }
@@ -1032,7 +1120,8 @@ public partial class UploadViewModel : ObservableObject
             var resultMap = new Dictionary<int, (string? source, string? translate, string? typeset)>();
             foreach (var ep in toUpload)
             {
-                var epDir = projectDir + (ep.IsSpecial ? "番外" : ep.Number.ToString()) + "/";
+                // 与目录创建阶段保持一致：卷→"卷NN"，番外→"番外NN/番外"，普通话→"NN"
+                var epDir = projectDir + BuildSubDir(ep) + "/";
                 string? sourcePath = null;
                 string? translatePath = null;
                 string? typesetPath = null;
@@ -1109,7 +1198,13 @@ public partial class UploadViewModel : ObservableObject
                 // merge
                 map[PendingProjectName] = projectJsonPath;
                 var aggObj = new AggregateProjects { Projects = map };
-                var aggOut = JsonSerializer.Serialize(aggObj, AppJsonContext.Default.AggregateProjects);
+                // 使用非转义中文写出并缩进，便于阅读
+                var aggCtx = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
+                {
+                    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    WriteIndented = true
+                });
+                var aggOut = JsonSerializer.Serialize(aggObj, aggCtx.AggregateProjects);
                 var putAgg = await fsApi.SafePutAsync(token, aggregatePath, Encoding.UTF8.GetBytes(aggOut));
                 if (putAgg.Code != 200)
                 {
@@ -1213,7 +1308,14 @@ public partial class UploadViewModel : ObservableObject
                 UploadTotal = totalSteps; // keep total constant
                 UploadCompleted = Math.Min(offset + p.Completed, UploadTotal);
                 CurrentUploadingPath = p.CurrentRemotePath;
-                Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
+                if (p.SpeedMBps is double sp)
+                {
+                    Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath} ({sp:F2} MB/s)";
+                }
+                else
+                {
+                    Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
+                }
             });
 
             var res = await fsApi.PutManyAsync(token, items, progress, 6);

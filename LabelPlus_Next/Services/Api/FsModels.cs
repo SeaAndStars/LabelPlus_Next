@@ -200,4 +200,9 @@ public sealed class UploadProgress
     public int Completed { get; set; }
     public int Total { get; set; }
     public string? CurrentRemotePath { get; set; }
+    // Bytes uploaded for the current file
+    public long BytesSent { get; set; }
+    public long? BytesTotal { get; set; }
+    // Current speed in MB/s (may be null if not measurable)
+    public double? SpeedMBps { get; set; }
 }

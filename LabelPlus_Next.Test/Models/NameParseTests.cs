@@ -60,4 +60,15 @@ public class NameParseTests
     Assert.AreEqual("Episode", k2);
     Assert.AreEqual(13, n2);
     }
+
+    [TestMethod]
+    public void Parse_Range_Takes_High_End()
+    {
+        var (k1, n1) = CallParse("进击的XX 15-51.7z");
+        Assert.AreEqual("Episode", k1);
+        Assert.AreEqual(51, n1);
+        var (k2, n2) = CallParse("卷 1~3");
+        Assert.AreEqual("Volume", k2);
+        Assert.AreEqual(3, n2);
+    }
 }

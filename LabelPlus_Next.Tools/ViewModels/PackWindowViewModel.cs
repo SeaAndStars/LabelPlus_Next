@@ -254,7 +254,7 @@ public class PackWindowViewModel : ObservableObject
             AutomaticDecompression = DecompressionMethods.All
         };
         if (!string.IsNullOrEmpty(s.Username)) handler.Credentials = new NetworkCredential(s.Username, s.Password ?? string.Empty);
-        var httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10), DefaultRequestVersion = new Version(1, 1) };
+    var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan, DefaultRequestVersion = new Version(1, 1) };
         httpClient.DefaultRequestHeaders.ExpectContinue = false;
         return new WebDavClient(httpClient);
     }

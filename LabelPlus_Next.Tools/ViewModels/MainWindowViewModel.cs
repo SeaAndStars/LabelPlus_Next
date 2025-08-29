@@ -115,7 +115,7 @@ public class MainWindowViewModel : ObservableObject
         }
         var httpClient = new HttpClient(handler)
         {
-            Timeout = TimeSpan.FromSeconds(100)
+            Timeout = Timeout.InfiniteTimeSpan
         };
         _client = new WebDavClient(httpClient);
         currentClientBaseUrl = BaseUrl;

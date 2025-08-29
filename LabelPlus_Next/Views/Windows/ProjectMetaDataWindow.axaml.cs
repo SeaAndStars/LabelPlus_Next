@@ -7,6 +7,8 @@ using LabelPlus_Next.ViewModels;
 using NLog;
 using System.Collections.ObjectModel;
 using Ursa.Controls;
+using LabelPlus_Next.Models;
+using Avalonia.Layout;
 
 namespace LabelPlus_Next.Views.Windows;
 
@@ -30,6 +32,14 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             }
             catch (Exception ex) { Logger.Error(ex, "BuildTree failed on open."); }
         };
+        DataContextChanged += (_, __) =>
+        {
+            try
+            {
+                BuildTree();
+            }
+            catch (Exception ex) { Logger.Error(ex, "BuildTree failed on DataContextChanged."); }
+        };
     }
 
     private void InitializeComponent()
@@ -44,22 +54,26 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             Logger.Warn("BuildTree: Tree or ViewModel missing.");
             return;
         }
-        Logger.Debug("Building episode tree: {count}", vm.PendingEpisodes.Count);
+    Logger.Debug("Building episode tree: {count}", vm.PendingEpisodes.Count);
     _roots = new ObservableCollection<Node>(vm.PendingEpisodes.Select(ep =>
         {
             var isSp = ep is { IsSpecial: true };
             var isVol = ep is { IsVolume: true };
             var title = isSp ? "番外" : isVol ? $"第 {ep.Number} 卷" : $"第 {ep.Number} 话";
+            var episodeDisp = isSp ? "番外" : (isVol ? string.Format("{0:00}(卷)", ep.Number) : string.Format("{0:00}", ep.Number));
             var root = new Node
             {
                 IsFile = false,
-        Name = title,
+    Name = title,
                 Number = ep.Number,
                 Include = ep.Include,
                 Status = ep.Status,
-        IsSpecial = isSp,
-        IsVolume = isVol,
-                LocalFileCount = ep.LocalFiles.Count
+    IsSpecial = isSp,
+    IsVolume = isVol,
+                LocalFileCount = ep.LocalFiles.Count,
+                EpisodeDisplay = episodeDisp,
+        LocalFileCountDisplay = ep.LocalFiles.Count.ToString(),
+        Ref = ep
             };
             foreach (var f in ep.LocalFiles)
             {
@@ -70,7 +84,9 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                     Number = ep.Number,
                     Include = true,
                     Status = string.Empty,
-                    LocalFileCount = 0
+                    LocalFileCount = 0,
+                    EpisodeDisplay = episodeDisp,
+                    LocalFileCountDisplay = "0"
                 });
             }
             return root;
@@ -85,9 +101,9 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                     n => n.Children,
                     n => !n.IsFile),
                 new CheckBoxColumn<Node>("上传", x => x.Include, (x, v) => x.Include = v),
-                new TextColumn<Node, string>("话数", x => x.IsSpecial ? "番外" : (x.IsVolume ? $"{x.Number:00}(卷)" : x.Number.ToString("00"))),
+        new TemplateColumn<Node>("话数", BuildEpisodeNumberCellTemplate()),
                 new TemplateColumn<Node>("状态", BuildStatusCellTemplate()),
-                new TextColumn<Node, int>("本地文件数", x => x.LocalFileCount)
+                new TextColumn<Node, string>("本地文件数", x => x.LocalFileCountDisplay)
             }
         };
         _tree.Source = source;
@@ -129,14 +145,15 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                 await MessageBox.ShowAsync("请填写项目名", "提示", MessageBoxIcon.Warning);
                 return;
             }
-            foreach (var ep in vm.PendingEpisodes)
+            foreach (var node in _roots.Where(n => !n.IsFile))
             {
-                var node = _roots.FirstOrDefault(n => !n.IsFile && n.Number == ep.Number);
-                if (node is null) continue;
+                if (node.Ref is null) continue;
+                var ep = node.Ref;
                 ep.Include = node.Include;
                 ep.Status = node.Status;
-                // 保持 IsSpecial 标记
+                ep.Number = node.Number;
                 if (node.IsSpecial) ep.IsSpecial = true;
+                if (node.IsVolume) ep.IsVolume = true;
             }
             Logger.Info("Confirm: starting upload for {count} episodes", vm.PendingEpisodes.Count(e1 => e1.Include));
             var ok = await vm.UploadPendingAsync();
@@ -151,16 +168,64 @@ public partial class ProjectMetaDataWindow : UrsaWindow
         }
     }
 
+    private static IDataTemplate BuildEpisodeNumberCellTemplate()
+    {
+        return new FuncDataTemplate<Node>((n, _) =>
+        {
+            if (n.IsFile)
+            {
+                return new TextBlock { Text = string.Empty };
+            }
+            var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var tb = new TextBox { Width = 80, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            tb.Text = n.IsSpecial ? (n.Number > 0 ? $"番外{n.Number:00}" : "番外")
+                                  : (n.IsVolume ? n.Number.ToString() : n.Number.ToString());
+            tb.LostFocus += (_, __) => ApplyNumberEdit(n, tb.Text);
+            tb.KeyUp += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) ApplyNumberEdit(n, tb.Text); };
+            panel.Children.Add(tb);
+            if (n.IsSpecial)
+            {
+                panel.Children.Add(new TextBlock { Text = "(番外)" });
+            }
+            else if (n.IsVolume)
+            {
+                panel.Children.Add(new TextBlock { Text = "(卷)" });
+            }
+            return panel;
+        }, true);
+    }
+
+    private static void ApplyNumberEdit(Node n, string? text)
+    {
+        try
+        {
+            if (n.IsSpecial)
+            {
+                var digits = new string((text ?? string.Empty).Where(char.IsDigit).ToArray());
+                if (int.TryParse(digits, out var sp) && sp >= 0) n.Number = sp;
+            }
+            else
+            {
+                if (int.TryParse(new string((text ?? string.Empty).Where(char.IsDigit).ToArray()), out var val) && val > 0)
+                    n.Number = val;
+            }
+        }
+        catch { }
+    }
+
     private sealed class Node
     {
         public bool IsFile { get; init; }
         public string? Name { get; init; }
-        public int Number { get; init; }
+    public int Number { get; set; }
     public bool IsVolume { get; init; }
     public bool IsSpecial { get; init; }
         public bool Include { get; set; }
         public string Status { get; set; } = "立项";
         public int LocalFileCount { get; init; }
+    public string EpisodeDisplay { get; init; } = string.Empty;
+    public string LocalFileCountDisplay { get; init; } = string.Empty;
         public ObservableCollection<Node> Children { get; } = new();
+        public EpisodeEntry? Ref { get; init; }
     }
 }

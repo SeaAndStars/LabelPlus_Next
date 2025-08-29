@@ -3,6 +3,8 @@ using Newtonsoft.Json;
 using NLog;
 using RestSharp;
 using System.Net;
+using System.Net.Http;
+using System.IO;
 
 namespace LabelPlus_Next.Services.Api;
 
@@ -19,7 +21,13 @@ public sealed class FileSystemApi : IFileSystemApi
     public FileSystemApi(string baseUrl)
     {
         _baseUrl = baseUrl.TrimEnd('/');
-        _client = new RestClient(new RestClientOptions(_baseUrl));
+        // Increase default timeout for large uploads/downloads.
+        // RestSharp defaults to ~100s which can cancel long PUT requests with code=0 "The operation was canceled".
+        _client = new RestClient(new RestClientOptions(_baseUrl)
+        {
+            // 使用无限超时，避免后续 REST 接口在慢网络或大数据时被中断
+            Timeout = Timeout.InfiniteTimeSpan
+        });
         Logger.Info("FileSystemApi created for {base}", _baseUrl);
     }
 
@@ -135,6 +143,8 @@ public sealed class FileSystemApi : IFileSystemApi
                     byte[] oldBytes;
                     using (var http = new HttpClient())
                     {
+                        // 永不超时，避免大文件或慢速网络导致默认 100 秒超时
+                        http.Timeout = Timeout.InfiniteTimeSpan;
                         using var req1 = new HttpRequestMessage(HttpMethod.Get, raw);
                         using var resp1 = await http.SendAsync(req1, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                         if (resp1.IsSuccessStatusCode)
@@ -157,7 +167,7 @@ public sealed class FileSystemApi : IFileSystemApi
                     var backupPath = CombinePath(dir, backupName);
 
                     Logger.Info("SafePut backup -> {backup}", backupPath);
-                    await PutRawAsync(token, backupPath, oldBytes, asTask, cancellationToken);
+                    await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken);
                 }
                 else
                 {
@@ -170,8 +180,56 @@ public sealed class FileSystemApi : IFileSystemApi
             Logger.Warn(ex, "SafePut pre-backup failed for {file}", filePath);
         }
 
-        var res = await PutRawAsync(token, filePath, content, asTask, cancellationToken);
+    var res = await PutRawAsync(token, filePath, content, asTask, null, 0, 0, cancellationToken);
         Logger.Info("SafePut completed {file} -> code={code}", filePath, res.Code);
+        return res;
+    }
+
+    // Overload for internal progress wiring
+    private async Task<FsPutResponse> SafePutAsync(string token, string filePath, byte[] content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Logger.Debug("SafePut+Progress start file={file}", filePath);
+            var existed = await GetAsync(token, filePath, cancellationToken: cancellationToken);
+            if (existed.Code == 200 && existed.Data is not null && !existed.Data.IsDir)
+            {
+                var raw = existed.Data.RawUrl;
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    try
+                    {
+                        using var http = new HttpClient();
+                        // 永不超时，避免备份旧文件时大文件下载被 100 秒限制中断
+                        http.Timeout = Timeout.InfiniteTimeSpan;
+                        using var req = new HttpRequestMessage(HttpMethod.Get, raw);
+                        using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            var oldBytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
+                            var (dir, name) = SplitPath(filePath);
+                            var ts = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                            var backupName = AppendTimestamp(name, ts);
+                            var backupPath = CombinePath(dir, backupName);
+                            Logger.Info("SafePut backup -> {backup}", backupPath);
+                            // Do not report progress for backup to keep UI clean
+                            await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "SafePut+Progress pre-backup error for {file}", filePath);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "SafePut+Progress pre-backup failed for {file}", filePath);
+        }
+
+        var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken);
+        Logger.Info("SafePut+Progress completed {file} -> code={code}", filePath, res.Code);
         return res;
     }
 
@@ -212,6 +270,8 @@ public sealed class FileSystemApi : IFileSystemApi
         try
         {
             using var http = new HttpClient();
+            // 永不超时，避免默认 100 秒限制
+            http.Timeout = Timeout.InfiniteTimeSpan;
             // 尝试不带鉴权，强制非压缩
             using (var req = new HttpRequestMessage(HttpMethod.Get, url))
             {
@@ -453,25 +513,43 @@ public sealed class FileSystemApi : IFileSystemApi
         return baseCfg;
     }
 
-    // Raw upload without safety checks
-    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[] content, bool asTask, CancellationToken cancellationToken)
+    // Raw upload without safety checks, with optional progress
+    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[]? content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken)
     {
         var safePath = EncodePathForHeader(filePath);
-        var request = new RestRequest("/api/fs/put", Method.Put)
-            .AddHeader("Authorization", token)
-            .AddHeader("File-Path", safePath)
-            .AddHeader("As-Task", asTask ? "true" : "false")
-            .AddHeader("Content-Type", "application/octet-stream")
-            .AddParameter("application/octet-stream", content, ParameterType.RequestBody);
         Logger.Debug("PutRaw path={path} asTask={asTask} size={size}", safePath, asTask, content?.Length);
-        var response = await _client.ExecuteAsync(request, cancellationToken);
-        var code = (int)response.StatusCode;
-        if (!response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content))
+    using var http = new HttpClient { BaseAddress = new Uri(_baseUrl), Timeout = Timeout.InfiniteTimeSpan };
+        using var ms = new MemoryStream(content ?? Array.Empty<byte>(), writable: false);
+        long? total = content?.LongLength;
+        using var pcs = new ProgressStreamContent(ms, 64 * 1024, (sent, tot, elapsed) =>
         {
-            Logger.Warn("PutRaw fail {code} {msg}", code, response.ErrorMessage ?? response.StatusDescription);
-            return new FsPutResponse { Code = code, Message = response.ErrorMessage ?? response.StatusDescription ?? "Request failed" };
+            if (progress is null) return;
+            var seconds = Math.Max(0.001, elapsed.TotalSeconds);
+            var speedMBps = sent / 1024d / 1024d / seconds;
+            progress.Report(new UploadProgress
+            {
+                Completed = completedHint,
+                Total = totalHint,
+                CurrentRemotePath = filePath,
+                BytesSent = sent,
+                BytesTotal = tot ?? total,
+                SpeedMBps = speedMBps
+            });
+        }, total);
+        using var req = new HttpRequestMessage(HttpMethod.Put, "/api/fs/put");
+        req.Headers.TryAddWithoutValidation("Authorization", token);
+        req.Headers.TryAddWithoutValidation("File-Path", safePath);
+        req.Headers.TryAddWithoutValidation("As-Task", asTask ? "true" : "false");
+        req.Content = pcs;
+        using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        var code = (int)resp.StatusCode;
+        var text = await resp.Content.ReadAsStringAsync(cancellationToken);
+        if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(text))
+        {
+            Logger.Warn("PutRaw fail {code} {msg}", code, resp.ReasonPhrase);
+            return new FsPutResponse { Code = code, Message = resp.ReasonPhrase ?? "Request failed" };
         }
-        var parsed = JsonConvert.DeserializeObject<FsPutResponse>(response.Content);
+        var parsed = JsonConvert.DeserializeObject<FsPutResponse>(text);
         Logger.Info("PutRaw ok code={code}", parsed?.Code);
         return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
     }
@@ -488,7 +566,10 @@ public sealed class FileSystemApi : IFileSystemApi
             await sem.WaitAsync(cancellationToken);
             try
             {
-                var res = await PutAsync(token, item.FilePath, item.Content, asTask, cancellationToken);
+                // Provide a hint so progress can show Completed/Total and MB/s for the current file
+                var completedHint = Volatile.Read(ref done);
+                var totalHint = list.Count;
+                var res = await SafePutAsync(token, item.FilePath, item.Content, asTask, progress, completedHint, totalHint, cancellationToken);
                 results[idx] = res;
                 var d = Interlocked.Increment(ref done);
                 progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
