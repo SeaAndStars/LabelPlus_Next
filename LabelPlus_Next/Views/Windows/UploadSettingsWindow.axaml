@@ -1,4 +1,4 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Windows.UploadSettingsWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -20,7 +20,7 @@
             Orientation="Horizontal"
             Spacing="8">
             <Button Command="{Binding SaveCommand}" Content="保存" />
-            <Button Content="保存并刷新" Click="OnSaveAndRefreshClick" />
+            <Button Click="OnSaveAndRefreshClick" Content="保存并刷新" />
             <Button Content="关闭" IsCancel="True" />
         </StackPanel>
     </StackPanel>

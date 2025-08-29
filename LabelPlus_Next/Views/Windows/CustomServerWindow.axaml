@@ -1,4 +1,4 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Windows.CustomServerWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

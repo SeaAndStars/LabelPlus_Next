@@ -19,6 +19,13 @@
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
             }
+        },
+        {
+            "name": "C#: LabelPlus_Next.Desktop",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\LabelPlus_Next.Desktop\\LabelPlus_Next.Desktop.csproj",
+            "launchConfigurationId": "TargetFramework=;LabelPlus_Next.Desktop"
         }
     ]
 }

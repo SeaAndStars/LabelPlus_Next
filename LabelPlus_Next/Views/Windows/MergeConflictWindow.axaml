@@ -1,55 +1,155 @@
-<Window
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Windows.MergeConflictWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-    x:DataType="vm:MergeConflictViewModel"
-    Width="1000"
-    Height="700"
     Title="保存冲突合并"
+    Width="1300"
+    Height="700"
+    x:DataType="vm:MergeConflictViewModel"
     mc:Ignorable="d">
     <Design.DataContext>
         <vm:MergeConflictViewModel />
     </Design.DataContext>
-    <Grid RowDefinitions="Auto,*" Margin="10" RowSpacing="8">
+    <Grid
+        Margin="35"
+        RowDefinitions="Auto,*"
+        RowSpacing="8">
         <StackPanel Orientation="Horizontal" Spacing="12">
-            <TextBlock Text="文件：" VerticalAlignment="Center"/>
-            <TextBlock Text="{Binding FileName}" VerticalAlignment="Center"/>
-            <Button Content="采用远端" Command="{Binding UseRemoteCommand}"/>
-            <Button Content="采用本地" Command="{Binding UseLocalCommand}"/>
-            <Button Content="保存合并" Command="{Binding SaveMergedCommand}"/>
-            <Button Content="取消" Command="{Binding CancelCommand}"/>
-            <Separator Width="12"/>
-            <TextBlock Text="{Binding ConflictStatus}" VerticalAlignment="Center"/>
-            <Button Content="上一处" Command="{Binding PrevConflictCommand}"/>
-            <Button Content="下一处" Command="{Binding NextConflictCommand}"/>
-            <Button Content="全部用远端" Command="{Binding AcceptAllRemoteCommand}"/>
-            <Button Content="全部用本地" Command="{Binding AcceptAllLocalCommand}"/>
-            <Button Content="当前用远端" Command="{Binding AcceptCurrentRemoteCommand}"/>
-            <Button Content="当前用本地" Command="{Binding AcceptCurrentLocalCommand}"/>
+            <TextBlock VerticalAlignment="Center" Text="文件：" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding FileName}" />
+            <Button Command="{Binding UseRemoteCommand}" Content="采用远端" />
+            <Button Command="{Binding UseLocalCommand}" Content="采用本地" />
+            <Button Command="{Binding SaveMergedCommand}" Content="保存合并" />
+            <Button Command="{Binding CancelCommand}" Content="取消" />
+            <Separator Width="12" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding ConflictStatus}" />
+            <Button Command="{Binding PrevConflictCommand}" Content="上一处" />
+            <Button Command="{Binding NextConflictCommand}" Content="下一处" />
+            <Button Command="{Binding AcceptAllRemoteCommand}" Content="全部用远端" />
+            <Button Command="{Binding AcceptAllLocalCommand}" Content="全部用本地" />
+            <Button Command="{Binding AcceptCurrentRemoteCommand}" Content="当前用远端" />
+            <Button Command="{Binding AcceptCurrentLocalCommand}" Content="当前用本地" />
         </StackPanel>
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
-            <StackPanel>
-                <TextBlock Text="远端" FontWeight="Bold"/>
-                <TextBox Text="{Binding RemoteText}" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1">
-                <TextBlock Text="本地" FontWeight="Bold"/>
-                <TextBox Text="{Binding LocalText}" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2">
-                <TextBlock Text="合并结果 (Alt+↑/↓ 导航，Alt+L=本地，Alt+R=远端)" FontWeight="Bold"/>
-                <TextBox x:Name="MergedTextBox" Text="{Binding MergedText}" AcceptsReturn="True" FontFamily="Consolas, Cascadia Mono, Courier New" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                    <TextBox.KeyBindings>
-                        <KeyBinding Gesture="Alt+Down" Command="{Binding NextConflictCommand}"/>
-                        <KeyBinding Gesture="Alt+Up" Command="{Binding PrevConflictCommand}"/>
-                        <KeyBinding Gesture="Alt+R" Command="{Binding AcceptCurrentRemoteCommand}"/>
-                        <KeyBinding Gesture="Alt+L" Command="{Binding AcceptCurrentLocalCommand}"/>
-                    </TextBox.KeyBindings>
-                </TextBox>
-            </StackPanel>
+        <Grid
+            Grid.Row="1"
+            ColumnDefinitions="3*,1.8*"
+            ColumnSpacing="12">
+            <!--  左侧：冲突列表（可选择远端/本地）  -->
+            <Border
+                Grid.Column="0"
+                BorderBrush="#DDD"
+                BorderThickness="1"
+                CornerRadius="6">
+                <ListBox
+                    BorderThickness="0"
+                    ItemsSource="{Binding Conflicts}"
+                    SelectedIndex="{Binding SelectedConflictIndex, Mode=TwoWay}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MergeConflictViewModel+ConflictItem">
+                            <Border
+                                Margin="8"
+                                Padding="8"
+                                Classes="Card"
+                                CornerRadius="6">
+                                <StackPanel Spacing="6">
+                                    <StackPanel
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal"
+                                        Spacing="8">
+                                        <TextBlock Text="冲突 #" />
+                                        <TextBlock FontWeight="Bold" Text="{Binding Index}" />
+                                        <TextBlock Text=" ─ " />
+                                        <TextBlock
+                                            MaxWidth="500"
+                                            Text="{Binding Summary}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <StackPanel
+                                            Margin="12,0,0,0"
+                                            Orientation="Horizontal"
+                                            Spacing="6">
+                                            <Button Command="{Binding ChooseRemoteSelfCommand}" Content="用远端" />
+                                            <Button Command="{Binding ChooseLocalSelfCommand}" Content="用本地" />
+                                            <TextBlock Text="  选择：" />
+                                            <TextBlock Text="{Binding Choice}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="1*,1*" ColumnSpacing="8">
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock FontWeight="SemiBold" Text="远端" />
+                                            <Border
+                                                Height="120"
+                                                BorderBrush="#EEE"
+                                                BorderThickness="1">
+                                                <ScrollViewer>
+                                                    <TextBlock
+                                                        FontFamily="Consolas, Cascadia Mono, Courier New"
+                                                        Text="{Binding Remote}"
+                                                        TextWrapping="Wrap" />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock FontWeight="SemiBold" Text="本地" />
+                                            <Border
+                                                Height="120"
+                                                BorderBrush="#EEE"
+                                                BorderThickness="1">
+                                                <ScrollViewer>
+                                                    <TextBlock
+                                                        FontFamily="Consolas, Cascadia Mono, Courier New"
+                                                        Text="{Binding Local}"
+                                                        TextWrapping="Wrap" />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!--  右侧：合并结果 + 可折叠的原文查看  -->
+            <Grid
+                Grid.Column="1"
+                RowDefinitions="*"
+                RowSpacing="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock
+                        Grid.Row="0"
+                        FontWeight="Bold"
+                        Text="合并结果 (Alt+↑/↓ 导航，Alt+L=本地，Alt+R=远端)" />
+                    <Grid Grid.Row="1">
+                        <Grid.KeyBindings>
+                            <KeyBinding Command="{Binding NextConflictCommand}" Gesture="Alt+Down" />
+                            <KeyBinding Command="{Binding PrevConflictCommand}" Gesture="Alt+Up" />
+                            <KeyBinding Command="{Binding AcceptCurrentRemoteCommand}" Gesture="Alt+R" />
+                            <KeyBinding Command="{Binding AcceptCurrentLocalCommand}" Gesture="Alt+L" />
+                        </Grid.KeyBindings>
+                        <Border BorderBrush="#DDD" BorderThickness="1">
+                            <ScrollViewer
+                                x:Name="MergedScroll"
+                                HorizontalScrollBarVisibility="Auto"
+                                VerticalScrollBarVisibility="Auto">
+                                <TextBlock
+                                    x:Name="MergedTextBlock"
+                                    FontFamily="Consolas, Cascadia Mono, Courier New"
+                                    Text="{Binding MergedText}"
+                                    TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
         </Grid>
     </Grid>
-</Window>
+</u:UrsaWindow>

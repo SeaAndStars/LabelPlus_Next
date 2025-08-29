@@ -57,6 +57,9 @@
                         <MenuItem Header="-" />
                         <MenuItem Command="{Binding SaveAsCommandCommand}"
                                   Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
+                        <MenuItem Header="-" />
+                        <MenuItem Command="{Binding OpenTranslationFolderCommand}"
+                                  Header="打开翻译文件夹" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>

@@ -113,6 +113,12 @@ public partial class TranslateView : UserControl
             {
                 switch (e.Key)
                 {
+                    case Key.S:
+                        // Allow Ctrl+S / Ctrl+Shift+S to save even when typing in TextBox
+                        if ((e.KeyModifiers & KeyModifiers.Shift) != 0) Vm?.SaveAsCommandCommand?.Execute(null);
+                        else Vm?.SaveCurrentCommandCommand?.Execute(null);
+                        e.Handled = true;
+                        return;
                     case Key.Up:
                         MoveSelection(-1);
                         e.Handled = true;

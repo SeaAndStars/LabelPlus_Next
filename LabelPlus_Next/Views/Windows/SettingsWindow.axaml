@@ -1,11 +1,12 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Windows.SettingsWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:pages="clr-namespace:LabelPlus_Next.Views.Pages"
     xmlns:u="https://irihi.tech/ursa"
     Title="设置"
-    Width="760" Height="600"
+    Width="760"
+    Height="600"
     CanResize="True"
     WindowStartupLocation="CenterOwner">
     <pages:SettingsPage />

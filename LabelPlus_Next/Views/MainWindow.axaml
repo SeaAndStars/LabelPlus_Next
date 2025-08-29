@@ -1,4 +1,4 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -15,10 +15,11 @@
     mc:Ignorable="d">
 
 
-    <Grid x:Name="RootGrid"
-          Margin="0,25,0,0"
-          ColumnDefinitions="auto,*"
-          RowDefinitions="*">
+    <Grid
+        x:Name="RootGrid"
+        Margin="0,25,0,0"
+        ColumnDefinitions="auto,*"
+        RowDefinitions="*">
 
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
@@ -33,12 +34,30 @@
                 IsHorizontalCollapsed="False"
                 SelectionChanged="OnNavSelectionChanged">
 
-                <u:NavMenuItem Header="收起" Tag="toggle" Icon="◀" />
-                <u:NavMenuItem Header="翻译" Tag="translate" Icon="📝" />
-                <u:NavMenuItem Header="校对" Tag="proof" Icon="✅" />
-                <u:NavMenuItem Header="协作" Tag="teamwork" Icon="🤝" />
-                <u:NavMenuItem Header="上传" Tag="upload" Icon="⤴" />
-                <u:NavMenuItem Header="交付" Tag="deliver" Icon="📦" />
+                <u:NavMenuItem
+                    Header="收起"
+                    Icon="◀"
+                    Tag="toggle" />
+                <u:NavMenuItem
+                    Header="翻译"
+                    Icon="📝"
+                    Tag="translate" />
+                <u:NavMenuItem
+                    Header="校对"
+                    Icon="✅"
+                    Tag="proof" />
+                <u:NavMenuItem
+                    Header="协作"
+                    Icon="🤝"
+                    Tag="teamwork" />
+                <u:NavMenuItem
+                    Header="上传"
+                    Icon="⤴"
+                    Tag="upload" />
+                <u:NavMenuItem
+                    Header="交付"
+                    Icon="📦"
+                    Tag="deliver" />
             </u:NavMenu>
 
 
@@ -46,7 +65,10 @@
                 x:Name="NavMenuFooter"
                 Grid.Row="1"
                 SelectionChanged="OnNavSelectionChanged">
-                <u:NavMenuItem Header="设置" Tag="settings" Icon="⚙" />
+                <u:NavMenuItem
+                    Header="设置"
+                    Icon="⚙"
+                    Tag="settings" />
             </u:NavMenu>
         </Grid>
 

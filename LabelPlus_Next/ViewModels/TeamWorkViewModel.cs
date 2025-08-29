@@ -249,16 +249,21 @@ public partial class TeamWorkViewModel : ObservableObject
             var localDir = Path.Combine(WorkRoot, Sanitize(projectName), ep.Number.ToString("00"));
             Directory.CreateDirectory(localDir);
 
-            // Download source (dir or archive)
+            // Download source (dir or archive) — 若本地已有图片则跳过下载
             if (!string.IsNullOrWhiteSpace(ep.SourcePath))
             {
                 Progress = 10; ProgressText = "检查图源";
-        var meta = await fs.GetAsync(token, ep.SourcePath!, cancellationToken: ct);
+                // 若目录下已有任意图像文件，跳过远端下载
+                var hasImages = Directory.EnumerateFiles(localDir, "*", SearchOption.TopDirectoryOnly)
+                    .Any(f => IsImageExt(Path.GetExtension(f)));
+                if (!hasImages)
+                {
+                    var meta = await fs.GetAsync(token, ep.SourcePath!, cancellationToken: ct);
                 if (meta.Code == 200 && meta.Data is not null)
                 {
                     if (meta.Data.IsDir)
                     {
-            var list = await fs.ListAsync(token, ep.SourcePath!, cancellationToken: ct);
+                            var list = await fs.ListAsync(token, ep.SourcePath!, cancellationToken: ct);
                         var items = new List<(string remotePath, string localPath)>();
                         foreach (var it in list.Data?.Content ?? Array.Empty<FsItem>())
                         {
@@ -277,12 +282,18 @@ public partial class TeamWorkViewModel : ObservableObject
                     {
                         var name = Path.GetFileName(ep.SourcePath!);
                         var outPath = Path.Combine(localDir, name);
-                        ProgressText = "下载图源压缩包";
-                        await fs.DownloadToFileAsync(token, ep.SourcePath!, outPath, cancellationToken: ct);
-                        ProgressText = "解压图源"; Progress = 55;
-                        var bytes = await File.ReadAllBytesAsync(outPath);
-                        await TryExtractImagesAsync(bytes, name, localDir);
+                            // 若压缩包文件已存在且目录已有图片，也跳过
+                            var hasArchive = File.Exists(outPath);
+                            if (!hasArchive || !hasImages)
+                            {
+                                ProgressText = "下载图源压缩包";
+                                await fs.DownloadToFileAsync(token, ep.SourcePath!, outPath, cancellationToken: ct);
+                                ProgressText = "解压图源"; Progress = 55;
+                                var bytes = await File.ReadAllBytesAsync(outPath);
+                                await TryExtractImagesAsync(bytes, name, localDir);
+                            }
                     }
+                }
                 }
             }
 
@@ -349,22 +360,67 @@ public partial class TeamWorkViewModel : ObservableObject
             if (login is null) return;
             var (baseUrl, token) = login.Value;
             var fs = new FileSystemApi(baseUrl);
-            IsBusy = true; Progress = 0; ProgressText = "下载翻译";
+            IsBusy = true; Progress = 0; ProgressText = "准备校对";
             if (string.IsNullOrWhiteSpace(ep.TranslatePath)) { Status = "无翻译文件"; return; }
             var projectName = SelectedProject ?? "project";
             var localDir = Path.Combine(WorkRoot, Sanitize(projectName), ep.Number.ToString("00"));
             Directory.CreateDirectory(localDir);
+
+            // 若本地缺少图源，则按 SourcePath 下载一次
+            await EnsureLocalSourcesAsync(fs, token, ep.SourcePath, localDir, ct);
             var fileName = Path.GetFileName(ep.TranslatePath!);
+            // 如果远端已是 checked 文件，直接视为最终版
+            var remoteIsChecked = IsCheckedFileName(fileName);
+            var checkedName = remoteIsChecked ? fileName : MakeCheckedFileName(fileName);
             var localTxt = Path.Combine(localDir, fileName);
-            await fs.DownloadToFileAsync(token, ep.TranslatePath!, localTxt, cancellationToken: ct);
-
-            // Simulate proof: rename to *_checked.txt for upload
-            var checkedName = Path.GetFileNameWithoutExtension(fileName) + "_checked.txt";
             var checkedLocal = Path.Combine(localDir, checkedName);
-            File.Copy(localTxt, checkedLocal, true);
 
+            // 计算远端 checked 路径
             var remoteDir = Path.GetDirectoryName(ep.TranslatePath!)?.Replace('\\', '/');
             var remoteChecked = string.IsNullOrEmpty(remoteDir) ? checkedName : $"{remoteDir}/{checkedName}";
+
+            // 1) 如果远端已是 checked：优先使用远端checked；若本地已存在相同文件，直接打开；否则下载远端checked到本地
+            if (remoteIsChecked)
+            {
+                if (File.Exists(checkedLocal))
+                {
+                    Logger.Info("StartProof: remote already checked, open local checked {file}", checkedLocal);
+                }
+                else
+                {
+                    ProgressText = "下载校对";
+                    await fs.DownloadToFileAsync(token, ep.TranslatePath!, checkedLocal, cancellationToken: ct);
+                }
+                var sessionChecked = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = ep.TranslatePath!, Username = null };
+                Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, sessionChecked);
+                Progress = 100; ProgressText = "完成";
+                return;
+            }
+
+            // 2) 如果本地已有 checked 文件，直接打开本地，跳过下载与上传
+            if (File.Exists(checkedLocal))
+            {
+                Logger.Info("StartProof: local checked exists, skip download & upload. {file}", checkedLocal);
+                var session1 = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = remoteChecked, Username = null };
+                Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, session1);
+                Progress = 100; ProgressText = "完成";
+                return;
+            }
+
+            // 3) 若本地已有原翻译，则复制为 checked；否则从远端下载原翻译，再生成 checked
+            if (File.Exists(localTxt))
+            {
+                Logger.Info("StartProof: local translate exists, make checked copy. {file}", localTxt);
+                File.Copy(localTxt, checkedLocal, overwrite: true);
+            }
+            else
+            {
+                ProgressText = "下载翻译";
+                await fs.DownloadToFileAsync(token, ep.TranslatePath!, localTxt, cancellationToken: ct);
+                File.Copy(localTxt, checkedLocal, overwrite: true);
+            }
+
+            // 4) 上传 checked 并更新 JSON
             var put = await fs.SafePutAsync(token, remoteChecked, await File.ReadAllBytesAsync(checkedLocal), cancellationToken: ct);
             if (put.Code == 200)
             {
@@ -384,6 +440,49 @@ public partial class TeamWorkViewModel : ObservableObject
             ShowNotify("开始校对失败", ex.Message, NotificationType.Error);
         }
         finally { IsBusy = false; }
+    }
+
+    private async Task EnsureLocalSourcesAsync(FileSystemApi fs, string token, string? sourcePath, string localDir, CancellationToken ct)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath)) return;
+            var hasImages = Directory.EnumerateFiles(localDir, "*", SearchOption.TopDirectoryOnly)
+                .Any(f => IsImageExt(Path.GetExtension(f)));
+            if (hasImages) return;
+            ProgressText = "下载图源";
+            var meta = await fs.GetAsync(token, sourcePath!, cancellationToken: ct);
+            if (meta.Code == 200 && meta.Data is not null)
+            {
+                if (meta.Data.IsDir)
+                {
+                    var list = await fs.ListAsync(token, sourcePath!, cancellationToken: ct);
+                    var items = new List<(string remotePath, string localPath)>();
+                    foreach (var it in list.Data?.Content ?? Array.Empty<FsItem>())
+                    {
+                        if (it.IsDir) continue;
+                        var ext = Path.GetExtension(it.Name ?? string.Empty);
+                        if (!IsImageExt(ext)) continue;
+                        var r = sourcePath!.TrimEnd('/') + "/" + it.Name;
+                        var l = Path.Combine(localDir, it.Name!);
+                        items.Add((r, l));
+                    }
+                    await fs.DownloadManyToFilesAsync(token, items.Select(p => (p.remotePath, p.localPath)), maxConcurrency: 6, cancellationToken: ct);
+                }
+                else
+                {
+                    var name = Path.GetFileName(sourcePath!);
+                    var outPath = Path.Combine(localDir, name);
+                    await fs.DownloadToFileAsync(token, sourcePath!, outPath, cancellationToken: ct);
+                    var bytes = await File.ReadAllBytesAsync(outPath, ct);
+                    await TryExtractImagesAsync(bytes, name, localDir);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "EnsureLocalSources failed");
+        }
     }
 
     private async Task StartTypesetAsync(EpisodeItem? ep)
@@ -442,7 +541,57 @@ public partial class TeamWorkViewModel : ObservableObject
                 var name = Path.GetFileName(ep.TranslatePath!);
                 var outPath = Path.Combine(localDir, name);
                 ProgressText = "下载翻译";
-                await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
+                // 冲突保护：若本地已存在且与远端不同，则提示合并
+                if (File.Exists(outPath))
+                {
+                    try
+                    {
+                        var localTxt = await File.ReadAllTextAsync(outPath, Encoding.UTF8);
+                        var remoteRes = await fs.DownloadAsync(token, ep.TranslatePath!, ct);
+                        if (remoteRes.Code == 200 && remoteRes.Content is not null)
+                        {
+                            var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
+                            if (!string.Equals(localTxt, remoteTxt, StringComparison.Ordinal))
+                            {
+                                // 打开合并助手供用户选择，返回后再写入
+                                var win = Views.MainWindow.Instance;
+                                string? merged = null;
+                                if (win is not null)
+                                {
+                                    var dlg = new Views.Windows.MergeConflictWindow();
+                                    merged = await dlg.ShowAsync(win, remoteTxt, localTxt, name);
+                                }
+                                if (merged is not null)
+                                {
+                                    await File.WriteAllTextAsync(outPath, merged, Encoding.UTF8);
+                                }
+                                else
+                                {
+                                    // 用户取消合并：保留本地文件，不覆盖
+                                    Logger.Warn("Skip overwrite local translate due to unresolved conflict: {file}", outPath);
+                                }
+                            }
+                            else
+                            {
+                                // 内容一致，无需下载
+                            }
+                        }
+                        else
+                        {
+                            // 无法读取远端，按原逻辑尝试下载覆盖
+                            await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "Conflict check on download failed, fallback to overwrite.");
+                        await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
+                    }
+                }
+                else
+                {
+                    await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
+                }
             }
             // Open folder
             try
@@ -513,53 +662,41 @@ public partial class TeamWorkViewModel : ObservableObject
         await fs.SafePutAsync(token, ep.ProjectJsonPath!, Encoding.UTF8.GetBytes(jsonOut));
     }
 
-    // Extraction helpers using SharpCompress
+    private static bool IsCheckedFileName(string fileName)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(fileName) ?? string.Empty;
+        return baseName.EndsWith("_checked", StringComparison.OrdinalIgnoreCase) || baseName.EndsWith("checked", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string MakeCheckedFileName(string originalFileName)
+    {
+        var dir = Path.GetDirectoryName(originalFileName);
+        var nameNoExt = Path.GetFileNameWithoutExtension(originalFileName) ?? string.Empty;
+        var ext = Path.GetExtension(originalFileName);
+        // 避免重复追加
+        if (!nameNoExt.EndsWith("_checked", StringComparison.OrdinalIgnoreCase))
+            nameNoExt += "_checked";
+        var finalName = nameNoExt + (string.IsNullOrEmpty(ext) ? ".txt" : ext);
+        return string.IsNullOrEmpty(dir) ? finalName : Path.Combine(dir, finalName);
+    }
+
+    // Extraction helpers using SharpCompress — run heavy work on background threads to avoid UI stalls
     private static async Task TryExtractImagesAsync(byte[] archiveBytes, string fileName, string extractDir)
     {
-        try
-        {
-            Directory.CreateDirectory(extractDir);
-            await using var ms = new MemoryStream(archiveBytes);
-            SC.IArchive? archive = null;
-            if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) archive = SCZip.ZipArchive.Open(ms);
-            else if (fileName.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)) archive = SCRar.RarArchive.Open(ms);
-            else if (fileName.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".7zip", StringComparison.OrdinalIgnoreCase)) archive = SC7z.SevenZipArchive.Open(ms);
-            if (archive is null) return;
-            foreach (var entry in archive.Entries)
-            {
-                if (entry.IsDirectory) continue;
-                var key = entry.Key;
-                if (string.IsNullOrEmpty(key)) continue;
-                var ext = Path.GetExtension(key);
-                if (ext is null || !IsImageExt(ext)) continue;
-                // Flatten: place all images directly under extractDir
-                var baseName = Path.GetFileName(key);
-                var outPath = Path.Combine(extractDir, baseName);
-                // Avoid collisions by appending index
-                if (File.Exists(outPath))
-                {
-                    var name = Path.GetFileNameWithoutExtension(baseName);
-                    var i = 1;
-                    while (File.Exists(outPath = Path.Combine(extractDir, $"{name}_{i}{ext}"))) i++;
-                }
-                await using var outStream = File.Create(outPath);
-                await using var inStream = entry.OpenEntryStream();
-                if (inStream is not null)
-                    await inStream.CopyToAsync(outStream);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "Extract images failed for {file}", fileName);
-        }
+        await Task.Run(() => ExtractArchiveCore(archiveBytes, fileName, extractDir, imagesOnly: true));
     }
 
     private static async Task TryExtractAllAsync(byte[] archiveBytes, string fileName, string extractDir)
     {
+        await Task.Run(() => ExtractArchiveCore(archiveBytes, fileName, extractDir, imagesOnly: false));
+    }
+
+    private static void ExtractArchiveCore(byte[] archiveBytes, string fileName, string extractDir, bool imagesOnly)
+    {
         try
         {
             Directory.CreateDirectory(extractDir);
-            await using var ms = new MemoryStream(archiveBytes);
+            using var ms = new MemoryStream(archiveBytes);
             SC.IArchive? archive = null;
             if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) archive = SCZip.ZipArchive.Open(ms);
             else if (fileName.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)) archive = SCRar.RarArchive.Open(ms);
@@ -570,17 +707,41 @@ public partial class TeamWorkViewModel : ObservableObject
                 if (entry.IsDirectory) continue;
                 var key = entry.Key;
                 if (string.IsNullOrEmpty(key)) continue;
-                var outPath = Path.Combine(extractDir, key.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
-                await using var outStream = File.Create(outPath);
-                await using var inStream = entry.OpenEntryStream();
-                if (inStream is not null)
-                    await inStream.CopyToAsync(outStream);
+                var outPath = imagesOnly
+                    ? Path.Combine(extractDir, Path.GetFileName(key))
+                    : Path.Combine(extractDir, key.Replace('/', Path.DirectorySeparatorChar));
+
+                if (imagesOnly)
+                {
+                    var ext = Path.GetExtension(key);
+                    if (ext is null || !IsImageExt(ext)) continue;
+                    // Avoid collisions by appending index
+                    if (File.Exists(outPath))
+                    {
+                        var baseName = Path.GetFileNameWithoutExtension(outPath);
+                        var ext2 = Path.GetExtension(outPath);
+                        var i = 1;
+                        string tryPath;
+                        do { tryPath = Path.Combine(extractDir, $"{baseName}_{i}{ext2}"); i++; }
+                        while (File.Exists(tryPath));
+                        outPath = tryPath;
+                    }
+                }
+                else
+                {
+                    var dir = Path.GetDirectoryName(outPath);
+                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                }
+
+                using var outStream = File.Create(outPath);
+                using var inStream = entry.OpenEntryStream();
+                inStream?.CopyTo(outStream);
             }
         }
         catch (Exception ex)
         {
-            Logger.Warn(ex, "Extract all failed for {file}", fileName);
+            if (imagesOnly) Logger.Warn(ex, "Extract images failed for {file}", fileName);
+            else Logger.Warn(ex, "Extract all failed for {file}", fileName);
         }
     }
 

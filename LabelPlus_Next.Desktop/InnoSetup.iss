@@ -28,7 +28,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 ; Run installer without elevation (current user only)
 PrivilegesRequired=lowest
-SetupIconFile=C:\Users\18112\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\LabelPlus_Next_rounded_icon_transparent.ico
+SetupIconFile=C:\Users\SeaStar\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\LabelPlus_Next_rounded_icon_transparent.ico
 SolidCompression=yes
 WizardStyle=modern
 
@@ -41,9 +41,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Include all files from publish\win-x64 recursively
-Source: "C:\Users\18112\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\bin\Release\net9.0\win-x64\publish\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\SeaStar\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\bin\Release\net9.0\win-x64\publish\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Bundle .NET installer
-Source: "C:\Users\18112\Downloads\dotnet-sdk-9.0.304-win-x64.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\SeaStar\Downloads\dotnet-sdk-9.0.304-win-x64.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

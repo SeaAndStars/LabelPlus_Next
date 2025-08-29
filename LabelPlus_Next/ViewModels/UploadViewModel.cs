@@ -76,6 +76,11 @@ public partial class UploadViewModel : ObservableObject
     }
     public bool HasDuplicates { get; private set; }
 
+    // Tankobon (single-volume) fallback flags
+    [ObservableProperty] private bool isTankobonFallback;
+    [ObservableProperty] private int? tankobonVolumeNumber; // when detected from folder name, e.g., Vol 2 -> 2
+    [ObservableProperty] private bool tankobonAcknowledged;
+
     public static string UploadSettingsPath
     {
         get => Path.Combine(AppContext.BaseDirectory, "upload.json");
@@ -138,10 +143,12 @@ public partial class UploadViewModel : ObservableObject
         try
         {
             // Prepare episodes from local folder and open metadata window
-            var episodes = ScanEpisodes(folder);
+            var episodes = ScanEpisodes(folder, out var isTanko, out var volNum);
             PendingEpisodes.Clear();
             foreach (var e in episodes.OrderByDescending(e => e.Number)) PendingEpisodes.Add(e);
             HasDuplicates = false; // duplicates will be handled inside UploadPendingAsync merge stage
+            IsTankobonFallback = isTanko;
+            TankobonVolumeNumber = volNum;
             MetadataReady?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
@@ -284,7 +291,9 @@ public partial class UploadViewModel : ObservableObject
                     ? path
                     : $"/{projectName}/{projectName}_project.json";
                 var existingEpisodeNums = await GetExistingEpisodeNumbersAsync(fsApi, token, projectJsonPath);
-                var episodes = ScanEpisodes(folder);
+                var episodes = ScanEpisodes(folder, out var isTankoSingle, out var volNumSingle);
+                IsTankobonFallback = isTankoSingle;
+                TankobonVolumeNumber = volNumSingle;
                 HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                 if (HasDuplicates)
                 {
@@ -314,7 +323,7 @@ public partial class UploadViewModel : ObservableObject
                         ? path
                         : $"/{projectName}/{projectName}_project.json";
                     var existingEpisodeNums = await GetExistingEpisodeNumbersAsync(fsApi, token, projectJsonPath);
-                    var episodes = ScanEpisodes(folder).OrderByDescending(e => e.Number).ToList();
+                    var episodes = ScanEpisodes(folder, out var isTanko, out var volNum).OrderByDescending(e => e.Number).ToList();
                     var dup = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                     if (dup)
                     {
@@ -331,6 +340,8 @@ public partial class UploadViewModel : ObservableObject
                     vm.PendingEpisodes.Clear();
                     foreach (var e in episodes) vm.PendingEpisodes.Add(e);
                     vm.HasDuplicates = false;
+                    vm.IsTankobonFallback = isTanko;
+                    vm.TankobonVolumeNumber = volNum;
                     list.Add(vm);
                 }
                 catch (Exception ex)
@@ -406,8 +417,10 @@ public partial class UploadViewModel : ObservableObject
 
     private static string PickHigherStatus(string a, string b) => StatusRank(b) > StatusRank(a) ? b : a;
 
-    private static List<EpisodeEntry> ScanEpisodes(string localDir)
+    private static List<EpisodeEntry> ScanEpisodes(string localDir, out bool tankobonFallback, out int? tankobonVolumeNumber)
     {
+        tankobonFallback = false;
+        tankobonVolumeNumber = null;
         var archives = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".7z", ".rar" };
         var allEntries = Directory.EnumerateFileSystemEntries(localDir, "*", SearchOption.TopDirectoryOnly).ToList();
 
@@ -490,6 +503,36 @@ public partial class UploadViewModel : ObservableObject
             Logger.Warn(ex, "ScanEpisodes: txt pass failed");
         }
 
+        // Tankobon fallback: if nothing parsed OR root hints single-volume, treat as 单行本（1卷）
+    try
+        {
+            var rootName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (map.Count == 0 || IsTankobonName(rootName))
+            {
+                var files = Directory.EnumerateFiles(localDir, "*", SearchOption.AllDirectories).ToList();
+                if (files.Count > 0)
+                {
+                    var hasPsd = files.Any(f => string.Equals(Path.GetExtension(f), ".psd", StringComparison.OrdinalIgnoreCase));
+                    var hasTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase));
+                    var hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
+                                                     ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "校队", "校对" }));
+                    var status = hasPsd ? "嵌字" : hasCheckTxt ? "校对" : hasTxt ? "翻译" : "立项";
+            // Try detect volume number from folder name; else default 1
+            var vol = TryParseEpisodeNumber(rootName, out var n1) && n1 > 0 ? n1 : 1;
+            var ep = new EpisodeEntry { Number = vol, Status = status };
+                    ep.LocalFiles.AddRange(files);
+            map[vol] = ep;
+            tankobonFallback = true;
+            tankobonVolumeNumber = vol;
+            Logger.Info("ScanEpisodes: fallback to tankobon (vol={vol}) with {count} files", vol, files.Count);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "ScanEpisodes: tankobon fallback failed");
+        }
+
         Logger.Debug("ScanEpisodes: merged into {count} episodes", map.Count);
         return map.Values.ToList();
     }
@@ -516,6 +559,13 @@ public partial class UploadViewModel : ObservableObject
                 return true;
         }
         return false;
+    }
+
+    private static bool IsTankobonName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        var needles = new[] { "单行本", "單行本", "tankobon", "tankoubon", "volume", "vol", "合集", "総集編", "总集篇", "总集编" };
+        return ContainsAny(name, needles);
     }
 
     private static bool TryParseEpisodeNumber(string name, out int number)
@@ -668,6 +718,21 @@ public partial class UploadViewModel : ObservableObject
                 Status = message;
                 CurrentUploadingPath = path;
                 UploadCompleted = Math.Min(UploadCompleted + 1, UploadTotal);
+            }
+
+            // Confirm single-volume fallback (tankobon) if detected
+            if (IsTankobonFallback && !TankobonAcknowledged)
+            {
+                var volNum = TankobonVolumeNumber.GetValueOrDefault(1);
+                var keyPreview = volNum.ToString("00");
+                var msg = $"检测到‘单行本回退模式’：将把整个目录当作卷 {volNum} 上传，并在项目 JSON 中写入键名 {keyPreview}。\n是否继续？";
+                var confirm = await MessageBox.ShowAsync(msg, "单行本回退模式", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    Status = "已取消（单行本回退模式）";
+                    return false;
+                }
+                TankobonAcknowledged = true;
             }
 
             Status = "登录中...";
@@ -868,7 +933,10 @@ public partial class UploadViewModel : ObservableObject
             foreach (var ep in toUpload)
             {
                 resultMap.TryGetValue(ep.Number, out var pmap);
-                var key = ep.Number.ToString("00");
+                var useNum = IsTankobonFallback && TankobonVolumeNumber.HasValue && TankobonVolumeNumber.Value > 0
+                    ? TankobonVolumeNumber.Value
+                    : ep.Number;
+                var key = useNum.ToString("00");
                 cn.Items[key] = new EpisodeCn { Status = ep.Status, SourcePath = pmap.source, TranslatePath = pmap.translate, TypesetPath = pmap.typeset };
             }
             cn.Items = cn.Items.OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0).ToDictionary(k => k.Key, v => v.Value);

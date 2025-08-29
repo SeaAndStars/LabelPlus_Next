@@ -2,10 +2,11 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using LabelPlus_Next.ViewModels;
 using System.ComponentModel;
+using Ursa.Controls;
 
 namespace LabelPlus_Next.Views.Windows;
 
-public partial class MergeConflictWindow : Window
+public partial class MergeConflictWindow : UrsaWindow
 {
     public MergeConflictWindow()
     {
@@ -46,15 +47,20 @@ public partial class MergeConflictWindow : Window
 
     private void TrySelectAndScroll(MergeConflictViewModel vm)
     {
-        // 确保控件已经加载
-        if (this.FindControl<TextBox>("MergedTextBox") is { } tb)
+        // 只读模式：通过字符位置粗略滚动到冲突区域（按比例近似）
+        var tb = this.FindControl<TextBlock>("MergedTextBlock");
+        var sv = this.FindControl<ScrollViewer>("MergedScroll");
+        if (tb is null || sv is null) return;
+        var text = tb.Text ?? string.Empty;
+        var pos = Math.Max(0, Math.Min(vm.CurrentStart + vm.CurrentLength / 2, text.Length));
+        double ratio = text.Length > 0 ? (double)pos / text.Length : 0.0;
+        // 等布局完成后滚动
+        Dispatcher.UIThread.Post(() =>
         {
-            var start = Math.Max(0, Math.Min(vm.CurrentStart, (tb.Text ?? string.Empty).Length));
-            var length = Math.Max(0, Math.Min(vm.CurrentLength, Math.Max(0, (tb.Text ?? string.Empty).Length - start)));
-            tb.SelectionStart = start;
-            tb.SelectionEnd = start + length;
-            // 延迟调度，等待布局完成后再滚动
-            Dispatcher.UIThread.Post(() => tb.CaretIndex = tb.SelectionEnd);
-        }
+            var extent = sv.Extent.Height;
+            var viewport = sv.Viewport.Height;
+            var target = Math.Max(0, extent * ratio - viewport * 0.3);
+            sv.Offset = new Avalonia.Vector(sv.Offset.X, target);
+        });
     }
 }

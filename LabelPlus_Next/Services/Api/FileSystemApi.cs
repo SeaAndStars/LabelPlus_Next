@@ -212,17 +212,32 @@ public sealed class FileSystemApi : IFileSystemApi
         try
         {
             using var http = new HttpClient();
+            // 尝试不带鉴权，强制非压缩
             using (var req = new HttpRequestMessage(HttpMethod.Get, url))
-            using (var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
             {
+                req.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
+                using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 if (resp.IsSuccessStatusCode)
                 {
                     var bytesOk = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
-                    Logger.Info("DownloadAsync ok size={size}", bytesOk.Length);
+                    Logger.Info("DownloadAsync ok(size={size}) no-auth", bytesOk.Length);
                     return new DownloadResult { Code = 200, Content = bytesOk };
                 }
-                Logger.Warn("DownloadAsync fail http={code} reason={reason}", (int)resp.StatusCode, resp.ReasonPhrase);
-                return new DownloadResult { Code = (int)resp.StatusCode, Message = resp.ReasonPhrase ?? "Request failed" };
+            }
+            // 失败则携带 Authorization 重试
+            using (var req2 = new HttpRequestMessage(HttpMethod.Get, url))
+            {
+                req2.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
+                req2.Headers.TryAddWithoutValidation("Authorization", token);
+                using var resp2 = await http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                if (resp2.IsSuccessStatusCode)
+                {
+                    var bytesOk2 = await resp2.Content.ReadAsByteArrayAsync(cancellationToken);
+                    Logger.Info("DownloadAsync ok(size={size}) with-auth", bytesOk2.Length);
+                    return new DownloadResult { Code = 200, Content = bytesOk2 };
+                }
+                Logger.Warn("DownloadAsync fail http={code} reason={reason}", (int)resp2.StatusCode, resp2.ReasonPhrase);
+                return new DownloadResult { Code = (int)resp2.StatusCode, Message = resp2.ReasonPhrase ?? "Request failed" };
             }
         }
         catch (HttpRequestException hex)
@@ -289,17 +304,29 @@ public sealed class FileSystemApi : IFileSystemApi
             return new DownloadResult { Code = -1, Message = "raw_url not available" };
         }
 
+        // 优先使用 DownloadAsync（强制非压缩 + 可带鉴权），写入文件
+        var res = await DownloadAsync(token, filePath, cancellationToken);
+        if (res.Code == 200 && res.Content is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+            await File.WriteAllBytesAsync(localPath, res.Content, cancellationToken);
+            Logger.Info("DownloadToFile ok -> {local}", localPath);
+            return new DownloadResult { Code = 200 };
+        }
+
+        // 回退到下载服务（也携带鉴权与非压缩）
         try
         {
-            var cfg = BuildDownloadConfig(config, false, token);
+            var cfg = BuildDownloadConfig(config, true, token);
+            cfg.RequestConfiguration.Headers["Accept-Encoding"] = "identity";
             var service = new DownloadService(cfg);
             await service.DownloadFileTaskAsync(url, localPath);
-            Logger.Info("DownloadToFile ok -> {local}", localPath);
+            Logger.Info("DownloadToFile(ok via fallback) -> {local}", localPath);
             return new DownloadResult { Code = 200 };
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "DownloadToFile exception");
+            Logger.Error(ex, "DownloadToFile exception(fallback)");
             return new DownloadResult { Code = -1, Message = ex.Message };
         }
     }

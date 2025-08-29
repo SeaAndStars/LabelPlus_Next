@@ -1,5 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -13,15 +16,49 @@ public partial class MergeConflictViewModel : ObservableObject
     [ObservableProperty] private string localText = string.Empty;
     [ObservableProperty] private string mergedText = string.Empty;
     [ObservableProperty] private string conflictStatus = string.Empty;
-    // 当前冲突在合并文本中的字符起始与长度，用于视图选择与滚动
-    [ObservableProperty] private int currentStart;
-    [ObservableProperty] private int currentLength;
+    // 结构化冲突视图
+    public enum ChoiceOption { None, Remote, Local }
+    public partial class ConflictItem : ObservableObject
+    {
+        [ObservableProperty] private int index;
+        [ObservableProperty] private string remote = string.Empty;
+        [ObservableProperty] private string local = string.Empty;
+        [ObservableProperty] private ChoiceOption choice;
+    public MergeConflictViewModel? Owner { get; set; }
+    [RelayCommand] private void ChooseRemoteSelf() { Choice = ChoiceOption.Remote; Owner?.OnItemChoiceChanged(this); }
+    [RelayCommand] private void ChooseLocalSelf() { Choice = ChoiceOption.Local; Owner?.OnItemChoiceChanged(this); }
+    public string Summary => (Remote ?? string.Empty).Split('\n').FirstOrDefault()?.Trim() ?? string.Empty;
+    public int RemoteLines => string.IsNullOrEmpty(Remote) ? 0 : Remote.Split('\n').Length;
+    public int LocalLines => string.IsNullOrEmpty(Local) ? 0 : Local.Split('\n').Length;
+    }
+    [ObservableProperty] private ObservableCollection<ConflictItem> conflicts = new();
+    [ObservableProperty] private int selectedConflictIndex;
+    [ObservableProperty] private ConflictItem? selectedConflictItem;
+
+    partial void OnSelectedConflictIndexChanged(int value)
+    {
+        if (value >= 0)
+        {
+            _currentConflict = value + 1; // 与列表同步（列表0基，状态1基）
+            UpdateConflictsStatus();
+            if (value < Conflicts.Count) SelectedConflictItem = Conflicts[value];
+        }
+    }
 
     private const string StartMarker = "<<<<<<< REMOTE";
     private const string MidMarker = "=======";
     private const string EndMarker = ">>>>>>> LOCAL";
-    private int _currentConflict = 0;
+    private int _currentConflict = 0; // 1-based
     private int _totalConflicts = 0;
+
+    private readonly List<DiffSegment> _segments = new();
+    private class DiffSegment
+    {
+        public bool IsConflict { get; init; }
+        public string? Text { get; init; } // for non-conflict
+        public string? Remote { get; init; } // for conflict
+        public string? Local { get; init; } // for conflict
+    }
 
     public event EventHandler<string?>? RequestClose;
 
@@ -32,16 +69,39 @@ public partial class MergeConflictViewModel : ObservableObject
         remoteText = remote;
         localText = local;
         BuildDiff();
+        // 如果没有检测到任何冲突但文本不同，强制生成一个整体冲突块，避免“看不到冲突”的困惑
+        if (_totalConflicts == 0 && !string.Equals(NormalizeNewLines(remoteText), NormalizeNewLines(localText), StringComparison.Ordinal))
+        {
+            var force = $"{StartMarker}\n{NormalizeNewLines(remoteText)}\n{MidMarker}\n{NormalizeNewLines(localText)}\n{EndMarker}\n";
+            MergedText = force;
+            UpdateConflictsStatus();
+        }
+    }
+
+    // 为兼容窗口选择与滚动，保留字符范围（基于合并文本中的标记计算）
+    [ObservableProperty] private int currentStart;
+    [ObservableProperty] private int currentLength;
+
+    [RelayCommand]
+    private void UseRemote()
+    {
+        foreach (var c in Conflicts) c.Choice = ChoiceOption.Remote;
+        RebuildMergedFromSegments();
     }
 
     [RelayCommand]
-    private void UseRemote() => MergedText = RemoteText;
+    private void UseLocal()
+    {
+        foreach (var c in Conflicts) c.Choice = ChoiceOption.Local;
+        RebuildMergedFromSegments();
+    }
 
     [RelayCommand]
-    private void UseLocal() => MergedText = LocalText;
-
-    [RelayCommand]
-    private void SaveMerged() => RequestClose?.Invoke(this, MergedText);
+    private void SaveMerged()
+    {
+        RebuildMergedFromSegments();
+        RequestClose?.Invoke(this, MergedText);
+    }
 
     [RelayCommand]
     private void Cancel() => RequestClose?.Invoke(this, null);
@@ -49,8 +109,9 @@ public partial class MergeConflictViewModel : ObservableObject
     [RelayCommand]
     private void BuildDiff()
     {
-        var merged = BuildMergedWithMarkers(RemoteText ?? string.Empty, LocalText ?? string.Empty);
-        MergedText = merged;
+        BuildSegments(RemoteText ?? string.Empty, LocalText ?? string.Empty);
+        BuildConflictItems();
+        RebuildMergedFromSegments();
         UpdateConflictsStatus();
     }
 
@@ -59,6 +120,7 @@ public partial class MergeConflictViewModel : ObservableObject
     {
         if (_totalConflicts == 0) return;
         _currentConflict = Math.Min(_currentConflict + 1, _totalConflicts);
+        SelectedConflictIndex = Math.Max(0, _currentConflict - 1);
         UpdateConflictsStatus();
     }
 
@@ -67,20 +129,23 @@ public partial class MergeConflictViewModel : ObservableObject
     {
         if (_totalConflicts == 0) return;
         _currentConflict = Math.Max(_currentConflict - 1, 1);
+        SelectedConflictIndex = Math.Max(0, _currentConflict - 1);
         UpdateConflictsStatus();
     }
 
     [RelayCommand]
     private void AcceptAllRemote()
     {
-        MergedText = ApplyAll(MergedText, keepRemote: true);
+        foreach (var c in Conflicts) c.Choice = ChoiceOption.Remote;
+        RebuildMergedFromSegments();
         UpdateConflictsStatus();
     }
 
     [RelayCommand]
     private void AcceptAllLocal()
     {
-        MergedText = ApplyAll(MergedText, keepRemote: false);
+        foreach (var c in Conflicts) c.Choice = ChoiceOption.Local;
+        RebuildMergedFromSegments();
         UpdateConflictsStatus();
     }
 
@@ -93,18 +158,16 @@ public partial class MergeConflictViewModel : ObservableObject
     private void AcceptCurrent(bool keepRemote)
     {
         if (_totalConflicts == 0 || _currentConflict < 1) return;
-        MergedText = ApplyNth(MergedText, _currentConflict, keepRemote);
-        // After resolving current, conflict count might reduce; keep index within range
-        var (cnt, _) = CountConflicts(MergedText);
-        _totalConflicts = cnt;
-        if (_totalConflicts == 0) _currentConflict = 0; else _currentConflict = Math.Min(_currentConflict, _totalConflicts);
+        var idx = Math.Max(0, _currentConflict - 1);
+        if (idx >= Conflicts.Count) return;
+        Conflicts[idx].Choice = keepRemote ? ChoiceOption.Remote : ChoiceOption.Local;
+        RebuildMergedFromSegments();
         UpdateConflictsStatus();
     }
 
     private void UpdateConflictsStatus()
     {
-        var (cnt, _) = CountConflicts(MergedText);
-        _totalConflicts = cnt;
+        _totalConflicts = Conflicts.Count;
         if (_totalConflicts == 0)
         {
             _currentConflict = 0;
@@ -115,8 +178,9 @@ public partial class MergeConflictViewModel : ObservableObject
         else
         {
             if (_currentConflict < 1) _currentConflict = 1;
-            ConflictStatus = $"冲突 {_currentConflict}/{_totalConflicts}";
-            // 计算当前冲突的选择范围
+            _currentConflict = Math.Clamp(_currentConflict, 1, _totalConflicts);
+            var chosen = Conflicts.Count(c => c.Choice != ChoiceOption.None);
+            ConflictStatus = $"冲突 {_currentConflict}/{_totalConflicts}，已选择 {chosen}/{_totalConflicts}";
             var (start, length) = GetConflictRange(MergedText, _currentConflict);
             CurrentStart = start;
             CurrentLength = length;
@@ -125,8 +189,9 @@ public partial class MergeConflictViewModel : ObservableObject
 
     private static string NormalizeNewLines(string s) => s.Replace("\r\n", "\n").Replace('\r', '\n');
 
-    private static string BuildMergedWithMarkers(string remote, string local)
+    private void BuildSegments(string remote, string local)
     {
+        _segments.Clear();
         var a = NormalizeNewLines(remote).Split('\n');
         var b = NormalizeNewLines(local).Split('\n');
         int n = a.Length, m = b.Length;
@@ -135,51 +200,111 @@ public partial class MergeConflictViewModel : ObservableObject
             for (int j = m - 1; j >= 0; j--)
                 lcs[i, j] = a[i] == b[j] ? lcs[i + 1, j + 1] + 1 : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
 
-        var sb = new System.Text.StringBuilder();
         int ia = 0, ib = 0;
         while (ia < n && ib < m)
         {
             if (a[ia] == b[ib])
             {
-                sb.Append(a[ia]).Append('\n');
+                _segments.Add(new DiffSegment { IsConflict = false, Text = a[ia] + "\n" });
                 ia++; ib++;
             }
             else
             {
-                // gather differing block
                 int sa = ia, sbj = ib;
                 while (ia < n && ib < m && a[ia] != b[ib])
                 {
-                    // advance the side with larger lcs ahead
                     if (lcs[ia + 1, ib] >= lcs[ia, ib + 1]) ia++; else ib++;
                 }
                 var remoteChunk = string.Join('\n', a[sa..ia]);
                 var localChunk = string.Join('\n', b[sbj..ib]);
                 if (remoteChunk.Length > 0 || localChunk.Length > 0)
                 {
-                    sb.AppendLine(StartMarker);
-                    if (remoteChunk.Length > 0) sb.Append(remoteChunk).Append('\n');
-                    sb.AppendLine(MidMarker);
-                    if (localChunk.Length > 0) sb.Append(localChunk).Append('\n');
-                    sb.AppendLine(EndMarker);
+                    if (!string.IsNullOrEmpty(remoteChunk)) remoteChunk += "\n";
+                    if (!string.IsNullOrEmpty(localChunk)) localChunk += "\n";
+                    _segments.Add(new DiffSegment { IsConflict = true, Remote = remoteChunk, Local = localChunk });
                 }
             }
         }
-        // tail
         if (ia < n || ib < m)
         {
             var remoteTail = string.Join('\n', a[ia..n]);
             var localTail = string.Join('\n', b[ib..m]);
             if (remoteTail.Length > 0 || localTail.Length > 0)
             {
-                sb.AppendLine(StartMarker);
-                if (remoteTail.Length > 0) sb.Append(remoteTail).Append('\n');
-                sb.AppendLine(MidMarker);
-                if (localTail.Length > 0) sb.Append(localTail).Append('\n');
-                sb.AppendLine(EndMarker);
+                if (!string.IsNullOrEmpty(remoteTail)) remoteTail += "\n";
+                if (!string.IsNullOrEmpty(localTail)) localTail += "\n";
+                _segments.Add(new DiffSegment { IsConflict = true, Remote = remoteTail, Local = localTail });
             }
         }
-        return sb.ToString();
+    }
+
+    private void BuildConflictItems()
+    {
+        Conflicts.Clear();
+        int idx = 1;
+        foreach (var s in _segments)
+        {
+            if (!s.IsConflict) continue;
+            Conflicts.Add(new ConflictItem { Index = idx++, Remote = s.Remote ?? string.Empty, Local = s.Local ?? string.Empty, Choice = ChoiceOption.None, Owner = this });
+        }
+        _totalConflicts = Conflicts.Count;
+        _currentConflict = _totalConflicts > 0 ? 1 : 0;
+        SelectedConflictIndex = _currentConflict > 0 ? 0 : -1;
+    }
+
+    internal void OnItemChoiceChanged(ConflictItem _)
+    {
+        RebuildMergedFromSegments();
+        UpdateConflictsStatus();
+    }
+
+    private void RebuildMergedFromSegments()
+    {
+        var sb = new System.Text.StringBuilder();
+        int conflictIdx = 0;
+        foreach (var s in _segments)
+        {
+            if (!s.IsConflict)
+            {
+                sb.Append(s.Text);
+            }
+            else
+            {
+                var item = conflictIdx < Conflicts.Count ? Conflicts[conflictIdx] : null;
+                conflictIdx++;
+                if (item is null || item.Choice == ChoiceOption.None)
+                {
+                    sb.AppendLine(StartMarker);
+                    if (!string.IsNullOrEmpty(s.Remote)) sb.Append(s.Remote);
+                    sb.AppendLine(MidMarker);
+                    if (!string.IsNullOrEmpty(s.Local)) sb.Append(s.Local);
+                    sb.AppendLine(EndMarker);
+                }
+                else
+                {
+                    sb.Append(item.Choice == ChoiceOption.Remote ? s.Remote : s.Local);
+                }
+            }
+        }
+        MergedText = sb.ToString();
+    }
+
+    [RelayCommand]
+    private void ChooseRemote(ConflictItem item)
+    {
+        if (item is null) return;
+        item.Choice = ChoiceOption.Remote;
+        RebuildMergedFromSegments();
+        UpdateConflictsStatus();
+    }
+
+    [RelayCommand]
+    private void ChooseLocal(ConflictItem item)
+    {
+        if (item is null) return;
+        item.Choice = ChoiceOption.Local;
+        RebuildMergedFromSegments();
+        UpdateConflictsStatus();
     }
 
     private static (int count, List<int> positions) CountConflicts(string text)
