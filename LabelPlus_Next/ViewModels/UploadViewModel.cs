@@ -1134,9 +1134,17 @@ public partial class UploadViewModel : ObservableObject
                     }
                     var name = Path.GetFileName(file);
                     var remote = epDir + name;
-                    var content = await File.ReadAllBytesAsync(file);
-                    items.Add(new FileUploadItem { FilePath = remote, Content = content });
+                    // 大文件走 LocalPath 流式上传；极小文本（如 .txt 元数据）直接读取为字节
                     var ext = Path.GetExtension(name);
+                    if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var content = await File.ReadAllBytesAsync(file);
+                        items.Add(new FileUploadItem { FilePath = remote, Content = content, LocalPath = null });
+                    }
+                    else
+                    {
+                        items.Add(new FileUploadItem { FilePath = remote, LocalPath = file, Content = Array.Empty<byte>() });
+                    }
                     if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase) || ext.Equals(".7z", StringComparison.OrdinalIgnoreCase) || ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
                         sourcePath ??= remote;
                     else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))

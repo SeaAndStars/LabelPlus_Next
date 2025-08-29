@@ -129,6 +129,11 @@ public sealed class FileUploadItem
     ///     文件字节内容。
     /// </summary>
     public byte[] Content { get; set; } = Array.Empty<byte>();
+    
+    /// <summary>
+    ///     本地文件路径（优先使用，若存在则采用流式上传，避免将文件整段读入内存）。
+    /// </summary>
+    public string? LocalPath { get; set; }
 }
 
 /// <summary>

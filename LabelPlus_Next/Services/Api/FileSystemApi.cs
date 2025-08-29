@@ -17,6 +17,7 @@ public sealed class FileSystemApi : IFileSystemApi
     private readonly string _baseUrl;
 
     private readonly RestClient _client;
+    private readonly HttpClient _http;
 
     public FileSystemApi(string baseUrl)
     {
@@ -28,6 +29,20 @@ public sealed class FileSystemApi : IFileSystemApi
             // 使用无限超时，避免后续 REST 接口在慢网络或大数据时被中断
             Timeout = Timeout.InfiniteTimeSpan
         });
+        // 复用连接的 HttpClient，禁用 100-continue，提升吞吐
+        var handler = new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.None,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+            MaxConnectionsPerServer = 100
+        };
+        _http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(_baseUrl),
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+        _http.DefaultRequestHeaders.ExpectContinue = false;
         Logger.Info("FileSystemApi created for {base}", _baseUrl);
     }
 
@@ -141,12 +156,9 @@ public sealed class FileSystemApi : IFileSystemApi
                 if (!string.IsNullOrWhiteSpace(raw))
                 {
                     byte[] oldBytes;
-                    using (var http = new HttpClient())
+                    using (var req1 = new HttpRequestMessage(HttpMethod.Get, raw))
                     {
-                        // 永不超时，避免大文件或慢速网络导致默认 100 秒超时
-                        http.Timeout = Timeout.InfiniteTimeSpan;
-                        using var req1 = new HttpRequestMessage(HttpMethod.Get, raw);
-                        using var resp1 = await http.SendAsync(req1, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        using var resp1 = await _http.SendAsync(req1, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                         if (resp1.IsSuccessStatusCode)
                         {
                             oldBytes = await resp1.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -155,7 +167,7 @@ public sealed class FileSystemApi : IFileSystemApi
                         {
                             using var req2 = new HttpRequestMessage(HttpMethod.Get, raw);
                             req2.Headers.TryAddWithoutValidation("Authorization", token);
-                            using var resp2 = await http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                            using var resp2 = await _http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                             resp2.EnsureSuccessStatusCode();
                             oldBytes = await resp2.Content.ReadAsByteArrayAsync(cancellationToken);
                         }
@@ -167,7 +179,7 @@ public sealed class FileSystemApi : IFileSystemApi
                     var backupPath = CombinePath(dir, backupName);
 
                     Logger.Info("SafePut backup -> {backup}", backupPath);
-                    await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken);
+                    await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken, null);
                 }
                 else
                 {
@@ -180,7 +192,7 @@ public sealed class FileSystemApi : IFileSystemApi
             Logger.Warn(ex, "SafePut pre-backup failed for {file}", filePath);
         }
 
-    var res = await PutRawAsync(token, filePath, content, asTask, null, 0, 0, cancellationToken);
+    var res = await PutRawAsync(token, filePath, content, asTask, null, 0, 0, cancellationToken, null);
         Logger.Info("SafePut completed {file} -> code={code}", filePath, res.Code);
         return res;
     }
@@ -199,11 +211,8 @@ public sealed class FileSystemApi : IFileSystemApi
                 {
                     try
                     {
-                        using var http = new HttpClient();
-                        // 永不超时，避免备份旧文件时大文件下载被 100 秒限制中断
-                        http.Timeout = Timeout.InfiniteTimeSpan;
                         using var req = new HttpRequestMessage(HttpMethod.Get, raw);
-                        using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                         if (resp.IsSuccessStatusCode)
                         {
                             var oldBytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -213,7 +222,7 @@ public sealed class FileSystemApi : IFileSystemApi
                             var backupPath = CombinePath(dir, backupName);
                             Logger.Info("SafePut backup -> {backup}", backupPath);
                             // Do not report progress for backup to keep UI clean
-                            await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken);
+                            await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken, null);
                         }
                     }
                     catch (Exception ex)
@@ -228,7 +237,7 @@ public sealed class FileSystemApi : IFileSystemApi
             Logger.Warn(ex, "SafePut+Progress pre-backup failed for {file}", filePath);
         }
 
-        var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken);
+    var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken, null);
         Logger.Info("SafePut+Progress completed {file} -> code={code}", filePath, res.Code);
         return res;
     }
@@ -269,14 +278,12 @@ public sealed class FileSystemApi : IFileSystemApi
 
         try
         {
-            using var http = new HttpClient();
-            // 永不超时，避免默认 100 秒限制
-            http.Timeout = Timeout.InfiniteTimeSpan;
+            // 复用 _http；永不超时，避免默认 100 秒限制
             // 尝试不带鉴权，强制非压缩
             using (var req = new HttpRequestMessage(HttpMethod.Get, url))
             {
                 req.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
-                using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 if (resp.IsSuccessStatusCode)
                 {
                     var bytesOk = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -289,7 +296,7 @@ public sealed class FileSystemApi : IFileSystemApi
             {
                 req2.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
                 req2.Headers.TryAddWithoutValidation("Authorization", token);
-                using var resp2 = await http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                using var resp2 = await _http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 if (resp2.IsSuccessStatusCode)
                 {
                     var bytesOk2 = await resp2.Content.ReadAsByteArrayAsync(cancellationToken);
@@ -424,7 +431,7 @@ public sealed class FileSystemApi : IFileSystemApi
             case UploadMode.Multiple:
             {
                 var items = request.Items ?? Array.Empty<FileUploadItem>();
-                var norm = items.Select(i => new FileUploadItem { FilePath = NormalizeRemotePath(i.FilePath), Content = i.Content }).ToList();
+                var norm = items.Select(i => new FileUploadItem { FilePath = NormalizeRemotePath(i.FilePath), Content = i.Content, LocalPath = i.LocalPath }).ToList();
                 return await PutManyAsync(token, norm, maxConcurrency, asTask, cancellationToken);
             }
             case UploadMode.Directory:
@@ -451,8 +458,8 @@ public sealed class FileSystemApi : IFileSystemApi
                     try
                     {
                         await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
-                        var bytes = await File.ReadAllBytesAsync(pair.localPath, cancellationToken);
-                        results[idx] = await SafePutAsync(token, pair.remotePath, bytes, asTask, cancellationToken);
+                        // 直接使用本地文件路径进行流式上传，避免整段读入内存
+                        results[idx] = await SafePutAsync(token, pair.remotePath, localPath: pair.localPath, content: null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
                     }
                     finally { sem.Release(); }
                 });
@@ -513,15 +520,27 @@ public sealed class FileSystemApi : IFileSystemApi
         return baseCfg;
     }
 
-    // Raw upload without safety checks, with optional progress
-    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[]? content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken)
+    // Raw upload without safety checks, with optional progress. Prefer localPath when provided for zero-copy streaming.
+    private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[]? content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken, string? localPath)
     {
         var safePath = EncodePathForHeader(filePath);
-        Logger.Debug("PutRaw path={path} asTask={asTask} size={size}", safePath, asTask, content?.Length);
-    using var http = new HttpClient { BaseAddress = new Uri(_baseUrl), Timeout = Timeout.InfiniteTimeSpan };
-        using var ms = new MemoryStream(content ?? Array.Empty<byte>(), writable: false);
-        long? total = content?.LongLength;
-        using var pcs = new ProgressStreamContent(ms, 64 * 1024, (sent, tot, elapsed) =>
+        long? total = null;
+        Stream dataStream;
+        if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
+        {
+            var fi = new FileInfo(localPath);
+            total = fi.Length;
+            dataStream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 256 * 1024, useAsync: true);
+        }
+        else
+        {
+            var bytes = content ?? Array.Empty<byte>();
+            total = bytes.LongLength;
+            dataStream = new MemoryStream(bytes, writable: false);
+        }
+        await using var ds = dataStream;
+        Logger.Debug("PutRaw path={path} asTask={asTask} size={size} via={via}", safePath, asTask, total, string.IsNullOrWhiteSpace(localPath) ? "memory" : "file");
+        using var pcs = new ProgressStreamContent(ds, 256 * 1024, (sent, tot, elapsed) =>
         {
             if (progress is null) return;
             var seconds = Math.Max(0.001, elapsed.TotalSeconds);
@@ -541,7 +560,7 @@ public sealed class FileSystemApi : IFileSystemApi
         req.Headers.TryAddWithoutValidation("File-Path", safePath);
         req.Headers.TryAddWithoutValidation("As-Task", asTask ? "true" : "false");
         req.Content = pcs;
-        using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         var code = (int)resp.StatusCode;
         var text = await resp.Content.ReadAsStringAsync(cancellationToken);
         if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(text))
@@ -569,8 +588,16 @@ public sealed class FileSystemApi : IFileSystemApi
                 // Provide a hint so progress can show Completed/Total and MB/s for the current file
                 var completedHint = Volatile.Read(ref done);
                 var totalHint = list.Count;
-                var res = await SafePutAsync(token, item.FilePath, item.Content, asTask, progress, completedHint, totalHint, cancellationToken);
-                results[idx] = res;
+                if (!string.IsNullOrWhiteSpace(item.LocalPath) && File.Exists(item.LocalPath))
+                {
+                    var res = await SafePutAsync(token, item.FilePath, localPath: item.LocalPath, content: null, asTask: asTask, progress: progress, completedHint: completedHint, totalHint: totalHint, cancellationToken: cancellationToken);
+                    results[idx] = res;
+                }
+                else
+                {
+                    var res = await SafePutAsync(token, item.FilePath, item.Content, asTask, progress, completedHint, totalHint, cancellationToken);
+                    results[idx] = res;
+                }
                 var d = Interlocked.Increment(ref done);
                 progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
             }
@@ -578,6 +605,50 @@ public sealed class FileSystemApi : IFileSystemApi
         });
         await Task.WhenAll(tasks);
         return results;
+    }
+
+    // Overload SafePut that accepts localPath for zero-copy streaming; internal use only
+    private async Task<FsPutResponse> SafePutAsync(string token, string filePath, string? localPath, byte[]? content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Logger.Debug("SafePut(Local) start file={file}", filePath);
+            var existed = await GetAsync(token, filePath, cancellationToken: cancellationToken);
+            if (existed.Code == 200 && existed.Data is not null && !existed.Data.IsDir)
+            {
+                var raw = existed.Data.RawUrl;
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    try
+                    {
+                        using var req = new HttpRequestMessage(HttpMethod.Get, raw);
+                        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            var oldBytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
+                            var (dir, name) = SplitPath(filePath);
+                            var ts = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                            var backupName = AppendTimestamp(name, ts);
+                            var backupPath = CombinePath(dir, backupName);
+                            Logger.Info("SafePut backup -> {backup}", backupPath);
+                            await PutRawAsync(token, backupPath, oldBytes, asTask, null, 0, 0, cancellationToken, null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "SafePut(Local) pre-backup error for {file}", filePath);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "SafePut(Local) pre-backup failed for {file}", filePath);
+        }
+
+        var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken, localPath);
+        Logger.Info("SafePut(Local) completed {file} -> code={code}", filePath, res.Code);
+        return res;
     }
 
     private async Task EnsureRemoteDirectoriesAsync(string token, string? dir, CancellationToken ct)
