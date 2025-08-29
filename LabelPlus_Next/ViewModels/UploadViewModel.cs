@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.ViewModels;
@@ -180,18 +181,62 @@ public partial class UploadViewModel : ObservableObject
 
         // Group files by episode number inferred from file/folder name
         var byEpisode = new Dictionary<int, EpisodeEntry>();
-        foreach (var path in files)
+        var specialBucket = new EpisodeEntry { Number = 0, IsSpecial = true, Status = "立项" };
+    foreach (var path in files)
         {
             var name = Path.GetFileNameWithoutExtension(path);
+            if (IsSpecialName(name))
+            {
+                specialBucket.LocalFiles.Add(path);
+                var extS = Path.GetExtension(path);
+                if (extS.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
+                else if (extS.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    var lowerS = Path.GetFileName(path).ToLowerInvariant();
+                    specialBucket.Status = PickHigherStatus(specialBucket.Status, lowerS.Contains("校对") || lowerS.Contains("校隊") || lowerS.Contains("check") ? "校对" : "翻译");
+                }
+                continue;
+            }
+            var isVolLocal = false;
             if (!TryParseEpisodeNumber(name, out var num))
             {
                 // fallback: try parent folder
                 var folder = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
-                if (!TryParseEpisodeNumber(folder, out num)) continue;
+                if (IsSpecialName(folder))
+                {
+                    specialBucket.LocalFiles.Add(path);
+                    var extS2 = Path.GetExtension(path);
+                    if (extS2.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
+                    else if (extS2.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var lowerS2 = Path.GetFileName(path).ToLowerInvariant();
+                        specialBucket.Status = PickHigherStatus(specialBucket.Status, lowerS2.Contains("校对") || lowerS2.Contains("校隊") || lowerS2.Contains("check") ? "校对" : "翻译");
+                    }
+                    continue;
+                }
+                if (!TryParseEpisodeNumber(folder, out num))
+                {
+                    var (kind, n2) = ParseEpisodeOrVolume(name);
+                    if (kind == NameKind.Special)
+                    {
+                        specialBucket.LocalFiles.Add(path);
+                        var extSp3 = Path.GetExtension(path);
+                        if (extSp3.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
+                        else if (extSp3.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var lowSp3 = Path.GetFileName(path).ToLowerInvariant();
+                            specialBucket.Status = PickHigherStatus(specialBucket.Status, lowSp3.Contains("校对") || lowSp3.Contains("校隊") || lowSp3.Contains("check") ? "校对" : "翻译");
+                        }
+                        continue;
+                    }
+                    if (kind == NameKind.Volume) isVolLocal = true;
+                    if (n2 <= 0) continue;
+                    num = n2;
+                }
             }
             if (!byEpisode.TryGetValue(num, out var ep))
             {
-                ep = new EpisodeEntry { Number = num, Status = "立项" };
+                ep = new EpisodeEntry { Number = num, Status = "立项", IsVolume = isVolLocal };
                 byEpisode[num] = ep;
             }
             ep.LocalFiles.Add(path);
@@ -206,7 +251,8 @@ public partial class UploadViewModel : ObservableObject
         }
 
         PendingEpisodes.Clear();
-        foreach (var ep in byEpisode.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(ep);
+    foreach (var ep in byEpisode.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(ep);
+    if (specialBucket.LocalFiles.Count > 0) PendingEpisodes.Add(specialBucket);
         LastSelectedFolderPath = Path.GetDirectoryName(first); // remember base folder
         Status = $"已选择文件：{files.Count} 个";
         HasDuplicates = false;
@@ -424,15 +470,40 @@ public partial class UploadViewModel : ObservableObject
         var archives = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".7z", ".rar" };
         var allEntries = Directory.EnumerateFileSystemEntries(localDir, "*", SearchOption.TopDirectoryOnly).ToList();
 
-        var map = new Dictionary<int, EpisodeEntry>();
+    var map = new Dictionary<int, EpisodeEntry>();
+    var specials = new EpisodeEntry { Number = 0, IsSpecial = true, Status = "立项" }; // 番外聚合
 
         foreach (var entry in allEntries)
         {
             if (Directory.Exists(entry))
             {
                 var name = Path.GetFileName(entry);
-                if (!TryParseEpisodeNumber(name, out var num)) continue;
-                var folderEp = BuildEpisodeFromFolder(entry, num);
+                if (IsSpecialName(name))
+                {
+                    var folderEpSpecial = BuildEpisodeFromFolder(entry, 0, isSpecial: true);
+                    specials.Status = PickHigherStatus(specials.Status, folderEpSpecial.Status);
+                    foreach (var f in folderEpSpecial.LocalFiles)
+                        if (!specials.LocalFiles.Contains(f, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(f);
+                    continue;
+                }
+                var isVolumeHere = false;
+                if (!TryParseEpisodeNumber(name, out var num))
+                {
+                    // 尝试智能解析：卷/章/集
+                    var (kind, n2) = ParseEpisodeOrVolume(name);
+                    if (kind == NameKind.Special)
+                    {
+                        var sp = BuildEpisodeFromFolder(entry, 0, isSpecial: true);
+                        specials.Status = PickHigherStatus(specials.Status, sp.Status);
+                        foreach (var f in sp.LocalFiles)
+                            if (!specials.LocalFiles.Contains(f, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(f);
+                        continue;
+                    }
+                    if (kind == NameKind.Volume) isVolumeHere = true;
+                    if (n2 <= 0) continue;
+                    num = n2;
+                }
+                var folderEp = BuildEpisodeFromFolder(entry, num, isSpecial: false, isVolume: isVolumeHere);
                 if (!map.TryGetValue(num, out var existing))
                 {
                     map[num] = folderEp;
@@ -446,6 +517,7 @@ public partial class UploadViewModel : ObservableObject
                             existing.LocalFiles.Add(f);
                     }
                     existing.Status = PickHigherStatus(existing.Status, folderEp.Status);
+                    if (isVolumeHere) existing.IsVolume = true;
                 }
             }
             else if (File.Exists(entry))
@@ -454,10 +526,29 @@ public partial class UploadViewModel : ObservableObject
                 if (archives.Contains(ext))
                 {
                     var name = Path.GetFileNameWithoutExtension(entry);
-                    if (!TryParseEpisodeNumber(name, out var num)) continue;
+                    if (IsSpecialName(name))
+                    {
+                        if (!specials.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(entry);
+                        specials.Status = PickHigherStatus(specials.Status, "立项");
+                        continue;
+                    }
+                    var isVolHere2 = false;
+                    if (!TryParseEpisodeNumber(name, out var num))
+                    {
+                        var (kind, n2) = ParseEpisodeOrVolume(name);
+                        if (kind == NameKind.Special)
+                        {
+                            if (!specials.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(entry);
+                            specials.Status = PickHigherStatus(specials.Status, "立项");
+                            continue;
+                        }
+                        if (kind == NameKind.Volume) isVolHere2 = true;
+                        if (n2 <= 0) continue;
+                        num = n2;
+                    }
                     if (!map.TryGetValue(num, out var existing))
                     {
-                        var ep = new EpisodeEntry { Number = num, Status = "立项" };
+                        var ep = new EpisodeEntry { Number = num, Status = "立项", IsVolume = isVolHere2 };
                         ep.LocalFiles.Add(entry);
                         map[num] = ep;
                     }
@@ -466,6 +557,7 @@ public partial class UploadViewModel : ObservableObject
                         if (!existing.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase))
                             existing.LocalFiles.Add(entry);
                         existing.Status = PickHigherStatus(existing.Status, "立项");
+                        if (isVolHere2) existing.IsVolume = true;
                     }
                 }
             }
@@ -479,10 +571,31 @@ public partial class UploadViewModel : ObservableObject
             {
                 var nameWithoutExt = Path.GetFileNameWithoutExtension(txt);
                 int num;
-                if (!TryParseEpisodeNumber(nameWithoutExt, out num))
+                if (IsSpecialName(nameWithoutExt))
+                {
+                    if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt);
+                    var lowerSpecial = nameWithoutExt.ToLowerInvariant();
+                    var candidateSpecial = lowerSpecial.Contains("校对") || lowerSpecial.Contains("校隊") || lowerSpecial.Contains("check") ? "校对" : "翻译";
+                    specials.Status = PickHigherStatus(specials.Status, candidateSpecial);
+                    continue;
+                }
+        if (!TryParseEpisodeNumber(nameWithoutExt, out num))
                 {
                     var parent = Path.GetFileName(Path.GetDirectoryName(txt) ?? string.Empty);
-                    if (!TryParseEpisodeNumber(parent, out num)) continue;
+                    if (IsSpecialName(parent))
+                    {
+                        if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt);
+                        var lower2 = nameWithoutExt.ToLowerInvariant();
+                        var candidate2 = lower2.Contains("校对") || lower2.Contains("校隊") || lower2.Contains("check") ? "校对" : "翻译";
+                        specials.Status = PickHigherStatus(specials.Status, candidate2);
+                        continue;
+                    }
+                    if (!TryParseEpisodeNumber(parent, out num))
+                    {
+                        var (kind, n3) = ParseEpisodeOrVolume(nameWithoutExt);
+            if (kind == NameKind.Special) { if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt); continue; }
+                        if (n3 > 0) num = n3; else continue;
+                    }
                 }
                 if (!map.TryGetValue(num, out var epEntry))
                 {
@@ -503,7 +616,7 @@ public partial class UploadViewModel : ObservableObject
             Logger.Warn(ex, "ScanEpisodes: txt pass failed");
         }
 
-        // Tankobon fallback: if nothing parsed OR root hints single-volume, treat as 单行本（1卷）
+    // Tankobon fallback: if nothing parsed OR root hints single-volume, treat as 单行本（1卷）
     try
         {
             var rootName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -533,11 +646,17 @@ public partial class UploadViewModel : ObservableObject
             Logger.Warn(ex, "ScanEpisodes: tankobon fallback failed");
         }
 
-        Logger.Debug("ScanEpisodes: merged into {count} episodes", map.Count);
-        return map.Values.ToList();
+        // 挂载番外
+        var list = map.Values.ToList();
+        if (specials.LocalFiles.Count > 0)
+        {
+            list.Add(specials);
+        }
+        Logger.Debug("ScanEpisodes: merged into {count} episodes (+special={special})", list.Count, specials.LocalFiles.Count);
+        return list;
     }
 
-    private static EpisodeEntry BuildEpisodeFromFolder(string folder, int number)
+    private static EpisodeEntry BuildEpisodeFromFolder(string folder, int number, bool isSpecial = false, bool isVolume = false)
     {
         var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
         var hasArchive = files.Any(f => new[] { ".zip", ".7z", ".rar" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
@@ -546,7 +665,7 @@ public partial class UploadViewModel : ObservableObject
         var hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
                                          ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "校队", "校对" }));
         var status = hasPsd ? "嵌字" : hasCheckTxt ? "校对" : hasTxt ? "翻译" : hasArchive ? "立项" : "立项";
-        var ep = new EpisodeEntry { Number = number, Status = status };
+        var ep = new EpisodeEntry { Number = number, Status = status, IsSpecial = isSpecial, IsVolume = isVolume };
         ep.LocalFiles.AddRange(files);
         return ep;
     }
@@ -566,6 +685,70 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(name)) return false;
         var needles = new[] { "单行本", "單行本", "tankobon", "tankoubon", "volume", "vol", "合集", "総集編", "总集篇", "总集编" };
         return ContainsAny(name, needles);
+    }
+
+    private static bool IsSpecialName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        var needles = new[] { "番外", "特別篇", "特别篇", "SP", "Special", "Extra", "外传", "外傳" };
+        return needles.Any(n => name.Contains(n, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private enum NameKind { Episode, Volume, Special, Unknown }
+    // 智能解析：识别 第X话/卷/章/集、EP/CH/VOL、中文数字；过滤分辨率/日期
+    private static (NameKind kind, int number) ParseEpisodeOrVolume(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return (NameKind.Unknown, 0);
+        var s = name.Trim();
+        if (IsSpecialName(s)) return (NameKind.Special, 0);
+
+        // 常见噪声去除
+        s = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
+        s = Regex.Replace(s, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase); // 1080x1920
+
+        // 标记与别名
+        var map = new (NameKind kind, string[] keys)[]
+        {
+            (NameKind.Volume, new[]{"卷","vol","volume","v"}),
+            (NameKind.Episode, new[]{"话","話","chap","chapter","ch","ep","episode","集","章"}),
+        };
+
+        // 先尝试 key + 数字
+        foreach (var (kind, keys) in map)
+        {
+            foreach (var k in keys)
+            {
+                var idx = s.IndexOf(k, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    var tail = s[(idx + k.Length)..];
+                    var digits = new string(tail.Where(char.IsDigit).ToArray());
+                    if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
+                    // 中文数字
+                    var ncn = ParseChineseNumeral(tail);
+                    if (ncn > 0) return (kind, ncn);
+                }
+            }
+        }
+        // 纯数字 + 关键词在前
+        foreach (var (kind, keys) in map)
+        {
+            if (keys.Any(k => s.StartsWith(k, StringComparison.OrdinalIgnoreCase)))
+            {
+                var rem = s[keys.Max(k => s.StartsWith(k, StringComparison.OrdinalIgnoreCase) ? k.Length : 0)..];
+                var digits = new string(rem.Where(char.IsDigit).ToArray());
+                if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
+                var ncn = ParseChineseNumeral(rem);
+                if (ncn > 0) return (kind, ncn);
+            }
+        }
+        // 只有数字
+        if (int.TryParse(new string(s.Where(char.IsDigit).ToArray()), out var num) && num > 0)
+            return (NameKind.Episode, num);
+        // 只有中文数字
+        var nn = ParseChineseNumeral(s);
+        if (nn > 0) return (NameKind.Episode, nn);
+        return (NameKind.Unknown, 0);
     }
 
     private static bool TryParseEpisodeNumber(string name, out int number)
@@ -603,6 +786,69 @@ public partial class UploadViewModel : ObservableObject
         }
         total += section + number;
         return total;
+    }
+
+    private static string BuildSubDir(EpisodeEntry ep)
+    {
+        if (ep.IsSpecial)
+        {
+            // 番外编号：如果文件集合中可解析出序号，使用 番外NN，否则 "番外"
+            var n = TryPickNumberFromFiles(ep.LocalFiles);
+            return n > 0 ? $"番外{n:00}" : "番外";
+        }
+        if (ep.IsVolume)
+        {
+            var n = TryPickNumberFromFiles(ep.LocalFiles);
+            return n > 0 ? $"卷{n:00}" : ep.Number.ToString();
+        }
+        return ep.Number.ToString();
+    }
+
+    private static string BuildEpisodeKey(EpisodeEntry ep, int useNum)
+    {
+        if (ep.IsSpecial)
+        {
+            var n = TryPickNumberFromFiles(ep.LocalFiles);
+            return n > 0 ? $"番外{n:00}" : "番外";
+        }
+        if (ep.IsVolume)
+        {
+            var n = TryPickNumberFromFiles(ep.LocalFiles);
+            return n > 0 ? $"卷{n:00}" : $"卷{useNum:00}";
+        }
+        return useNum.ToString("00");
+    }
+
+    private static int RankKey(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return 0;
+        // 排序优先：番外(最高，编号越大越前) > 卷 > 话
+        if (key.StartsWith("番外", StringComparison.OrdinalIgnoreCase))
+            return 2_000_000 + ExtractTrailingNumber(key);
+        if (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || key.StartsWith("V", StringComparison.OrdinalIgnoreCase))
+            return 1_000_000 + ExtractTrailingNumber(key);
+        return ExtractTrailingNumber(key);
+    }
+
+    private static int ExtractTrailingNumber(string s)
+    {
+        var digits = new string((s ?? string.Empty).Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var n) ? n : 0;
+    }
+
+    private static int TryPickNumberFromFiles(IEnumerable<string> files)
+    {
+        foreach (var f in files)
+        {
+            var name = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
+            var (kind, n) = ParseEpisodeOrVolume(name);
+            if (kind == NameKind.Special || kind == NameKind.Volume)
+            {
+                if (n > 0) return n;
+            }
+            if (TryParseEpisodeNumber(name, out var n2) && n2 > 0) return n2;
+        }
+        return 0;
     }
 
     private async Task RefreshAsync()
@@ -766,7 +1012,7 @@ public partial class UploadViewModel : ObservableObject
 
             foreach (var ep in toUpload)
             {
-                var epDir = projectDir + ep.Number + "/";
+                var epDir = projectDir + BuildSubDir(ep) + "/";
                 var mk = await fsApi.MkdirAsync(token, epDir);
                 if (mk.Code is >= 400 and < 500)
                 {
@@ -786,7 +1032,7 @@ public partial class UploadViewModel : ObservableObject
             var resultMap = new Dictionary<int, (string? source, string? translate, string? typeset)>();
             foreach (var ep in toUpload)
             {
-                var epDir = projectDir + ep.Number + "/";
+                var epDir = projectDir + (ep.IsSpecial ? "番外" : ep.Number.ToString()) + "/";
                 string? sourcePath = null;
                 string? translatePath = null;
                 string? typesetPath = null;
@@ -936,10 +1182,12 @@ public partial class UploadViewModel : ObservableObject
                 var useNum = IsTankobonFallback && TankobonVolumeNumber.HasValue && TankobonVolumeNumber.Value > 0
                     ? TankobonVolumeNumber.Value
                     : ep.Number;
-                var key = useNum.ToString("00");
+                var key = BuildEpisodeKey(ep, useNum);
                 cn.Items[key] = new EpisodeCn { Status = ep.Status, SourcePath = pmap.source, TranslatePath = pmap.translate, TypesetPath = pmap.typeset };
             }
-            cn.Items = cn.Items.OrderByDescending(kv => int.TryParse(kv.Key, out var n) ? n : 0).ToDictionary(k => k.Key, v => v.Value);
+            cn.Items = cn.Items
+                .OrderByDescending(kv => RankKey(kv.Key))
+                .ToDictionary(k => k.Key, v => v.Value);
             Step("JSON 合并完成", projectJsonPath);
 
             var ctx = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)

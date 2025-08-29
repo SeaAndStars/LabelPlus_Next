@@ -45,15 +45,20 @@ public partial class ProjectMetaDataWindow : UrsaWindow
             return;
         }
         Logger.Debug("Building episode tree: {count}", vm.PendingEpisodes.Count);
-        _roots = new ObservableCollection<Node>(vm.PendingEpisodes.Select(ep =>
+    _roots = new ObservableCollection<Node>(vm.PendingEpisodes.Select(ep =>
         {
+            var isSp = ep is { IsSpecial: true };
+            var isVol = ep is { IsVolume: true };
+            var title = isSp ? "番外" : isVol ? $"第 {ep.Number} 卷" : $"第 {ep.Number} 话";
             var root = new Node
             {
                 IsFile = false,
-                Name = $"第 {ep.Number} 话",
+        Name = title,
                 Number = ep.Number,
                 Include = ep.Include,
                 Status = ep.Status,
+        IsSpecial = isSp,
+        IsVolume = isVol,
                 LocalFileCount = ep.LocalFiles.Count
             };
             foreach (var f in ep.LocalFiles)
@@ -80,7 +85,7 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                     n => n.Children,
                     n => !n.IsFile),
                 new CheckBoxColumn<Node>("上传", x => x.Include, (x, v) => x.Include = v),
-                new TextColumn<Node, int>("话数", x => x.Number),
+                new TextColumn<Node, string>("话数", x => x.IsSpecial ? "番外" : (x.IsVolume ? $"{x.Number:00}(卷)" : x.Number.ToString("00"))),
                 new TemplateColumn<Node>("状态", BuildStatusCellTemplate()),
                 new TextColumn<Node, int>("本地文件数", x => x.LocalFileCount)
             }
@@ -130,6 +135,8 @@ public partial class ProjectMetaDataWindow : UrsaWindow
                 if (node is null) continue;
                 ep.Include = node.Include;
                 ep.Status = node.Status;
+                // 保持 IsSpecial 标记
+                if (node.IsSpecial) ep.IsSpecial = true;
             }
             Logger.Info("Confirm: starting upload for {count} episodes", vm.PendingEpisodes.Count(e1 => e1.Include));
             var ok = await vm.UploadPendingAsync();
@@ -149,6 +156,8 @@ public partial class ProjectMetaDataWindow : UrsaWindow
         public bool IsFile { get; init; }
         public string? Name { get; init; }
         public int Number { get; init; }
+    public bool IsVolume { get; init; }
+    public bool IsSpecial { get; init; }
         public bool Include { get; set; }
         public string Status { get; set; } = "立项";
         public int LocalFileCount { get; init; }

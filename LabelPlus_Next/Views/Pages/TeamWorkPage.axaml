@@ -56,7 +56,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn
                     Width="auto"
-                    Binding="{Binding Number}"
+                    Binding="{Binding DisplayNumber}"
                     Header="话数" />
                 <DataGridTemplateColumn Width="auto" Header="状态">
                     <DataGridTemplateColumn.CellTemplate>

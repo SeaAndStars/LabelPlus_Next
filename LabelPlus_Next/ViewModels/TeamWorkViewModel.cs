@@ -195,10 +195,13 @@ public partial class TeamWorkViewModel : ObservableObject
             catch { cn = new ProjectCn(); }
             foreach (var kv in cn.Items)
             {
+                var isSpecial = kv.Key.StartsWith("番外", StringComparison.OrdinalIgnoreCase);
+                var isVolume = kv.Key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || kv.Key.StartsWith("V", StringComparison.OrdinalIgnoreCase) || kv.Key.StartsWith("Vol", StringComparison.OrdinalIgnoreCase);
                 var ep = new EpisodeItem
                 {
                     Number = ToInt(kv.Key),
                     Key = kv.Key,
+                    DisplayNumber = isSpecial ? kv.Key : (isVolume ? kv.Key : ToInt(kv.Key).ToString("00")),
                     Status = kv.Value.Status ?? string.Empty,
                     SourcePath = kv.Value.SourcePath,
                     TranslatePath = kv.Value.TranslatePath,
@@ -246,7 +249,7 @@ public partial class TeamWorkViewModel : ObservableObject
 
             // Local workspace
             var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), ep.Number.ToString("00"));
+            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
             Directory.CreateDirectory(localDir);
 
             // Download source (dir or archive) — 若本地已有图片则跳过下载
@@ -298,7 +301,9 @@ public partial class TeamWorkViewModel : ObservableObject
             }
 
             // Create translate file if absent
-            var translateFileName = $"{Sanitize(projectName)}_{ep.Number:00}_translate.txt";
+            var translateFileName = IsSpecialKey(ep.Key)
+                ? $"{Sanitize(projectName)}_{KeyToLabel(ep.Key, ep.Number)}_translate.txt"
+                : $"{Sanitize(projectName)}_{ep.Number:00}_translate.txt";
             var localTxt = Path.Combine(localDir, translateFileName);
             if (!File.Exists(localTxt))
             {
@@ -318,7 +323,7 @@ public partial class TeamWorkViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(ep.TranslatePath))
             {
                 var remoteDir = RemoteDirFromProjectJson(ep.ProjectJsonPath);
-                remoteTxt = CombineRemote(remoteDir, ep.Number.ToString(), translateFileName);
+                remoteTxt = CombineRemote(remoteDir, KeyToSubDir(ep.Key, ep.Number), translateFileName);
                 var bytes = await File.ReadAllBytesAsync(localTxt);
                 var put = await fs.SafePutAsync(token, remoteTxt, bytes, cancellationToken: ct);
                 if (put.Code == 200)
@@ -326,7 +331,7 @@ public partial class TeamWorkViewModel : ObservableObject
                     await UpdateEpisodeAsync(fs, token, ep, update => update.TranslatePath = remoteTxt, newStatus: "翻译");
                     ep.TranslatePath = remoteTxt; ep.Status = "翻译";
                     Logger.Info("StartTranslate: uploaded translate and updated JSON: {remote}", remoteTxt);
-                    ShowNotify("已开始翻译", $"话数 {ep.Number:00} 已初始化翻译文件", NotificationType.Success);
+                    ShowNotify("已开始翻译", $"话数 {EpisodeLabel(ep)} 已初始化翻译文件", NotificationType.Success);
                 }
             }
             else remoteTxt = ep.TranslatePath!;
@@ -363,7 +368,7 @@ public partial class TeamWorkViewModel : ObservableObject
             IsBusy = true; Progress = 0; ProgressText = "准备校对";
             if (string.IsNullOrWhiteSpace(ep.TranslatePath)) { Status = "无翻译文件"; return; }
             var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), ep.Number.ToString("00"));
+            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
             Directory.CreateDirectory(localDir);
 
             // 若本地缺少图源，则按 SourcePath 下载一次
@@ -427,7 +432,7 @@ public partial class TeamWorkViewModel : ObservableObject
                 await UpdateEpisodeAsync(fs, token, ep, update => update.TranslatePath = remoteChecked, newStatus: "校对");
                 ep.TranslatePath = remoteChecked; ep.Status = "校对";
                 Logger.Info("StartProof: uploaded checked file and updated JSON {remote}", remoteChecked);
-                ShowNotify("校对完成", $"话数 {ep.Number:00} 已上传校对文件", NotificationType.Success);
+                ShowNotify("校对完成", $"话数 {EpisodeLabel(ep)} 已上传校对文件", NotificationType.Success);
             }
             var session = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = remoteChecked, Username = null };
             Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, session);
@@ -501,7 +506,7 @@ public partial class TeamWorkViewModel : ObservableObject
             var fs = new FileSystemApi(baseUrl);
             IsBusy = true; Progress = 0; ProgressText = "准备本地目录";
             var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), ep.Number.ToString("00"));
+            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
             Directory.CreateDirectory(localDir);
             // Download source
             if (!string.IsNullOrWhiteSpace(ep.SourcePath))
@@ -602,7 +607,7 @@ public partial class TeamWorkViewModel : ObservableObject
                     UseShellExecute = true
                 };
                 System.Diagnostics.Process.Start(dirToOpen);
-                ShowNotify("已准备嵌字", $"话数 {ep.Number:00} 本地目录已打开", NotificationType.Information);
+                ShowNotify("已准备嵌字", $"话数 {EpisodeLabel(ep)} 本地目录已打开", NotificationType.Information);
             }
             catch { }
         }
@@ -642,6 +647,40 @@ public partial class TeamWorkViewModel : ObservableObject
         if (!dir.EndsWith('/')) dir += "/";
         return $"{dir}{sub}/{file}";
     }
+
+    private static bool IsSpecialKey(string key) => !string.IsNullOrEmpty(key) && (key.StartsWith("番外", StringComparison.OrdinalIgnoreCase) || key.StartsWith("SP", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Special", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Extra", StringComparison.OrdinalIgnoreCase));
+    private static bool IsVolumeKey(string key) => !string.IsNullOrEmpty(key) && (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || key.StartsWith("V", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Vol", StringComparison.OrdinalIgnoreCase));
+    private static string KeyToLabel(string key, int number)
+    {
+        if (IsSpecialKey(key))
+        {
+            var digits = new string(key.Where(char.IsDigit).ToArray());
+            if (int.TryParse(digits, out var n) && n > 0) return $"番外{n:00}";
+            return "番外";
+        }
+        if (IsVolumeKey(key))
+        {
+            var digits = new string(key.Where(char.IsDigit).ToArray());
+            if (int.TryParse(digits, out var n) && n > 0) return $"卷{n:00}";
+            return $"卷{number:00}";
+        }
+        return number.ToString("00");
+    }
+    private static string KeyToSubDir(string key, int number)
+    {
+        if (IsSpecialKey(key))
+        {
+            var digits = new string(key.Where(char.IsDigit).ToArray());
+            return string.IsNullOrEmpty(digits) ? "番外" : $"番外{int.Parse(digits):00}";
+        }
+        if (IsVolumeKey(key))
+        {
+            var digits = new string(key.Where(char.IsDigit).ToArray());
+            return string.IsNullOrEmpty(digits) ? $"卷{number:00}" : $"卷{int.Parse(digits):00}";
+        }
+        return number.ToString("00");
+    }
+    private static string EpisodeLabel(EpisodeItem ep) => KeyToLabel(ep.Key, ep.Number);
 
     private async Task UpdateEpisodeAsync(FileSystemApi fs, string token, EpisodeItem ep, Action<EpisodeCn> edit, string? newStatus = null)
     {
@@ -749,6 +788,7 @@ public partial class TeamWorkViewModel : ObservableObject
     {
         public int Number { get; set; }
         public string Key { get; set; } = "";
+    public string DisplayNumber { get; set; } = "";
         [ObservableProperty] private string? status;
         public string? SourcePath { get; set; }
         [ObservableProperty] private string? translatePath;
