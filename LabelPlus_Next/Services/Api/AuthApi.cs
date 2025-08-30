@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using RestSharp;
 
 namespace LabelPlus_Next.Services.Api;
@@ -48,5 +48,39 @@ public sealed class AuthApi : IAuthApi
 
         var result = JsonConvert.DeserializeObject<ApiResponse<LoginData>>(response.Content);
         return result ?? new ApiResponse<LoginData> { Code = -1, Message = "Deserialize failed" };
+    }
+
+    /// <inheritdoc />
+    public async Task<ApiResponse<MeData>> GetMeAsync(string token, CancellationToken cancellationToken = default)
+    {
+        var request = new RestRequest("/api/me", Method.Get)
+            .AddHeader("Authorization", token);
+
+        var response = await _client.ExecuteAsync(request, cancellationToken);
+        if (!response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content))
+        {
+            return new ApiResponse<MeData> { Code = (int)response.StatusCode, Message = response.ErrorMessage ?? response.StatusDescription ?? "Request failed" };
+        }
+
+        try
+        {
+            var result = JsonConvert.DeserializeObject<ApiResponse<MeData>>(response.Content);
+            return result ?? new ApiResponse<MeData> { Code = -1, Message = "Deserialize failed" };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<MeData> { Code = -1, Message = ex.Message };
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<ApiResponse<MeData>> GetMeAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        var login = await LoginAsync(username, password, cancellationToken);
+        if (login.Code != 200 || login.Data is null || string.IsNullOrWhiteSpace(login.Data.Token))
+        {
+            return new ApiResponse<MeData> { Code = login.Code, Message = login.Message ?? "Login failed" };
+        }
+        return await GetMeAsync(login.Data.Token, cancellationToken);
     }
 }

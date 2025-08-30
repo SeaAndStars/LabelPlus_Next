@@ -59,13 +59,18 @@ public partial class TranslateView : UserControl
     private void OnGridSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_labelsGrid is null || _picViewer is null) return;
-        if (!_labelsGrid.IsKeyboardFocusWithin) return;
         if (_labelsGrid.SelectedItem is LabelItem item)
         {
-            if (!ReferenceEquals(item, _lastCentered))
+            _lastCentered = item;
+            // Center only when focus is outside PicViewer, but still in a typing context (TextBox) or the grid itself
+            var top = TopLevel.GetTopLevel(this);
+            var focused = top?.FocusManager?.GetFocusedElement();
+            var focusInPic = _picViewer.IsKeyboardFocusWithin;
+            var typing = IsTypingContext(focused);
+            var gridFocused = _labelsGrid.IsKeyboardFocusWithin;
+            if (!focusInPic && (typing || gridFocused))
             {
                 _picViewer.CenterOnLabel(item);
-                _lastCentered = item;
             }
         }
     }

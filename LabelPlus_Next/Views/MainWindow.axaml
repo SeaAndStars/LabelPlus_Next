@@ -50,10 +50,7 @@
                     Header="协作"
                     Icon="🤝"
                     Tag="teamwork" />
-                <u:NavMenuItem
-                    Header="上传"
-                    Icon="⤴"
-                    Tag="upload" />
+                <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
                 <u:NavMenuItem
                     Header="交付"
                     Icon="📦"

@@ -290,7 +290,7 @@ public partial class TranslateViewModel : ViewModelBase
     public async Task AddLabelAtAsync(float xPercent, float yPercent, int category = 1)
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = "新标签", Category = category };
+        var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = "", Category = category };
         await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
         UpdateCurrentLabels();
         if (CurrentLabels.Count > 0)
@@ -302,7 +302,7 @@ public partial class TranslateViewModel : ViewModelBase
     [RelayCommand] public async Task AddLabelCommand()
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "新标签", Category = 1 };
+        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "", Category = 1 };
         await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
         UpdateCurrentLabels();
         if (CurrentLabels.Count > 0)
@@ -335,9 +335,16 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(SelectedImageFile))
         {
-            await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
+            var restored = await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
             UpdateCurrentLabels();
-            if (SelectedLabel is null && CurrentLabels.Count > 0) SelectedLabel = CurrentLabels[^1];
+            if (restored is not null)
+            {
+                SelectedLabel = restored;
+            }
+            else if (SelectedLabel is null && CurrentLabels.Count > 0)
+            {
+                SelectedLabel = CurrentLabels[^1];
+            }
             CurrentText = SelectedLabel?.Text ?? string.Empty;
         }
     }

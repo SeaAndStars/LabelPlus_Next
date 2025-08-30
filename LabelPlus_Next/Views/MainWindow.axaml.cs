@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Threading;
 using LabelPlus_Next.ViewModels;
@@ -9,6 +9,10 @@ using System.Collections;
 using Ursa.Controls;
 using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
+using LabelPlus_Next.Services.Api;
+using Newtonsoft.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LabelPlus_Next.Views;
 
@@ -21,29 +25,157 @@ public partial class MainWindow : UrsaWindow
     private readonly SettingsViewModel _settingsVm = new();
     private bool _didStartupCheck;
     private bool _navCollapsed;
-    // Cache pages to preserve state between navigations
     private TranslateView? _translateView;
     private TeamWorkPage? _teamWorkPage;
     private UploadPage? _uploadPage;
+    private bool _uploadMenuInserted;
+
+    private sealed class ApiAuthConfig
+    {
+        [JsonProperty("baseUrl")] public string? BaseUrl { get; set; }
+        [JsonProperty("token")] public string? Token { get; set; }
+        [JsonProperty("username")] public string? Username { get; set; }
+        [JsonProperty("password")] public string? Password { get; set; }
+    }
 
     public MainWindow()
     {
         InitializeComponent();
-    Instance = this;
+        Instance = this;
         _navHost = this.FindControl<ContentControl>("NavContent");
         _menuMain = this.FindControl<NavMenu>("NavMenuMain");
         _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
 
-        // Initialize collapse state from NavMenu property and sync toggle item text/icon
         _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
         UpdateToggleItemVisual();
 
-        // Set default page and selection
-    SetContent("translate");
+        SetContent("translate");
         SelectMenuItemByTag(_menuMain, "translate");
         ClearMenuSelection(_menuFooter);
 
         Opened += OnOpened;
+    }
+
+    private static string GetPermCachePath()
+    {
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "upload.perm");
+    }
+
+    private static bool TryReadUploadPermCache(out bool hasPerm)
+    {
+        hasPerm = false;
+        try
+        {
+            var path = GetPermCachePath();
+            if (!File.Exists(path)) return false;
+            if (OperatingSystem.IsWindows())
+            {
+                var enc = File.ReadAllBytes(path);
+                var data = System.Security.Cryptography.ProtectedData.Unprotect(enc, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                var txt = Encoding.UTF8.GetString(data);
+                hasPerm = txt == "1";
+                return true;
+            }
+            else
+            {
+                // cross-platform fallback: plain text (read-only attribute will be set on save)
+                var txt = File.ReadAllText(path).Trim();
+                hasPerm = txt == "1";
+                return true;
+            }
+        }
+        catch { return false; }
+    }
+
+    private static void SaveUploadPermCache(bool hasPerm)
+    {
+        try
+        {
+            var path = GetPermCachePath();
+            if (!hasPerm)
+            {
+                if (File.Exists(path)) File.Delete(path);
+                return;
+            }
+            if (OperatingSystem.IsWindows())
+            {
+                var data = Encoding.UTF8.GetBytes("1");
+                var enc = System.Security.Cryptography.ProtectedData.Protect(data, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                File.WriteAllBytes(path, enc);
+            }
+            else
+            {
+                File.WriteAllText(path, "1");
+                try { File.SetAttributes(path, FileAttributes.ReadOnly); } catch { }
+            }
+        }
+        catch { /* ignore */ }
+    }
+
+    private void InsertUploadMenuIfAbsent()
+    {
+        if (_uploadMenuInserted || _menuMain is null) return;
+        var uploadItem = new NavMenuItem { Header = "上传", Icon = "⤴", Tag = "upload" };
+        var items = _menuMain.Items;
+        var insertIndex = -1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if ((items[i] as Control)?.Tag as string == "deliver")
+            {
+                insertIndex = i;
+                break;
+            }
+        }
+        if (insertIndex >= 0)
+            items.Insert(insertIndex, uploadItem);
+        else
+            items.Add(uploadItem);
+        _uploadMenuInserted = true;
+    }
+
+    private async Task TryInsertUploadMenuAsync()
+    {
+        if (_uploadMenuInserted || _menuMain is null) return;
+
+        // 先读取本地受保护缓存，若已确认拥有权限则直接显示菜单
+        if (TryReadUploadPermCache(out var hasPerm) && hasPerm)
+        {
+            InsertUploadMenuIfAbsent();
+            return;
+        }
+
+        try
+        {
+            var cfgPath = Path.Combine(AppContext.BaseDirectory, "upload.json");
+            if (!File.Exists(cfgPath)) return;
+            var cfg = JsonConvert.DeserializeObject<ApiAuthConfig>(await File.ReadAllTextAsync(cfgPath));
+            if (cfg is null || string.IsNullOrWhiteSpace(cfg.BaseUrl)) return;
+
+            var auth = new AuthApi(cfg.BaseUrl);
+            ApiResponse<MeData>? me = null;
+            if (!string.IsNullOrWhiteSpace(cfg.Token))
+                me = await auth.GetMeAsync(cfg.Token);
+            else if (!string.IsNullOrWhiteSpace(cfg.Username) && !string.IsNullOrWhiteSpace(cfg.Password))
+                me = await auth.GetMeAsync(cfg.Username, cfg.Password);
+            else
+                return;
+
+            if (me is { Code: 200, Data: not null } && me.Data.Permission > 265)
+            {
+                SaveUploadPermCache(true);
+                InsertUploadMenuIfAbsent();
+            }
+            else
+            {
+                SaveUploadPermCache(false);
+            }
+        }
+        catch
+        {
+            // 忽略鉴权失败/网络错误，不插入菜单也不缓存
+        }
     }
 
     private void ToggleNavCollapse()
@@ -63,7 +195,7 @@ public partial class MainWindow : UrsaWindow
         if (first is NavMenuItem nmi)
         {
             nmi.Header = _navCollapsed ? "展开" : "收起";
-            nmi.Icon = _navCollapsed ? "?" : "?"; // use basic triangles to avoid missing glyphs
+            nmi.Icon = _navCollapsed ? "?" : "?";
         }
     }
 
@@ -72,18 +204,14 @@ public partial class MainWindow : UrsaWindow
         if (_didStartupCheck) return;
         _didStartupCheck = true;
 
-        // Build notification manager once
         var manager = WindowNotificationManager.TryGetNotificationManager(this, out var existing) && existing is not null
             ? existing
             : new WindowNotificationManager(this) { Position = NotificationPosition.TopRight };
 
         try
         {
-            // Load settings and run startup update check using the same VM instance used by Settings page
             await _settingsVm.LoadAsync();
             await _settingsVm.CheckAndUpdateOnStartupAsync();
-
-            // Only show update result status
             var message = string.IsNullOrWhiteSpace(_settingsVm.Status) ? "更新检查完成" : _settingsVm.Status;
             await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新", message), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
         }
@@ -91,6 +219,8 @@ public partial class MainWindow : UrsaWindow
         {
             await Dispatcher.UIThread.InvokeAsync(() => manager.Show(new Notification("更新检查失败", ex.Message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
         }
+
+        _ = TryInsertUploadMenuAsync();
     }
 
     private void OnNavSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -100,11 +230,9 @@ public partial class MainWindow : UrsaWindow
         if (e.AddedItems[0] is Control ctrl)
             tag = ctrl.Tag as string;
 
-        // Toggle expand/collapse
         if (string.Equals(tag, "toggle", StringComparison.Ordinal))
         {
             ToggleNavCollapse();
-            // restore previous selection after toggling
             if (sender is NavMenu menu)
             {
                 var previous = e.RemovedItems is { Count: > 0 } ? e.RemovedItems[0] : null;
@@ -113,7 +241,6 @@ public partial class MainWindow : UrsaWindow
             return;
         }
 
-        // Intercept settings: open modal and restore previous selection
         if (string.Equals(tag, "settings", StringComparison.Ordinal))
         {
             var win = new SettingsWindow { DataContext = _settingsVm };
@@ -123,7 +250,6 @@ public partial class MainWindow : UrsaWindow
             if (sender is NavMenu menu)
             {
                 var previous = e.RemovedItems is { Count: > 0 } ? e.RemovedItems[0] : null;
-                // Restore previous selected item; if none, select translate in main menu and clear footer
                 if (previous != null)
                 {
                     menu.SelectedItem = previous;
@@ -137,7 +263,6 @@ public partial class MainWindow : UrsaWindow
             return;
         }
 
-        // Keep main/footer selections mutually exclusive and fully clear highlight
         if (sender == _menuMain)
         {
             ClearMenuSelection(_menuFooter);
@@ -185,9 +310,6 @@ public partial class MainWindow : UrsaWindow
             case "proof":
                 host.Content = new SimpleTextPage("校对页面");
                 break;
-            case "collab":
-                host.Content = new SimpleTextPage("协作页面");
-                break;
             case "upload":
                 _uploadPage ??= new UploadPage { DataContext = new UploadViewModel() };
                 host.Content = _uploadPage;
@@ -196,13 +318,11 @@ public partial class MainWindow : UrsaWindow
                 host.Content = new SimpleTextPage("交付页面");
                 break;
             case "settings":
-                // Open as dialog window and keep current content
                 var win = new SettingsWindow { DataContext = _settingsVm };
                 if (IsVisible)
                     win.ShowDialog(this);
                 else
                     win.Show();
-                // Keep current page; do not change host.Content
                 break;
             default:
                 host.Content = new SimpleTextPage("欢迎");
@@ -213,9 +333,8 @@ public partial class MainWindow : UrsaWindow
     public void OpenTranslateWithFile(string path)
     {
         if (_navHost is null) return;
-    // Ensure translate page exists and is active
-    SetContent("translate");
-    if (_translateView?.DataContext is TranslateViewModel tvm)
+        SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm)
         {
             _ = tvm.LoadTranslationFile(path);
         }

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 
 namespace LabelPlus_Next.Models;
 
@@ -34,10 +34,11 @@ public class LabelManager
         await fileManager.StoreManager.RemoveLabelAsync(imageFile, idx);
     }
 
-    public async Task UndoRemoveAsync(LabelFileManager fileManager, string imageFile)
+    // Return the restored label so caller can reselect it
+    public async Task<LabelItem?> UndoRemoveAsync(LabelFileManager fileManager, string imageFile)
     {
         var stack = GetStack(imageFile);
-        if (stack.Count == 0) return;
+        if (stack.Count == 0) return null;
         var (label, index) = stack.Pop();
         if (!fileManager.StoreManager.Store.ContainsKey(imageFile))
             fileManager.StoreManager.Store[imageFile] = new List<LabelItem>();
@@ -45,5 +46,6 @@ public class LabelManager
         if (index > list.Count) index = list.Count;
         list.Insert(index, label);
         await Task.CompletedTask;
+        return label;
     }
 }

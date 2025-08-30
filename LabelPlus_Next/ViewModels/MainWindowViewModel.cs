@@ -1,4 +1,4 @@
-using Avalonia.Controls.Notifications;
+﻿using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -281,10 +281,16 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(SelectedImageFile))
         {
-            await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
+            var restored = await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
             UpdateCurrentLabels();
-            if (SelectedLabel is null && CurrentLabels.Count > 0)
+            if (restored is not null)
+            {
+                SelectedLabel = restored;
+            }
+            else if (SelectedLabel is null && CurrentLabels.Count > 0)
+            {
                 SelectedLabel = CurrentLabels[^1];
+            }
             CurrentText = SelectedLabel?.Text ?? string.Empty;
         }
     }

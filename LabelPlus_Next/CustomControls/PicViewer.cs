@@ -5,6 +5,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LabelPlus_Next.Models;
 
 namespace LabelPlus_Next.CustomControls;
@@ -74,6 +76,22 @@ public class PicViewer : TemplatedControl
 
     private double _translateY;
 
+    // Event args for AddLabelRequested
+    public sealed class AddLabelRequestedEventArgs : EventArgs
+    {
+        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
+        {
+            XPercent = xPercent;
+            YPercent = yPercent;
+            Category = category;
+        }
+        public double XPercent { get; }
+        public double YPercent { get; }
+        public int Category { get; }
+    }
+
+    public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
+
     static PicViewer()
     {
         FocusableProperty.OverrideDefaultValue<PicViewer>(true);
@@ -105,9 +123,6 @@ public class PicViewer : TemplatedControl
     public double ContentHeight { get => _contentHeight; private set => SetAndRaise(ContentHeightProperty, ref _contentHeight, value); }
     public double ContentOffsetX { get => _contentOffsetX; private set => SetAndRaise(ContentOffsetXProperty, ref _contentOffsetX, value); }
     public double ContentOffsetY { get => _contentOffsetY; private set => SetAndRaise(ContentOffsetYProperty, ref _contentOffsetY, value); }
-
-    // Event to request adding a label at clicked position (percent coords in content space)
-    public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
 
     private void RecomputeContentGeometry()
     {
@@ -171,6 +186,7 @@ public class PicViewer : TemplatedControl
     private void OnSourceChanged(AvaloniaPropertyChangedEventArgs args)
     {
         RecomputeContentGeometry();
+        // Do not auto-center on source change; host view controls centering behavior.
     }
 
     private void OnStretchChanged(AvaloniaPropertyChangedEventArgs args)
@@ -189,7 +205,7 @@ public class PicViewer : TemplatedControl
     private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
     {
         UpdateHighlightFromSelection();
-        // Removed auto-centering here; centering is now controlled by the host view when DataGrid has focus.
+        // Do not auto-center on selection changes to avoid unexpected jumps.
     }
 
     private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)
@@ -536,32 +552,42 @@ public class PicViewer : TemplatedControl
         var ch = ContentHeight;
         if (cw <= 0 || ch <= 0) return;
 
-        // Target point in control coords (content offset + percent within content)
+        // target in image content coordinates (before transforms)
         var targetX = ContentOffsetX + xPercent * cw;
         var targetY = ContentOffsetY + yPercent * ch;
+
+        // Desired screen point (viewport center)
         var centerX = Bounds.Width / 2.0;
         var centerY = Bounds.Height / 2.0;
 
-        TranslateX = centerX - targetX;
-        TranslateY = centerY - targetY;
+        // Try to leverage the actual visual transform chain when available
+        try
+        {
+            // Build a point in image's local space; then find where it lands in the PicViewer (this)
+            var pLocal = new Point(targetX, targetY);
+            var m = _image.TransformToVisual(this);
+            if (m != null)
+            {
+                var pScreen = m.Value.Transform(pLocal);
+                var dx = centerX - pScreen.X;
+                var dy = centerY - pScreen.Y;
+                // Adjust pan by the delta so that the point moves to the center
+                TranslateX += dx;
+                TranslateY += dy;
+                return;
+            }
+        }
+        catch { /* fall back to math model below */ }
+
+        // Fallback: assume transforms order is Translate then Scale (pre-scale translate)
+        var s = Math.Max(Scale, 0.0001);
+        TranslateX = centerX / s - targetX;
+        TranslateY = centerY / s - targetY;
     }
 
     public void CenterOnLabel(LabelItem? item)
     {
         if (item is null) return;
         CenterOnPercent(item.XPercent, item.YPercent);
-    }
-
-    public class AddLabelRequestedEventArgs : EventArgs
-    {
-        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
-        {
-            XPercent = xPercent;
-            YPercent = yPercent;
-            Category = category;
-        }
-        public double XPercent { get; }
-        public double YPercent { get; }
-        public int Category { get; }
     }
 }

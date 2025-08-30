@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 
 namespace LabelPlus_Next.Services.Api;
 
@@ -33,4 +33,17 @@ public sealed class LoginData
     ///     访问令牌。
     /// </summary>
     [JsonProperty("token")] public string Token { get; set; } = string.Empty;
+}
+
+public sealed class MeData
+{
+    [JsonProperty("base_path")] public string? BasePath { get; set; }
+    [JsonProperty("disabled")] public bool Disabled { get; set; }
+    [JsonProperty("id")] public long Id { get; set; }
+    [JsonProperty("otp")] public bool Otp { get; set; }
+    [JsonProperty("password")] public string? Password { get; set; }
+    [JsonProperty("permission")] public long Permission { get; set; }
+    [JsonProperty("role")] public long Role { get; set; }
+    [JsonProperty("sso_id")] public string? SsoId { get; set; }
+    [JsonProperty("username")] public string? Username { get; set; }
 }
