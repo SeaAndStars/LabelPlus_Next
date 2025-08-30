@@ -24,6 +24,10 @@ menu:
     url: /quickstart.html
   - title: 常见问题
     url: /troubleshooting.html
+  - title: 标签
+    url: /tags.html
+  - title: 分类
+    url: /categories.html
 
 # 社交链接
 social:
