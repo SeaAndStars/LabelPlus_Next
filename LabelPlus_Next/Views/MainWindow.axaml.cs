@@ -30,6 +30,9 @@ public partial class MainWindow : UrsaWindow
     private UploadPage? _uploadPage;
     private bool _uploadMenuInserted;
 
+    // TTL for upload permission cache (24 hours)
+    private static readonly TimeSpan UploadPermCacheTtl = TimeSpan.FromHours(24);
+
     private sealed class ApiAuthConfig
     {
         [JsonProperty("baseUrl")] public string? BaseUrl { get; set; }
@@ -70,21 +73,44 @@ public partial class MainWindow : UrsaWindow
         {
             var path = GetPermCachePath();
             if (!File.Exists(path)) return false;
+
+            string txt;
             if (OperatingSystem.IsWindows())
             {
                 var enc = File.ReadAllBytes(path);
                 var data = System.Security.Cryptography.ProtectedData.Unprotect(enc, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
-                var txt = Encoding.UTF8.GetString(data);
-                hasPerm = txt == "1";
-                return true;
+                txt = Encoding.UTF8.GetString(data);
             }
             else
             {
-                // cross-platform fallback: plain text (read-only attribute will be set on save)
-                var txt = File.ReadAllText(path).Trim();
-                hasPerm = txt == "1";
-                return true;
+                txt = File.ReadAllText(path).Trim();
             }
+
+            // Legacy format: just "1" means allowed, without timestamp
+            if (!txt.Contains('|'))
+            {
+                hasPerm = txt == "1";
+                if (hasPerm)
+                {
+                    // upgrade legacy to timestamped format
+                    SaveUploadPermCache(true);
+                }
+                return hasPerm;
+            }
+
+            var parts = txt.Split('|');
+            if (parts.Length < 2) return false;
+            hasPerm = parts[0] == "1";
+            if (!long.TryParse(parts[1], out var ts)) return false;
+            var written = DateTimeOffset.FromUnixTimeSeconds(ts);
+            if (DateTimeOffset.UtcNow - written <= UploadPermCacheTtl)
+            {
+                return hasPerm; // valid and within TTL
+            }
+            // expired -> remove cache and force reauth
+            try { File.Delete(path); } catch { }
+            hasPerm = false;
+            return false;
         }
         catch { return false; }
     }
@@ -99,15 +125,16 @@ public partial class MainWindow : UrsaWindow
                 if (File.Exists(path)) File.Delete(path);
                 return;
             }
+            var payload = $"1|{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             if (OperatingSystem.IsWindows())
             {
-                var data = Encoding.UTF8.GetBytes("1");
+                var data = Encoding.UTF8.GetBytes(payload);
                 var enc = System.Security.Cryptography.ProtectedData.Protect(data, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
                 File.WriteAllBytes(path, enc);
             }
             else
             {
-                File.WriteAllText(path, "1");
+                File.WriteAllText(path, payload);
                 try { File.SetAttributes(path, FileAttributes.ReadOnly); } catch { }
             }
         }
@@ -139,8 +166,8 @@ public partial class MainWindow : UrsaWindow
     {
         if (_uploadMenuInserted || _menuMain is null) return;
 
-        // 先读取本地受保护缓存，若已确认拥有权限则直接显示菜单
-        if (TryReadUploadPermCache(out var hasPerm) && hasPerm)
+        // Prefer cache first; if valid and not expired
+        if (TryReadUploadPermCache(out var cached) && cached)
         {
             InsertUploadMenuIfAbsent();
             return;
@@ -174,7 +201,7 @@ public partial class MainWindow : UrsaWindow
         }
         catch
         {
-            // 忽略鉴权失败/网络错误，不插入菜单也不缓存
+            // Ignore errors; do not insert menu nor cache
         }
     }
 
@@ -281,7 +308,8 @@ public partial class MainWindow : UrsaWindow
         menu.SelectedItem = null;
     }
 
-    private static void SelectMenuItemByTag(NavMenu? menu, string tag)
+    private static void SelectMenuItemByTag(NavMenu? menu, string tag
+    )
     {
         if (menu?.Items is not IEnumerable items) return;
         var match = items.Cast<object>()
