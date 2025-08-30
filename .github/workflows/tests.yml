@@ -1,0 +1,52 @@
+name: CI - Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: dotnet test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+
+      - name: .NET Info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore LabelPlus_Next.sln
+
+      - name: Build (Release)
+        run: dotnet build LabelPlus_Next.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --no-build --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            TestResults/**/*.trx
+            LabelPlus_Next.Test/TestResults/**/*.trx
+          if-no-files-found: ignore
