@@ -20,3 +20,23 @@
 ## 下载
 
 - 发布页（Releases）：<https://github.com/SeaAndStars/LabelPlus_Next/releases>
+
+## 鸣谢与依赖
+
+- UI 组件与主题：
+  - Irihi.Ursa / Irihi.Ursa.Themes.Semi（Ursa UI 套件，部分界面组件与风格）
+  - Semi.Avalonia（Semi Design 风格的 Avalonia 组件）
+- 基础框架与库：
+  - Avalonia、Avalonia.Controls.DataGrid、Avalonia.Controls.TreeDataGrid、Avalonia.Themes.Fluent、Avalonia.Fonts.Inter
+  - CommunityToolkit.Mvvm、ReactiveUI
+  - Newtonsoft.Json、SharpCompress
+  - RestSharp、WebDav.Client（网络与远程存储）
+  - NLog、NLog.Extensions.Logging（日志）
+  - Antelcat.I18N.Avalonia（多语言）
+  - Downloader（下载/网络传输辅助）
+
+感谢以上开源项目的支持，特别致谢 Ursa 及相关生态。
+
+## 许可协议
+
+本项目采用 MIT 许可协议，详见 [LICENSE.md](./LICENSE.md)。
