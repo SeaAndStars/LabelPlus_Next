@@ -1,0 +1,15 @@
+title: LabelPlus Next 文档
+description: 使用指南、上传流程、解析规则、协作与性能优化
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-optional-front-matter
+  - jekyll-sitemap
+  - jekyll-seo-tag
+markdown: kramdown
+kramdown:
+  input: GFM
+# 站点设置
+# 如果你的 Pages 使用项目子路径 (user.github.io/repo)，可设置 baseurl: 
+# baseurl: "/LabelPlus_Next"
+# url: "https://seaandstars.github.io"
