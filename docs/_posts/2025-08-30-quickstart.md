@@ -13,3 +13,5 @@ tags: [文档, 指南, 快速上手]
 <!--more-->
 
 建议配合文档索引浏览更多主题：[文档索引](/README.html)。
+
+{% include back-home.md %}

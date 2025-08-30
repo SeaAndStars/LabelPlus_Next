@@ -14,3 +14,5 @@
 
 - 点击“确认”将用户编辑的“话数”回写到 EpisodeEntry；后续用于生成远端目录名与 JSON 键。
 - 若启用了单卷合并（Tankobon fallback），会按卷号覆盖话数写入。
+
+{% include back-home.md %}

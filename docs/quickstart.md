@@ -34,3 +34,5 @@
 
 - 自动更新项目 JSON，并可选更新聚合 /project.json（中文不转义、缩进美观）。
 - 如需再次上传同名文件，程序会自动将旧文件备份为“_yyyyMMddHHmmss”后缀再覆盖。
+
+{% include back-home.md %}

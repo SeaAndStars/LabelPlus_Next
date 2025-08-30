@@ -29,3 +29,5 @@
 ```
 
 - 键规则：见《parsing.md》与《project-structure.md》；排序遵循 RankKey 保证稳定输出。
+
+{% include back-home.md %}

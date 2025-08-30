@@ -13,3 +13,5 @@ tags: [PicViewer, 标注, 拖拽, 缩放]
 <!--more-->
 
 并说明与 TranslateViewModel 的联动：新增/删除/移动标注与自动保存。
+
+{% include back-home.md %}

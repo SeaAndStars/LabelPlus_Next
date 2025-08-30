@@ -3,7 +3,9 @@ name: Build and Release Desktop (Windows/Linux/macOS)
 on:
   push:
     branches: ["master"]
-    tags: ["v*"]
+    tags:
+      - "v*.*.*"
+      - "*.*.*"
   workflow_dispatch:
 
 permissions:

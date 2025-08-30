@@ -13,3 +13,5 @@ tags: [JSON, 清单, 序列化]
 <!--more-->
 
 包含合并策略与兼容性说明。
+
+{% include back-home.md %}

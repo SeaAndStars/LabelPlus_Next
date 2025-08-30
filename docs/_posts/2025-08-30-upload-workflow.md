@@ -13,3 +13,5 @@ tags: [上传, 性能, 进度, MBps]
 <!--more-->
 
 更多性能细节见：/performance.html。
+
+{% include back-home.md %}

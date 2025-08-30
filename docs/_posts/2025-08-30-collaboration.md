@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 协作流程：自动保存、远端同步与冲突合并
+title: 协作流程：自动保存、远程同步与冲突合并
 author: SeaAndStars
 categories: [文档]
 tags: [协作, 冲突, 合并, 备份]
@@ -13,3 +13,5 @@ tags: [协作, 冲突, 合并, 备份]
 <!--more-->
 
 上传与下载均为流式处理，带 MB/s 进度与重试。
+
+{% include back-home.md %}
