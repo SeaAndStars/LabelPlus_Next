@@ -11,5 +11,5 @@ kramdown:
   input: GFM
 # 站点设置
 # 自定义域名部署在根路径：
-url: "https://doc.seastarss.cn"
+url: "https://doc1.seastarss.cn"
 baseurl: ""
