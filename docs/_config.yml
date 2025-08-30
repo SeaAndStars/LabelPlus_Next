@@ -1,6 +1,6 @@
 title: LabelPlus Next 文档
 description: 使用指南、上传流程、解析规则、协作与性能优化
-remote_theme: pages-themes/cayman@v0.2.0
+remote_theme: jekyller/cayman-blog
 plugins:
   - jekyll-remote-theme
   - jekyll-optional-front-matter
@@ -11,5 +11,44 @@ kramdown:
   input: GFM
 # 站点设置
 # 自定义域名部署在根路径：
-url: "https://doc1.seastarss.cn"
+url: "https://doc.seastarss.cn"
 baseurl: ""
+
+# 导航菜单（Cayman Blog 支持）
+menu:
+  - title: 首页
+    url: /
+  - title: 文档
+    url: /README.html
+  - title: 快速上手
+    url: /quickstart.html
+  - title: 常见问题
+    url: /troubleshooting.html
+
+# 社交链接
+social:
+  github: https://github.com/SeaAndStars/LabelPlus_Next
+  # twitter: https://twitter.com/your_twitter
+  # weibo: https://weibo.com/your_weibo
+  # rss: /feed.xml
+
+# 作者信息（用于文章页）
+author:
+  name: SeaAndStars
+  avatar: /assets/avatar.png
+  email: 
+  url: https://github.com/SeaAndStars
+
+# 侧边栏与布局（主题支持的键，未识别也会被忽略）
+sidebar:
+  enabled: true
+  about: true
+  show_categories: true
+
+# 博客列表与摘要
+paginate: 10
+paginate_path: "/page:num/"
+excerpt_separator: "<!--more-->"
+
+# SEO 基础
+title_separator: " | "
