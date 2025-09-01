@@ -158,7 +158,7 @@ public sealed class DownloadResult
 }
 
 /// <summary>
-///     统一上传请求：支持 单文件、多文件、目录 三种模式。
+///     统一上传请求： 单文件、多文件、目录 三种模式。
 /// </summary>
 public sealed class UploadRequest
 {
@@ -210,4 +210,13 @@ public sealed class UploadProgress
     public long? BytesTotal { get; set; }
     // Current speed in MB/s (may be null if not measurable)
     public double? SpeedMBps { get; set; }
+}
+
+// 分片上传配置
+public sealed class ChunkUploadOptions
+{
+    public bool Enable { get; set; }
+    public long ThresholdBytes { get; set; }
+    public long ChunkSizeBytes { get; set; }
+    public int MaxRetries { get; set; } = 3;
 }

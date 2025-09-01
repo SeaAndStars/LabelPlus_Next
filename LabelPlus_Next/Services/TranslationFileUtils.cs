@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 namespace LabelPlus_Next.Services;
 
@@ -19,9 +19,22 @@ public static class TranslationFileUtils
         sb.Append(nl);
         foreach (var name in imageNames)
         {
-            sb.Append(">>>>>>>>["); sb.Append(name); sb.Append("]<<<<<<<"); sb.Append(nl);
-            sb.Append(">>>>>>>>["); sb.Append(name); sb.Append("]<<<<<<<<"); sb.Append(nl);
+            sb.Append(">>>>>>>>"); sb.Append('['); sb.Append(name); sb.Append("]<<<<<<<"); sb.Append(nl);
+            sb.Append(">>>>>>>>"); sb.Append('['); sb.Append(name); sb.Append("]<<<<<<<<"); sb.Append(nl);
         }
         return sb.ToString();
+    }
+
+    public static string GetNonConflictPath(string folder, string fileName)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        var ext = Path.GetExtension(fileName);
+        var path = Path.Combine(folder, fileName);
+        if (!File.Exists(path)) return path;
+        for (int i = 1; ; i++)
+        {
+            var cand = Path.Combine(folder, $"{name} ({i}){ext}");
+            if (!File.Exists(cand)) return cand;
+        }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.Tools.Models;
 using NLog;
 using System;
@@ -36,6 +37,8 @@ public class MainWindowViewModel : ObservableObject
 
     private string? baseUrl;
 
+    private string? apiBaseUrl;
+
     // Track current client configuration to decide recreation
     private string? currentClientBaseUrl;
     private string? currentClientPassword;
@@ -60,9 +63,11 @@ public class MainWindowViewModel : ObservableObject
     {
         ConnectCommand = new AsyncRelayCommand(ConnectAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
+        ApiUploadCommand = new AsyncRelayCommand<IReadOnlyList<string>?>(ApiUploadAsync);
         _ = LoadSettingsAsync();
     }
     public string? BaseUrl { get => baseUrl; set => SetProperty(ref baseUrl, value); }
+    public string? ApiBaseUrl { get => apiBaseUrl; set => SetProperty(ref apiBaseUrl, value); }
     public string? Username { get => username; set => SetProperty(ref username, value); }
     public string? Password { get => password; set => SetProperty(ref password, value); }
     public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
@@ -83,6 +88,7 @@ public class MainWindowViewModel : ObservableObject
 
     public IAsyncRelayCommand ConnectCommand { get; }
     public IAsyncRelayCommand RefreshCommand { get; }
+    public IAsyncRelayCommand<IReadOnlyList<string>?> ApiUploadCommand { get; }
 
     private string SettingsPath
     {
@@ -172,6 +178,44 @@ public class MainWindowViewModel : ObservableObject
             Status = $"刷新失败: {ex.Message}";
         }
         finally { IsLoading = false; }
+    }
+
+    public async Task ApiUploadAsync(IReadOnlyList<string>? files)
+    {
+        try
+        {
+            if (files is null || files.Count == 0) return;
+            if (string.IsNullOrWhiteSpace(ApiBaseUrl)) { Status = "未配置 API BaseUrl"; return; }
+            var auth = new AuthApi(ApiBaseUrl!);
+            var login = await auth.LoginAsync(Username ?? string.Empty, Password ?? string.Empty);
+            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) { Status = $"登录失败: {login.Code} {login.Message}"; return; }
+            var token = login.Data!.Token!;
+
+            var fs = new FileSystemApi(ApiBaseUrl!);
+            var items = files.Select(p => new FileUploadItem
+            {
+                FilePath = CombineDavPath(TargetPath ?? "/", Path.GetFileName(p)),
+                LocalPath = p
+            }).ToList();
+            var results = await fs.PutManyAsync(token, items, progress: null, maxConcurrency: UploadConcurrency, asTask: false);
+            if (results.All(r => r.Code == 200))
+                Status = $"API 上传完成，共 {files.Count} 个";
+            else
+                Status = $"API 上传部分失败：{results.Count(r => r.Code == 200)}/{results.Count} 成功";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "ApiUploadAsync failed");
+            Status = $"API 上传异常: {ex.Message}";
+        }
+    }
+
+    private static string CombineDavPath(string dir, string name)
+    {
+        var d = string.IsNullOrWhiteSpace(dir) ? "/" : dir.Replace('\\', '/');
+        if (!d.StartsWith('/')) d = "/" + d;
+        if (!d.EndsWith('/')) d += "/";
+        return d + name;
     }
 
     private static void EnsurePlaceholderForFolder(DavNode node)
@@ -462,11 +506,12 @@ public class MainWindowViewModel : ObservableObject
             if (s != null)
             {
                 BaseUrl = s.BaseUrl;
+                ApiBaseUrl = s.ApiBaseUrl;
                 Username = s.Username;
                 Password = s.Password;
                 TargetPath = s.TargetPath;
             }
-            Logger.Info("Settings loaded: base={base}", BaseUrl);
+            Logger.Info("Settings loaded: base={base} api={api}", BaseUrl, ApiBaseUrl);
         }
         catch (Exception ex)
         {
@@ -478,7 +523,7 @@ public class MainWindowViewModel : ObservableObject
     {
         try
         {
-            var s = new ToolsSettings { BaseUrl = BaseUrl, Username = Username, Password = Password, TargetPath = TargetPath };
+            var s = new ToolsSettings { BaseUrl = BaseUrl, ApiBaseUrl = ApiBaseUrl, Username = Username, Password = Password, TargetPath = TargetPath };
             await using var fs = File.Create(SettingsPath);
             await JsonSerializer.SerializeAsync(fs, s, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
             Logger.Info("Settings saved");

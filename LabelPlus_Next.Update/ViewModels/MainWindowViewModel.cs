@@ -18,12 +18,14 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Ursa.Controls;
+using System.Runtime.InteropServices;
 
 namespace LabelPlus_Next.Update.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private const string DefaultUserAgent = "pan.baidu.com";
 
     private string? _overrideAppDir;
     [ObservableProperty] private double bytesReceivedInMB;
@@ -51,6 +53,38 @@ public partial class MainWindowViewModel : ViewModelBase
     public void OverrideAppDir(string dir) => _overrideAppDir = dir;
 
     public Task RunUpdateAsyncPublic() => RunUpdateAsync();
+
+    private static string GetCurrentRid()
+    {
+        var arch = RuntimeInformation.ProcessArchitecture;
+        if (OperatingSystem.IsWindows())
+            return arch == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        if (OperatingSystem.IsLinux())
+            return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+        if (OperatingSystem.IsMacOS())
+            return arch == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+        return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+    }
+
+    private (string? url, string? sha256) GetReleaseFileInfoByOS(ProjectReleases prj, string version)
+    {
+        foreach (var r in prj.Releases)
+        {
+            if (!string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase)) continue;
+            if (r.Files is { Count: > 0 })
+            {
+                var rid = GetCurrentRid();
+                var match = r.Files.FirstOrDefault(f => (!string.IsNullOrEmpty(f.Name) && f.Name.Contains(rid, StringComparison.OrdinalIgnoreCase))
+                                                     || (!string.IsNullOrEmpty(f.Url) && f.Url.Contains(rid, StringComparison.OrdinalIgnoreCase)));
+                if (match is not null && !string.IsNullOrWhiteSpace(match.Url))
+                    return (match.Url, match.Sha256);
+                var any = r.Files.FirstOrDefault(f => !string.IsNullOrWhiteSpace(f.Url));
+                if (any is not null) return (any.Url, any.Sha256);
+            }
+            return (r.Url, null);
+        }
+        return (null, null);
+    }
 
     private async Task RunUpdateAsync()
     {
@@ -117,7 +151,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // If updater itself is outdated, attempt to self-update with retry and DAV handling
             if (IsGreater(updaterLatest, updaterLocal) && uproj is not null)
             {
-                var (fileUrl, fileSha) = GetReleaseFileInfo(uproj, updaterLatest!);
+                var (fileUrl, fileSha) = GetReleaseFileInfoByOS(uproj, updaterLatest!);
                 Logger.Info("Updater self-update required -> {ver}, url={url}", updaterLatest, fileUrl);
                 if (!string.IsNullOrWhiteSpace(fileUrl))
                 {
@@ -147,7 +181,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (IsGreater(clientLatest, clientLocal) && cproj is not null)
             {
-                var (fileUrl, fileSha) = GetReleaseFileInfo(cproj, clientLatest!);
+                var (fileUrl, fileSha) = GetReleaseFileInfoByOS(cproj, clientLatest!);
                 Logger.Info("Client update -> {ver}, url={url}", clientLatest, fileUrl);
                 if (!string.IsNullOrWhiteSpace(fileUrl))
                 {
@@ -183,19 +217,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private (string? url, string? sha256) GetReleaseFileInfo(ProjectReleases prj, string version)
     {
-        foreach (var r in prj.Releases)
-        {
-            if (string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase))
-            {
-                if (r.Files != null && r.Files.Count > 0)
-                {
-                    var f = r.Files.Find(f => !string.IsNullOrEmpty(f.Url)) ?? r.Files[0];
-                    return (f.Url, f.Sha256);
-                }
-                return (r.Url, null);
-            }
-        }
-        return (null, null);
+        // Legacy method retained for compatibility, now redirects to OS-aware selection
+        return GetReleaseFileInfoByOS(prj, version);
     }
 
     private async Task<bool> DownloadWithDownloaderAsync(string url, string outPath)
@@ -206,9 +229,12 @@ public partial class MainWindowViewModel : ViewModelBase
             Logger.Info("Downloading: {url}", url);
             var cfg = new DownloadConfiguration
             {
-                ChunkCount = 16, // Number of file parts, default is 1
-                ParallelDownload = true // Download parts in parallel (default is false)
+                ChunkCount = 8,
+                ParallelDownload = true
             };
+            cfg.RequestConfiguration = cfg.RequestConfiguration ?? new RequestConfiguration();
+            cfg.RequestConfiguration.Headers = cfg.RequestConfiguration.Headers ?? new System.Net.WebHeaderCollection();
+            cfg.RequestConfiguration.Headers["User-Agent"] = DefaultUserAgent;
             var service = new DownloadService(cfg);
             service.DownloadProgressChanged += (s, e) =>
             {
@@ -273,6 +299,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             using var http = new HttpClient { BaseAddress = new Uri(AppendSlash(upd.BaseUrl!)) };
+            http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
             var body = JsonSerializer.Serialize(new { username = upd.Username ?? string.Empty, password = upd.Password ?? string.Empty });
             using var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
             {
@@ -292,6 +319,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             using var http = new HttpClient { BaseAddress = new Uri(AppendSlash(upd.BaseUrl!)) };
+            http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
             var body = JsonSerializer.Serialize(new { path = davPath, password = "", page = 1, per_page = 0, refresh = true });
             using var req = new HttpRequestMessage(HttpMethod.Post, "/api/fs/get")
             {
@@ -618,12 +646,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private static async Task<string?> DownloadStringWithAuthFallbackAsync(string url, string? token)
     {
-    using var http = new HttpClient();
-    http.Timeout = Timeout.InfiniteTimeSpan;
+        using var http = new HttpClient();
+        http.Timeout = Timeout.InfiniteTimeSpan;
+        http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
         try
         {
             using var req1 = new HttpRequestMessage(HttpMethod.Get, url);
-            using var resp1 = await http.SendAsync(req1);
+            var resp1 = await http.SendAsync(req1);
             if (resp1.IsSuccessStatusCode)
             {
                 var t = await resp1.Content.ReadAsStringAsync();
@@ -638,7 +667,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 using var req2 = new HttpRequestMessage(HttpMethod.Get, url);
                 req2.Headers.TryAddWithoutValidation("Authorization", token);
-                using var resp2 = await http.SendAsync(req2);
+                var resp2 = await http.SendAsync(req2);
                 if (resp2.IsSuccessStatusCode)
                 {
                     var t = await resp2.Content.ReadAsStringAsync();

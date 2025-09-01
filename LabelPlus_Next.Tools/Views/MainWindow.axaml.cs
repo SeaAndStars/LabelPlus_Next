@@ -1,9 +1,10 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Tools.ViewModels;
 using System.Collections.Generic;
+using System.Linq;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.Tools.Views;
@@ -12,7 +13,7 @@ public partial class MainWindow : UrsaWindow
 {
     public MainWindow()
     {
-        InitializeComponent();
+        Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
 
         var tree = this.FindControl<TreeView>("Tree");
         if (tree != null)
@@ -21,10 +22,13 @@ public partial class MainWindow : UrsaWindow
         }
     }
 
-    private void OnOpenPackWindow(object? sender, RoutedEventArgs e)
+    private void OnOpenSettings(object? sender, RoutedEventArgs e)
     {
-        var win = new PackWindow();
-        win.Show(this);
+        if (DataContext is MainWindowViewModel vm)
+        {
+            var win = new ServerSettingsWindow { DataContext = new ServerSettingsViewModel(vm) };
+            win.Show(this);
+        }
     }
 
     private async void OnTreeItemExpanded(object? sender, RoutedEventArgs e)
@@ -84,6 +88,25 @@ public partial class MainWindow : UrsaWindow
         if (paths.Count > 0)
         {
             await vm.UploadFilesAsync(paths, node.Uri);
+        }
+    }
+
+    private async void OnApiUploadClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        var provider = GetTopLevel(this)?.StorageProvider;
+        if (provider is null) return;
+        var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "选择要通过 API 上传的文件",
+            AllowMultiple = true,
+            FileTypeFilter = null
+        });
+        if (files is null || files.Count == 0) return;
+        var paths = files.Where(f => f.Path is not null).Select(f => f.Path!.LocalPath).ToList();
+        if (paths.Count > 0)
+        {
+            await vm.ApiUploadAsync(paths);
         }
     }
 }

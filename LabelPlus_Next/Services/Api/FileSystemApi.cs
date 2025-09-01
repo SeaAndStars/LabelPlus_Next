@@ -1,4 +1,4 @@
-using Downloader;
+﻿using Downloader;
 using Newtonsoft.Json;
 using NLog;
 using RestSharp;
@@ -8,9 +8,6 @@ using System.IO;
 
 namespace LabelPlus_Next.Services.Api;
 
-/// <summary>
-///     文件系统 API 客户端实现。
-/// </summary>
 public sealed class FileSystemApi : IFileSystemApi
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -18,6 +15,8 @@ public sealed class FileSystemApi : IFileSystemApi
 
     private readonly RestClient _client;
     private readonly HttpClient _http;
+
+    private const string DefaultUserAgent = "pan.baidu.com";
 
     public FileSystemApi(string baseUrl)
     {
@@ -29,6 +28,7 @@ public sealed class FileSystemApi : IFileSystemApi
             // 使用无限超时，避免后续 REST 接口在慢网络或大数据时被中断
             Timeout = Timeout.InfiniteTimeSpan
         });
+        _client.AddDefaultHeader("User-Agent", DefaultUserAgent);
         // 复用连接的 HttpClient，禁用 100-continue，提升吞吐
         var handler = new SocketsHttpHandler
         {
@@ -43,6 +43,7 @@ public sealed class FileSystemApi : IFileSystemApi
             Timeout = Timeout.InfiniteTimeSpan
         };
         _http.DefaultRequestHeaders.ExpectContinue = false;
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
         Logger.Info("FileSystemApi created for {base}", _baseUrl);
     }
 
@@ -260,8 +261,7 @@ public sealed class FileSystemApi : IFileSystemApi
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); }
-            catch { }
+            try { await Task.Delay(delayMs, cancellationToken); } catch { }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -276,50 +276,41 @@ public sealed class FileSystemApi : IFileSystemApi
             return new DownloadResult { Code = -1, Message = "raw_url not available" };
         }
 
+        // Prefer multi-thread downloader with UA
         try
         {
-            // 复用 _http；永不超时，避免默认 100 秒限制
-            // 尝试不带鉴权，强制非压缩
-            using (var req = new HttpRequestMessage(HttpMethod.Get, url))
+            var bytesNoAuth = await DownloadToBytesWithDownloaderAsync(url, BuildDownloadConfig(null, false, token), cancellationToken);
+            if (bytesNoAuth is not null)
             {
-                req.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
-                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                if (resp.IsSuccessStatusCode)
-                {
-                    var bytesOk = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
-                    Logger.Info("DownloadAsync ok(size={size}) no-auth", bytesOk.Length);
-                    return new DownloadResult { Code = 200, Content = bytesOk };
-                }
+                Logger.Info("DownloadAsync ok(size={size}) no-auth via MT", bytesNoAuth.Length);
+                return new DownloadResult { Code = 200, Content = bytesNoAuth };
             }
-            // 失败则携带 Authorization 重试
-            using (var req2 = new HttpRequestMessage(HttpMethod.Get, url))
-            {
-                req2.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
-                req2.Headers.TryAddWithoutValidation("Authorization", token);
-                using var resp2 = await _http.SendAsync(req2, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                if (resp2.IsSuccessStatusCode)
-                {
-                    var bytesOk2 = await resp2.Content.ReadAsByteArrayAsync(cancellationToken);
-                    Logger.Info("DownloadAsync ok(size={size}) with-auth", bytesOk2.Length);
-                    return new DownloadResult { Code = 200, Content = bytesOk2 };
-                }
-                Logger.Warn("DownloadAsync fail http={code} reason={reason}", (int)resp2.StatusCode, resp2.ReasonPhrase);
-                return new DownloadResult { Code = (int)resp2.StatusCode, Message = resp2.ReasonPhrase ?? "Request failed" };
-            }
-        }
-        catch (HttpRequestException hex)
-        {
-            var code = (int?)hex.StatusCode ?? -1;
-            Logger.Warn(hex, "DownloadAsync http error code={code}", code);
-            return new DownloadResult { Code = code, Message = hex.Message };
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "DownloadAsync exception");
+            Logger.Warn(ex, "Downloader(no-auth) failed, will try auth");
+        }
+
+        try
+        {
+            var cfgAuth = BuildDownloadConfig(null, true, token);
+            var bytesAuth = await DownloadToBytesWithDownloaderAsync(url, cfgAuth, cancellationToken);
+            if (bytesAuth is not null)
+            {
+                Logger.Info("DownloadAsync ok(size={size}) with-auth via MT", bytesAuth.Length);
+                return new DownloadResult { Code = 200, Content = bytesAuth };
+            }
+            Logger.Warn("DownloadAsync fail via Downloader with-auth");
+            return new DownloadResult { Code = -1, Message = "Downloader failed" };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "DownloadAsync exception via Downloader");
             return new DownloadResult { Code = -1, Message = ex.Message };
         }
     }
 
+    // Parallel wrapper over DownloadAsync
     public async Task<IReadOnlyList<DownloadResult>> DownloadManyAsync(string token, IEnumerable<string> filePaths, int maxConcurrency = 4, CancellationToken cancellationToken = default)
     {
         var list = filePaths?.ToList() ?? new List<string>();
@@ -329,14 +320,29 @@ public sealed class FileSystemApi : IFileSystemApi
         var tasks = list.Select(async (file, idx) =>
         {
             await sem.WaitAsync(cancellationToken);
-            try
-            {
-                results[idx] = await DownloadAsync(token, file, cancellationToken);
-            }
+            try { results[idx] = await DownloadAsync(token, file, cancellationToken); }
             finally { sem.Release(); }
         });
         await Task.WhenAll(tasks);
         return results;
+    }
+
+    private static async Task<byte[]?> DownloadToBytesWithDownloaderAsync(string url, DownloadConfiguration cfg, CancellationToken ct)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".bin");
+        try
+        {
+            cfg.RequestConfiguration.Headers["Accept-Encoding"] = "identity";
+            var service = new DownloadService(cfg);
+            await service.DownloadFileTaskAsync(url, tmp, ct);
+            if (!File.Exists(tmp)) return null;
+            var bytes = await File.ReadAllBytesAsync(tmp, ct);
+            return bytes.Length == 0 ? Array.Empty<byte>() : bytes;
+        }
+        finally
+        {
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
     }
 
     public async Task<DownloadResult> DownloadToFileAsync(string token, string filePath, string localPath, DownloadConfiguration? config = null, CancellationToken cancellationToken = default)
@@ -355,8 +361,7 @@ public sealed class FileSystemApi : IFileSystemApi
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); }
-            catch { }
+            try { await Task.Delay(delayMs, cancellationToken); } catch { }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -371,52 +376,81 @@ public sealed class FileSystemApi : IFileSystemApi
             return new DownloadResult { Code = -1, Message = "raw_url not available" };
         }
 
-        // 优先使用 DownloadAsync（强制非压缩 + 可带鉴权），写入文件
-        var res = await DownloadAsync(token, filePath, cancellationToken);
-        if (res.Code == 200 && res.Content is not null)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
-            await File.WriteAllBytesAsync(localPath, res.Content, cancellationToken);
-            Logger.Info("DownloadToFile ok -> {local}", localPath);
-            return new DownloadResult { Code = 200 };
-        }
-
-        // 回退到下载服务（也携带鉴权与非压缩）
         try
         {
             var cfg = BuildDownloadConfig(config, true, token);
             cfg.RequestConfiguration.Headers["Accept-Encoding"] = "identity";
+            Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
             var service = new DownloadService(cfg);
-            await service.DownloadFileTaskAsync(url, localPath);
-            Logger.Info("DownloadToFile(ok via fallback) -> {local}", localPath);
+            await service.DownloadFileTaskAsync(url, localPath, cancellationToken);
+            Logger.Info("DownloadToFile(ok via MT) -> {local}", localPath);
             return new DownloadResult { Code = 200 };
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "DownloadToFile exception(fallback)");
+            Logger.Error(ex, "DownloadToFile exception(MT)");
             return new DownloadResult { Code = -1, Message = ex.Message };
         }
     }
 
+    // Parallel wrapper over DownloadToFileAsync
     public async Task<IReadOnlyList<DownloadResult>> DownloadManyToFilesAsync(string token, IEnumerable<(string remotePath, string localPath)> items, int maxConcurrency = 4, DownloadConfiguration? config = null, CancellationToken cancellationToken = default)
     {
         var list = items?.ToList() ?? new List<(string remotePath, string localPath)>();
         Logger.Debug("DownloadManyToFiles count={count} concurrency={cc}", list.Count, maxConcurrency);
         var results = new DownloadResult[list.Count];
         using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
-        var tasks = list.Select(async (item, i) =>
+        var tasks = list.Select(async (pair, i) =>
         {
             await sem.WaitAsync(cancellationToken);
-            try
-            {
-                results[i] = await DownloadToFileAsync(token, item.remotePath, item.localPath, config, cancellationToken);
-            }
+            try { results[i] = await DownloadToFileAsync(token, pair.remotePath, pair.localPath, config, cancellationToken); }
             finally { sem.Release(); }
         });
         await Task.WhenAll(tasks);
         return results;
     }
 
+    private static DownloadConfiguration BuildDownloadConfig(DownloadConfiguration? baseCfg, bool needAuth, string token)
+    {
+        if (baseCfg is null)
+        {
+            baseCfg = new DownloadConfiguration
+            {
+                BufferBlockSize = 10240,
+                ChunkCount = 16,
+                ParallelDownload = true,
+
+            };
+        }
+        baseCfg.RequestConfiguration ??= new RequestConfiguration();
+        baseCfg.RequestConfiguration.Headers ??= new WebHeaderCollection();
+        if (string.IsNullOrWhiteSpace(baseCfg.RequestConfiguration.Headers["User-Agent"]))
+            baseCfg.RequestConfiguration.Headers["User-Agent"] = DefaultUserAgent;
+        if (needAuth)
+        {
+            if (string.IsNullOrWhiteSpace(baseCfg.RequestConfiguration.Headers["Authorization"]))
+                baseCfg.RequestConfiguration.Headers["Authorization"] = token;
+        }
+        else
+        {
+            baseCfg.RequestConfiguration.Headers.Remove("Authorization");
+        }
+        return baseCfg;
+    }
+
+    // Ensure helper exists for upload header encoding
+    private static string EncodePathForHeader(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return "/";
+        var p = filePath.Replace('\\', '/');
+        if (!p.StartsWith('/')) p = "/" + p;
+        while (p.Contains("//")) p = p.Replace("//", "/");
+        var parts = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var encoded = string.Join('/', parts.Select(Uri.EscapeDataString));
+        return "/" + encoded;
+    }
+
+    // Provide SafeUpload entry required by interface
     public async Task<IReadOnlyList<FsPutResponse>> SafeUploadAsync(string token, UploadRequest request, int maxConcurrency = 4, bool asTask = false, CancellationToken cancellationToken = default)
     {
         if (request is null) throw new ArgumentNullException(nameof(request));
@@ -458,8 +492,7 @@ public sealed class FileSystemApi : IFileSystemApi
                     try
                     {
                         await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
-                        // 直接使用本地文件路径进行流式上传，避免整段读入内存
-                        results[idx] = await SafePutAsync(token, pair.remotePath, localPath: pair.localPath, content: null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
+                        results[idx] = await SafePutAsync(token, pair.remotePath, /*localPath*/ pair.localPath, /*content*/ null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
                     }
                     finally { sem.Release(); }
                 });
@@ -469,55 +502,6 @@ public sealed class FileSystemApi : IFileSystemApi
             default:
                 return Array.Empty<FsPutResponse>();
         }
-    }
-
-    private static string EncodePathForHeader(string filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath)) return "/";
-        var p = filePath.Replace('\\', '/');
-        if (!p.StartsWith('/')) p = "/" + p;
-        while (p.Contains("//")) p = p.Replace("//", "/");
-        var parts = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var encoded = string.Join('/', parts.Select(Uri.EscapeDataString));
-        return "/" + encoded;
-    }
-
-    private static DownloadConfiguration BuildDownloadConfig(DownloadConfiguration? baseCfg, bool needAuth, string token)
-    {
-        if (baseCfg is null)
-        {
-            baseCfg = new DownloadConfiguration
-            {
-                BufferBlockSize = 10240,
-                ChunkCount = 8,
-                MaximumBytesPerSecond = 2 * 1024 * 1024,
-                MaxTryAgainOnFailure = 5,
-                MaximumMemoryBufferBytes = 50 * 1024 * 1024,
-                ParallelDownload = true,
-                ParallelCount = 4,
-                Timeout = 10000,
-                RangeDownload = false,
-                ClearPackageOnCompletionWithFailure = true,
-                MinimumSizeOfChunking = 102400,
-                MinimumChunkSize = 10240,
-                ReserveStorageSpaceBeforeStartingDownload = true,
-                EnableLiveStreaming = false
-            };
-        }
-        baseCfg.RequestConfiguration ??= new RequestConfiguration();
-        baseCfg.RequestConfiguration.Headers ??= new WebHeaderCollection();
-        if (needAuth)
-        {
-            if (string.IsNullOrWhiteSpace(baseCfg.RequestConfiguration.Headers["Authorization"]))
-            {
-                baseCfg.RequestConfiguration.Headers["Authorization"] = token;
-            }
-        }
-        else
-        {
-            baseCfg.RequestConfiguration.Headers.Remove("Authorization");
-        }
-        return baseCfg;
     }
 
     // Raw upload without safety checks, with optional progress. Prefer localPath when provided for zero-copy streaming.
@@ -571,40 +555,6 @@ public sealed class FileSystemApi : IFileSystemApi
         var parsed = JsonConvert.DeserializeObject<FsPutResponse>(text);
         Logger.Info("PutRaw ok code={code}", parsed?.Code);
         return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
-    }
-
-    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, IProgress<UploadProgress>? progress, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
-    {
-        var list = items?.ToList() ?? new List<FileUploadItem>();
-        Logger.Debug("PutMany count={count} concurrency={cc}", list.Count, maxConcurrency);
-        var results = new FsPutResponse[list.Count];
-        using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
-        var done = 0;
-        var tasks = list.Select(async (item, idx) =>
-        {
-            await sem.WaitAsync(cancellationToken);
-            try
-            {
-                // Provide a hint so progress can show Completed/Total and MB/s for the current file
-                var completedHint = Volatile.Read(ref done);
-                var totalHint = list.Count;
-                if (!string.IsNullOrWhiteSpace(item.LocalPath) && File.Exists(item.LocalPath))
-                {
-                    var res = await SafePutAsync(token, item.FilePath, localPath: item.LocalPath, content: null, asTask: asTask, progress: progress, completedHint: completedHint, totalHint: totalHint, cancellationToken: cancellationToken);
-                    results[idx] = res;
-                }
-                else
-                {
-                    var res = await SafePutAsync(token, item.FilePath, item.Content, asTask, progress, completedHint, totalHint, cancellationToken);
-                    results[idx] = res;
-                }
-                var d = Interlocked.Increment(ref done);
-                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
-            }
-            finally { sem.Release(); }
-        });
-        await Task.WhenAll(tasks);
-        return results;
     }
 
     // Overload SafePut that accepts localPath for zero-copy streaming; internal use only
@@ -712,5 +662,40 @@ public sealed class FileSystemApi : IFileSystemApi
     {
         var (d, _) = SplitPath(remotePath);
         return d;
+    }
+
+    // Overload that supports progress reporting (used by UploadViewModel)
+    public async Task<IReadOnlyList<FsPutResponse>> PutManyAsync(string token, IEnumerable<FileUploadItem> items, IProgress<UploadProgress>? progress, int maxConcurrency = 20, bool asTask = false, CancellationToken cancellationToken = default)
+    {
+        var list = items?.ToList() ?? new List<FileUploadItem>();
+        Logger.Debug("PutMany count={count} concurrency={cc}", list.Count, maxConcurrency);
+        var results = new FsPutResponse[list.Count];
+        using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
+        var done = 0;
+        var tasks = list.Select(async (item, idx) =>
+        {
+            await sem.WaitAsync(cancellationToken);
+            try
+            {
+                // Provide a hint so progress can show Completed/Total and MB/s for the current file
+                var completedHint = Volatile.Read(ref done);
+                var totalHint = list.Count;
+                if (!string.IsNullOrWhiteSpace(item.LocalPath) && File.Exists(item.LocalPath))
+                {
+                    var res = await SafePutAsync(token, item.FilePath, item.LocalPath, null, asTask, progress, completedHint, totalHint, cancellationToken);
+                    results[idx] = res;
+                }
+                else
+                {
+                    var res = await SafePutAsync(token, item.FilePath, item.Content ?? Array.Empty<byte>(), asTask, progress, completedHint, totalHint, cancellationToken);
+                    results[idx] = res;
+                }
+                var d = Interlocked.Increment(ref done);
+                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
+            }
+            finally { sem.Release(); }
+        });
+        await Task.WhenAll(tasks);
+        return results;
     }
 }

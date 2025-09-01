@@ -1,9 +1,10 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Tools.Models;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -22,7 +23,7 @@ using WebDav;
 
 namespace LabelPlus_Next.Tools.ViewModels;
 
-public class PackWindowViewModel : ObservableObject
+public partial class PackWindowViewModel : ObservableObject
 {
     private const string ManifestSchema = "labelplus-manifest/v1";
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -30,45 +31,41 @@ public class PackWindowViewModel : ObservableObject
     // Keep all project-version pairs detected from version files
     private readonly List<(string Project, string Version)> versionEntries = new();
 
-    private double currentProgress;
-
-    private string? currentTask;
-
-    private string? manifestPath;
-
+    [ObservableProperty] private double currentProgress;
+    [ObservableProperty] private string? currentTask;
+    [ObservableProperty] private string? manifestPath;
     // Note: during LoadClientVersionAsync this holds the download URL from project json; later in build it will hold DAV url
-    private string? manifestUrl;
+    [ObservableProperty] private string? manifestUrl;
+    [ObservableProperty] private string? project;
+    [ObservableProperty] private string? selectedFolder;
+    [ObservableProperty] private string? solutionPath;
+    [ObservableProperty] private string? status;
+    [ObservableProperty] private string? targetPath;
+    [ObservableProperty] private string? version;
+    [ObservableProperty] private string? zipPath;
 
-    private string? project;
+    // Publish options (UI configurable)
+    [ObservableProperty] private bool winX64 = true;
+    [ObservableProperty] private bool winArm64;
+    [ObservableProperty] private bool linuxX64 = true;
+    [ObservableProperty] private bool linuxArm64;
+    [ObservableProperty] private bool osxX64 = true;
+    [ObservableProperty] private bool osxArm64;
 
-    private string? selectedFolder;
-
-    private string? status;
-
-    private string? targetPath;
-
-    private string? version;
-
-    private string? zipPath;
+    [ObservableProperty] private bool selfContained = true;
+    [ObservableProperty] private bool singleFile; // default off for easier debugging
+    [ObservableProperty] private bool publishTrimmed; // risky for Avalonia; default off
 
     public PackWindowViewModel()
     {
         BrowseCommand = new AsyncRelayCommand(BrowseAsync);
         BuildAndUploadCommand = new AsyncRelayCommand(BuildAndUploadAsync);
+        BuildSolutionCommand = new AsyncRelayCommand(BuildSolutionAsync);
     }
-    public string? SelectedFolder { get => selectedFolder; set => SetProperty(ref selectedFolder, value); }
-    public string? Project { get => project; set => SetProperty(ref project, value); }
-    public string? Version { get => version; set => SetProperty(ref version, value); }
-    public string? Status { get => status; set => SetProperty(ref status, value); }
-    public string? ZipPath { get => zipPath; set => SetProperty(ref zipPath, value); }
-    public string? ManifestPath { get => manifestPath; set => SetProperty(ref manifestPath, value); }
-    public string? ManifestUrl { get => manifestUrl; set => SetProperty(ref manifestUrl, value); }
-    public string? TargetPath { get => targetPath; set => SetProperty(ref targetPath, value); }
-    public string? CurrentTask { get => currentTask; set => SetProperty(ref currentTask, value); }
-    public double CurrentProgress { get => currentProgress; set => SetProperty(ref currentProgress, value); }
 
     public IAsyncRelayCommand BrowseCommand { get; }
     public IAsyncRelayCommand BuildAndUploadCommand { get; }
+    public IAsyncRelayCommand BuildSolutionCommand { get; }
 
     private async Task BrowseAsync()
     {
@@ -150,31 +147,6 @@ public class PackWindowViewModel : ObservableObject
     {
         try
         {
-            if (string.IsNullOrEmpty(SelectedFolder))
-            {
-                Status = "请先选择目录";
-                return;
-            }
-            if (versionEntries.Count == 0) await LoadClientVersionAsync();
-            if (versionEntries.Count == 0)
-            {
-                Status = "版本或项目为空";
-                return;
-            }
-
-            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var fileName = $"{Project}({Version})_{ts}.zip";
-            var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
-            Directory.CreateDirectory(outDir);
-            var outZip = Path.Combine(outDir, fileName);
-            if (File.Exists(outZip)) File.Delete(outZip);
-
-            ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, false, Encoding.UTF8);
-            ZipPath = outZip;
-
-            var zipInfo = new FileInfo(outZip);
-            var sha256 = await ComputeSha256Async(outZip);
-
             var settingsPath = Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
             if (!File.Exists(settingsPath))
             {
@@ -187,59 +159,269 @@ public class PackWindowViewModel : ObservableObject
                 Status = "读取 tools.settings.json 失败";
                 return;
             }
-
             TargetPath ??= uploadSettings.TargetPath;
 
-            var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
-            var targetDir = NormalizePath(TargetPath);
-            var destBase = new Uri(new Uri(baseDir), targetDir);
-            var zipUrl = new Uri(destBase, fileName).ToString();
+            var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
+            Directory.CreateDirectory(outDir);
 
-            var davManifestUrl = new Uri(destBase, "manifest.json");
-            var manifestDownloadUrlFromProject = ManifestUrl;
-
-            var client = CreateWebDavClient(uploadSettings);
-
-            CurrentTask = "上传包...";
-            CurrentProgress = 0;
-            await UploadFileWithRetryAsync(client, outZip, zipUrl, "包", (sent, total) =>
+            // If user selected a folder -> old behavior: zip that folder as a package
+            if (!string.IsNullOrEmpty(SelectedFolder))
             {
-                if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
-            });
+                if (versionEntries.Count == 0) await LoadClientVersionAsync();
+                if (versionEntries.Count == 0)
+                {
+                    Status = "版本或项目为空";
+                    return;
+                }
 
-            var fileEntry = new ReleaseFile
+                var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var fileName = $"{Project}({Version})_{ts}.zip";
+                var outZip = Path.Combine(outDir, fileName);
+                if (File.Exists(outZip)) File.Delete(outZip);
+
+                ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, false, Encoding.UTF8);
+                ZipPath = outZip;
+
+                var zipInfo = new FileInfo(outZip);
+                var sha256 = await ComputeSha256Async(outZip);
+
+                var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+                var targetDir = NormalizePath(TargetPath);
+                var destBase = new Uri(new Uri(baseDir), targetDir);
+                var zipUrl = new Uri(destBase, fileName).ToString();
+                var davManifestUrl = new Uri(destBase, "manifest.json");
+                var manifestDownloadUrlFromProject = ManifestUrl;
+
+                var client = CreateWebDavClient(uploadSettings);
+
+                CurrentTask = "上传包...";
+                CurrentProgress = 0;
+                await UploadFileWithRetryAsync(client, outZip, zipUrl, "包", (sent, total) =>
+                {
+                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
+                });
+
+                var fileEntry = new ReleaseFile
+                {
+                    Name = Path.GetFileName(outZip),
+                    Url = zipUrl,
+                    Size = zipInfo.Length,
+                    Sha256 = sha256
+                };
+
+                CurrentTask = "合并清单...";
+                var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, davManifestUrl, fileEntry);
+                var manifestFile = Path.Combine(outDir, "manifest.json");
+                await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Encoding.UTF8);
+                ManifestPath = manifestFile;
+                ManifestUrl = davManifestUrl.ToString();
+
+                CurrentTask = "上传清单...";
+                CurrentProgress = 0;
+                await UploadFileWithRetryAsync(client, manifestFile, ManifestUrl, "manifest", (sent, total) =>
+                {
+                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
+                });
+
+                CurrentTask = null;
+                CurrentProgress = 0;
+                Status = "生成并上传完成";
+                return;
+            }
+
+            // Auto build selected platforms for Desktop and Update projects
+            var repoRoot = FindRepoRoot();
+            if (repoRoot is null)
             {
-                Name = Path.GetFileName(outZip),
-                Url = zipUrl,
-                Size = zipInfo.Length,
-                Sha256 = sha256
-            };
+                Status = "未能定位仓库根目录";
+                return;
+            }
 
-            // Merge for all detected project-version pairs
+            // Read versions from project roots
+            versionEntries.Clear();
+            var desktopVer = TryReadVersion(Path.Combine(repoRoot, "LabelPlus_Next", "Client.version.json"));
+            if (desktopVer is not null) versionEntries.Add(("LabelPlus_Next.Desktop", desktopVer));
+            var updateVer = TryReadVersion(Path.Combine(repoRoot, "LabelPlus_Next.Update", "Update.version.json"));
+            if (updateVer is not null) versionEntries.Add(("LabelPlus_Next.Update", updateVer));
+            if (versionEntries.Count == 0)
+            {
+                Status = "未能读取版本信息";
+                return;
+            }
+
+            var ridList = new List<string>();
+            if (WinX64) ridList.Add("win-x64");
+            if (WinArm64) ridList.Add("win-arm64");
+            if (LinuxX64) ridList.Add("linux-x64");
+            if (LinuxArm64) ridList.Add("linux-arm64");
+            if (OsxX64) ridList.Add("osx-x64");
+            if (OsxArm64) ridList.Add("osx-arm64");
+            if (ridList.Count == 0)
+            {
+                Status = "请至少选择一个目标平台（RID）";
+                return;
+            }
+
+            var projects = new[] { "LabelPlus_Next.Desktop", "LabelPlus_Next.Update" };
+            var artifacts = new List<(string Project, string Version, string Rid, string ZipPath, long Size, string Sha256)>();
+
+            foreach (var proj in projects)
+            {
+                var ver = versionEntries.FirstOrDefault(v => string.Equals(v.Project, proj, StringComparison.OrdinalIgnoreCase)).Version;
+                if (string.IsNullOrEmpty(ver)) continue;
+                foreach (var rid in ridList)
+                {
+                    CurrentTask = $"发布 {proj} ({rid})...";
+                    await PublishProjectAsync(repoRoot, proj, rid, SelfContained, SingleFile, PublishTrimmed);
+                    var publishDir = GetPublishDir(repoRoot, proj, rid);
+                    if (!Directory.Exists(publishDir))
+                    {
+                        Logger.Warn("未找到发布目录: {dir}", publishDir);
+                        continue;
+                    }
+                    var ts2 = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    var fileName2 = $"{proj}({ver})_{rid}_{ts2}.zip";
+                    var outZip2 = Path.Combine(outDir, fileName2);
+                    if (File.Exists(outZip2)) File.Delete(outZip2);
+                    CurrentTask = $"打包 {proj} ({rid})...";
+                    ZipFile.CreateFromDirectory(publishDir, outZip2, CompressionLevel.Optimal, false, Encoding.UTF8);
+                    var fi = new FileInfo(outZip2);
+                    var sha = await ComputeSha256Async(outZip2);
+                    artifacts.Add((proj, ver, rid, outZip2, fi.Length, sha));
+                }
+            }
+
+            if (artifacts.Count == 0)
+            {
+                Status = "没有生成任何产物";
+                return;
+            }
+
+            var baseUrl = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+            var target = NormalizePath(TargetPath);
+            var destRoot = new Uri(new Uri(baseUrl), target);
+            var davManifestUri = new Uri(destRoot, "manifest.json");
+            var clientDav = CreateWebDavClient(uploadSettings);
+
+            // Upload all artifacts
+            var uploaded = new List<(string Project, string Version, ReleaseFile File)>();
+            foreach (var a in artifacts)
+            {
+                var name = Path.GetFileName(a.ZipPath);
+                var url = new Uri(destRoot, name).ToString();
+                CurrentTask = $"上传 {name}...";
+                CurrentProgress = 0;
+                await UploadFileWithRetryAsync(clientDav, a.ZipPath, url, "包", (sent, total) =>
+                {
+                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
+                });
+                uploaded.Add((a.Project, a.Version, new ReleaseFile { Name = name, Url = url, Size = a.Size, Sha256 = a.Sha256 }));
+            }
+
+            // Merge manifest with all uploaded files
             CurrentTask = "合并清单...";
-            var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, davManifestUrl, fileEntry);
+            string? json = null;
+            try
+            {
+                var resp = await clientDav.GetRawFile(davManifestUri);
+                if (resp.IsSuccessful && resp.Stream is not null)
+                {
+                    using var sr = new StreamReader(resp.Stream, Encoding.UTF8, true);
+                    json = await sr.ReadToEndAsync();
+                }
+            }
+            catch { }
 
-            var manifestFile = Path.Combine(outDir, "manifest.json");
-            await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Encoding.UTF8);
-            ManifestPath = manifestFile;
-            ManifestUrl = davManifestUrl.ToString();
+            ManifestV1? manifest = null;
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                try
+                {
+                    manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                    if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
+                        manifest = null;
+                }
+                catch { manifest = null; }
+            }
+            manifest ??= new ManifestV1();
+
+            foreach (var (proj, ver) in versionEntries)
+            {
+                foreach (var f in uploaded.Where(u => string.Equals(u.Project, proj, StringComparison.OrdinalIgnoreCase) && string.Equals(u.Version, ver, StringComparison.OrdinalIgnoreCase)))
+                {
+                    UpsertV1(manifest, proj, ver, f.File.Url!, f.File);
+                }
+            }
+
+            var manifestOut = Path.Combine(outDir, "manifest.json");
+            await File.WriteAllTextAsync(manifestOut, JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }), Encoding.UTF8);
+            ManifestPath = manifestOut;
+            ManifestUrl = davManifestUri.ToString();
 
             CurrentTask = "上传清单...";
             CurrentProgress = 0;
-            await UploadFileWithRetryAsync(client, manifestFile, ManifestUrl, "manifest", (sent, total) =>
+            await UploadFileWithRetryAsync(clientDav, manifestOut, ManifestUrl, "manifest", (sent, total) =>
             {
                 if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
             });
 
             CurrentTask = null;
             CurrentProgress = 0;
-            Status = "生成并上传完成";
+            Status = "多平台发布并上传完成";
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "生成或上传失败");
             Status = $"生成或上传失败: {ex.Message}";
         }
+    }
+
+    private async Task BuildSolutionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SolutionPath))
+        {
+            Status = "请先选择解决方案 .sln";
+            return;
+        }
+        try
+        {
+            CurrentTask = "dotnet restore";
+            await RunDotnetAsync($"restore \"{SolutionPath}\"");
+            CurrentTask = "dotnet build -c Release";
+            await RunDotnetAsync($"build \"{SolutionPath}\" -c Release");
+            Status = "解决方案构建完成";
+        }
+        catch (Exception ex)
+        {
+            Status = $"解决方案构建失败: {ex.Message}";
+        }
+        finally
+        {
+            CurrentTask = null;
+        }
+    }
+
+    private static async Task RunDotnetAsync(string args)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = args,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var tcs = new TaskCompletionSource<int>();
+        proc.OutputDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) Logger.Info(e.Data); };
+        proc.ErrorDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) Logger.Warn(e.Data); };
+        proc.Exited += (_, __) => tcs.TrySetResult(proc.ExitCode);
+        proc.Start();
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+        var code = await tcs.Task.ConfigureAwait(false);
+        if (code != 0) throw new InvalidOperationException($"dotnet 命令失败: exit={code}, args={args}");
     }
 
     private static WebDavClient CreateWebDavClient(ToolsSettings s)
@@ -254,7 +436,7 @@ public class PackWindowViewModel : ObservableObject
             AutomaticDecompression = DecompressionMethods.All
         };
         if (!string.IsNullOrEmpty(s.Username)) handler.Credentials = new NetworkCredential(s.Username, s.Password ?? string.Empty);
-    var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan, DefaultRequestVersion = new Version(1, 1) };
+        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan, DefaultRequestVersion = new Version(1, 1) };
         httpClient.DefaultRequestHeaders.ExpectContinue = false;
         return new WebDavClient(httpClient);
     }
@@ -339,7 +521,9 @@ public class PackWindowViewModel : ObservableObject
         }
         else
         {
-            existing.Url = url;
+            // Only set Url if missing, keep the first one (typically Windows) as default
+            if (string.IsNullOrWhiteSpace(existing.Url) && !string.IsNullOrWhiteSpace(url))
+                existing.Url = url;
             existing.Time = DateTimeOffset.UtcNow;
             if (file is not null)
             {
@@ -551,26 +735,10 @@ public class PackWindowViewModel : ObservableObject
             _total = 0;
         }
 
-        public override bool CanRead
-        {
-            get => _inner.CanRead;
-        }
-
-        public override bool CanSeek
-        {
-            get => _inner.CanSeek;
-        }
-
-        public override bool CanWrite
-        {
-            get => false;
-        }
-
-        public override long Length
-        {
-            get => _inner.Length;
-        }
-
+        public override bool CanRead => _inner.CanRead;
+        public override bool CanSeek => _inner.CanSeek;
+        public override bool CanWrite => false;
+        public override long Length => _inner.Length;
         public override long Position { get => _inner.Position; set => _inner.Position = value; }
         public override void Flush() => _inner.Flush();
         public override int Read(byte[] buffer, int offset, int count)
@@ -646,5 +814,86 @@ public class PackWindowViewModel : ObservableObject
         public string? Project { get; set; }
         public string? Version { get; set; }
         [JsonPropertyName("manifest")] public string? Manifest { get; set; }
+    }
+
+    // Helper: find repo root by walking up until we see project directories
+    private static string? FindRepoRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        // climb up to 8 levels
+        for (int i = 0; i < 8 && dir is not null; i++)
+        {
+            var d = new DirectoryInfo(dir);
+            if (d.GetDirectories("LabelPlus_Next", SearchOption.TopDirectoryOnly).Any() &&
+                d.GetDirectories("LabelPlus_Next.Update", SearchOption.TopDirectoryOnly).Any())
+            {
+                return d.FullName;
+            }
+            dir = d.Parent?.FullName;
+        }
+        return null;
+    }
+
+    private static string GetProjectPath(string repoRoot, string projectName)
+    {
+        // projectName is like LabelPlus_Next.Desktop / LabelPlus_Next.Update
+        var parts = projectName.Split('.', 2);
+        var dir = parts[0];
+        var file = projectName + ".csproj";
+        var combined = Path.Combine(repoRoot, dir, file);
+        if (!File.Exists(combined))
+        {
+            // try in projectName folder directly
+            combined = Path.Combine(repoRoot, projectName, file);
+        }
+        return combined;
+    }
+
+    private static string GetPublishDir(string repoRoot, string projectName, string rid)
+    {
+        var parts = projectName.Split('.', 2);
+        var dir = parts[0];
+        var projDir = Path.Combine(repoRoot, dir);
+        // Assume net9.0 and Release
+        return Path.Combine(projDir, "bin", "Release", "net9.0", rid, "publish");
+    }
+
+    private static async Task PublishProjectAsync(string repoRoot, string projectName, string rid, bool selfContained, bool singleFile, bool trimmed)
+    {
+        var csproj = GetProjectPath(repoRoot, projectName);
+        var args = $"publish \"{csproj}\" -c Release -r {rid} --self-contained {selfContained.ToString().ToLowerInvariant()} /p:PublishSingleFile={(singleFile ? "true" : "false")} /p:PublishTrimmed={(trimmed ? "true" : "false")}";
+        var psi = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = args,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var tcs = new TaskCompletionSource<int>();
+        proc.OutputDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) Logger.Info(e.Data); };
+        proc.ErrorDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) Logger.Warn(e.Data); };
+        proc.Exited += (_, __) => tcs.TrySetResult(proc.ExitCode);
+        proc.Start();
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+        var code = await tcs.Task.ConfigureAwait(false);
+        if (code != 0) throw new InvalidOperationException($"dotenv publish 失败（{projectName} {rid}）：exit={code}");
+    }
+
+    private static string? TryReadVersion(string jsonPath)
+    {
+        try
+        {
+            if (!File.Exists(jsonPath)) return null;
+            using var fs = File.OpenRead(jsonPath);
+            using var doc = JsonDocument.Parse(fs);
+            if (doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String)
+                return v.GetString();
+            return null;
+        }
+        catch { return null; }
     }
 }

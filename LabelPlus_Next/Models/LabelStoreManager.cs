@@ -48,9 +48,12 @@ public class LabelStoreManager
 
     public async Task RemoveFileAsync(string file)
     {
-        Store.Remove(file);
-        Logger.Info("Remove file entry: {file}", file);
-        IsDirty = true;
+        // Warn: if has labels, we still remove here; higher level should confirm before calling
+        if (Store.Remove(file))
+        {
+            Logger.Info("Remove file entry: {file}", file);
+            IsDirty = true;
+        }
         await Task.CompletedTask;
     }
 
@@ -63,6 +66,11 @@ public class LabelStoreManager
             IsDirty = true;
         }
         await Task.CompletedTask;
+    }
+
+    public bool HasLabels(string file)
+    {
+        return Store.TryGetValue(file, out var list) && list is { Count: > 0 };
     }
 
     public async Task ClearAsync()

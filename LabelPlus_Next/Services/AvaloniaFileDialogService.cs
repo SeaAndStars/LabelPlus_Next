@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -103,7 +103,7 @@ public class AvaloniaFileDialogService : IFileDialogService
         var tcs = new TaskCompletionSource<IReadOnlyList<string>?>();
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var dlg = new ImageManager { DataContext = vm, Width = 650, Height = 500, CanResize = true };
+            var dlg = new ImageManager { DataContext = vm, Width = 650, Height = 500, CanResize = true, Host = null };
             var result = await dlg.ShowDialog<bool?>(owner);
             tcs.TrySetResult(result == true ? vm.FileList.ToList() : null);
         });

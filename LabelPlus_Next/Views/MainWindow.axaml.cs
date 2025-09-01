@@ -29,6 +29,8 @@ public partial class MainWindow : UrsaWindow
     private TeamWorkPage? _teamWorkPage;
     private UploadPage? _uploadPage;
     private bool _uploadMenuInserted;
+    // Prevent re-entrancy/infinite loop when user chose No on save prompt
+    private bool _closeConfirmed;
 
     // TTL for upload permission cache (24 hours)
     private static readonly TimeSpan UploadPermCacheTtl = TimeSpan.FromHours(24);
@@ -377,5 +379,44 @@ public partial class MainWindow : UrsaWindow
             if (session is not null) tvm.Collab = session;
             _ = tvm.LoadTranslationFile(path);
         }
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        // If already confirmed once, proceed
+        if (_closeConfirmed)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
+        // If translate tab is open and has unsaved changes, defer close decision to an async flow
+        if (_translateView?.DataContext is TranslateViewModel tvm && tvm.HasUnsavedChanges)
+        {
+            e.Cancel = true; // prevent immediate close
+            _ = PromptSaveAndCloseAsync(tvm); // run async workflow without blocking UI thread
+            return;
+        }
+        base.OnClosing(e);
+    }
+
+    private async Task PromptSaveAndCloseAsync(TranslateViewModel tvm)
+    {
+        var res = await MessageBox.ShowAsync("当前译文有未保存的更改，是否保存？", "关闭确认", MessageBoxIcon.Warning, MessageBoxButton.YesNoCancel);
+        if (res == MessageBoxResult.Cancel)
+        {
+            // user cancelled: do nothing, keep window open
+            return;
+        }
+        if (res == MessageBoxResult.Yes)
+        {
+            if (!string.IsNullOrEmpty(tvm.OpenTranslationFilePath))
+                await tvm.FileSave(tvm.OpenTranslationFilePath);
+            else
+                await tvm.SaveAsCommand();
+        }
+        // For No or after saving: close for real on UI thread, and mark confirmed to avoid re-prompt
+        _closeConfirmed = true;
+        await Dispatcher.UIThread.InvokeAsync(Close);
     }
 }

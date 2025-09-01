@@ -1,21 +1,21 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services.Api;
 using NLog;
 using System.Collections.ObjectModel;
-using System.IO.Compression;
-using SC = SharpCompress.Archives;
-using SCRar = SharpCompress.Archives.Rar;
-using SC7z = SharpCompress.Archives.SevenZip;
-using SCZip = SharpCompress.Archives.Zip;
-using SharpCompress.Common;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Controls.Notifications;
 using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
+using Avalonia.Controls.Models.TreeDataGrid;
+using Avalonia.Controls.Templates;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using System.IO; // 新增
+using System.Linq; // 新增: for ToInt and other LINQ helpers
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -28,6 +28,7 @@ public partial class TeamWorkViewModel : ObservableObject
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private double progress;
     [ObservableProperty] private string? progressText;
+    [ObservableProperty] private HierarchicalTreeDataGridSource<NodeItem>? treeSource;
     public WindowNotificationManager? NotificationManager { get; set; }
 
     public ObservableCollection<string> Suggestions { get; } = new();
@@ -41,19 +42,25 @@ public partial class TeamWorkViewModel : ObservableObject
     public IAsyncRelayCommand<EpisodeItem> StartTypesetCommand { get; }
     public IRelayCommand CancelCommand { get; }
     public IRelayCommand RetryCommand { get; }
+    // 保留：查看文件命令（不再在列中使用）
+    public IAsyncRelayCommand<EpisodeItem> ShowFilesCommand { get; }
+    // 新增：下载文件命令（作用于文件子项）
+    public IAsyncRelayCommand<NodeItem> DownloadFileCommand { get; } // 新增
 
     private CancellationTokenSource? _cts;
     private Func<Task>? _lastOp;
 
     public TeamWorkViewModel()
     {
-    RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-    StartTranslateCommand = new AsyncRelayCommand<EpisodeItem>(StartTranslateAsync);
-    StartProofCommand = new AsyncRelayCommand<EpisodeItem>(StartProofAsync);
-    StartTypesetCommand = new AsyncRelayCommand<EpisodeItem>(StartTypesetAsync);
-    OpenSettingsCommand = new AsyncRelayCommand(() => { OpenSettingsRequested?.Invoke(this, EventArgs.Empty); return Task.CompletedTask; });
-    CancelCommand = new RelayCommand(() => _cts?.Cancel());
-    RetryCommand = new RelayCommand(async () => { var op = _lastOp; if (op is not null) await op(); });
+        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
+        StartTranslateCommand = new AsyncRelayCommand<EpisodeItem>(StartTranslateAsync);
+        StartProofCommand = new AsyncRelayCommand<EpisodeItem>(StartProofAsync);
+        StartTypesetCommand = new AsyncRelayCommand<EpisodeItem>(StartTypesetAsync);
+        OpenSettingsCommand = new AsyncRelayCommand(() => { OpenSettingsRequested?.Invoke(this, EventArgs.Empty); return Task.CompletedTask; });
+        CancelCommand = new RelayCommand(() => _cts?.Cancel());
+        RetryCommand = new RelayCommand(async () => { var op = _lastOp; if (op is not null) await op(); });
+        ShowFilesCommand = new AsyncRelayCommand<EpisodeItem>(ShowFilesAsync);
+        DownloadFileCommand = new AsyncRelayCommand<NodeItem>(DownloadFileAsync); // 新增
         _ = RefreshAsync();
     }
 
@@ -139,7 +146,6 @@ public partial class TeamWorkViewModel : ObservableObject
             }
             Status = $"已加载 {Suggestions.Count} 个项目";
             Progress = 100; ProgressText = "完成";
-            Status = $"已加载 {Suggestions.Count} 个项目";
             Logger.Info("TeamWork Refresh: loaded {count} projects", Suggestions.Count);
             ShowNotify("加载完成", Status, NotificationType.Success);
         }
@@ -161,8 +167,9 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private async Task LoadProjectAsync(string? name)
     {
-    Logger.Info("TeamWork LoadProject: name={name}", name);
-    Episodes.Clear();
+        Logger.Info("TeamWork LoadProject: name={name}", name);
+        Episodes.Clear();
+        TreeSource = null;
         if (string.IsNullOrWhiteSpace(name)) return;
         try
         {
@@ -195,18 +202,49 @@ public partial class TeamWorkViewModel : ObservableObject
             catch { cn = new ProjectCn(); }
             foreach (var kv in cn.Items)
             {
-                var isSpecial = kv.Key.StartsWith("番外", StringComparison.OrdinalIgnoreCase);
-                var isVolume = kv.Key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || kv.Key.StartsWith("V", StringComparison.OrdinalIgnoreCase) || kv.Key.StartsWith("Vol", StringComparison.OrdinalIgnoreCase);
+                var key = kv.Key;
+                var val = kv.Value ?? new EpisodeCn();
+                // 计算显示名：优先 Display；其次根据 Kind/Number；Kind=杂项 时显示“杂项”；否则按键名或数字兜底
+                string disp;
+                if (!string.IsNullOrWhiteSpace(val.Display)) disp = val.Display!;
+                else if (!string.IsNullOrWhiteSpace(val.Kind) && val.Kind!.StartsWith("杂项")) disp = "杂项";
+                else if (!string.IsNullOrWhiteSpace(val.Kind) && val.Number.HasValue && val.Number > 0)
+                {
+                    disp = val.Kind!.StartsWith("番外") ? $"番外{val.Number:00}" : (val.Kind!.StartsWith("卷") ? $"卷{val.Number:00}" : val.Number!.Value.ToString("00"));
+                }
+                else
+                {
+                    disp = key.StartsWith("番外", StringComparison.OrdinalIgnoreCase) ? key : (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) ? key : ToInt(key).ToString("00"));
+                }
+
                 var ep = new EpisodeItem
                 {
-                    Number = ToInt(kv.Key),
-                    Key = kv.Key,
-                    DisplayNumber = isSpecial ? kv.Key : (isVolume ? kv.Key : ToInt(kv.Key).ToString("00")),
-                    Status = kv.Value.Status ?? string.Empty,
-                    SourcePath = kv.Value.SourcePath,
-                    TranslatePath = kv.Value.TranslatePath,
-                    TypesetPath = kv.Value.TypesetPath,
-                    ProjectJsonPath = projectJson
+                    Number = ToInt(key),
+                    Key = key,
+                    DisplayNumber = disp,
+                    Status = val.Status ?? string.Empty,
+                    SourcePath = val.SourcePath,
+                    TranslatePath = val.TranslatePath,
+                    ProofPath = val.ProofPath,
+                    TypesetPath = val.TypesetPath,
+                    ProjectJsonPath = projectJson,
+                    FilePaths = val.FilePaths,
+
+                    SourceOwner = val.SourceOwner,
+                    SourceCreatedAt = val.SourceCreatedAt,
+                    SourceUpdatedAt = val.SourceUpdatedAt,
+
+                    TranslateOwner = val.TranslateOwner,
+                    TranslateCreatedAt = val.TranslateCreatedAt,
+                    TranslateUpdatedAt = val.TranslateUpdatedAt,
+
+                    ProofOwner = val.ProofOwner,
+                    ProofCreatedAt = val.ProofCreatedAt,
+                    ProofUpdatedAt = val.ProofUpdatedAt,
+
+                    PublishOwner = val.PublishOwner,
+                    PublishCreatedAt = val.PublishCreatedAt,
+                    PublishUpdatedAt = val.PublishUpdatedAt
                 };
                 Episodes.Add(ep);
             }
@@ -214,6 +252,9 @@ public partial class TeamWorkViewModel : ObservableObject
             var ordered = Episodes.OrderByDescending(e => e.Number).ToList();
             Episodes.Clear();
             foreach (var e in ordered) Episodes.Add(e);
+
+            BuildTreeSource(ordered);
+
             Status = $"已加载 {Episodes.Count} 话";
             Logger.Info("TeamWork LoadProject: loaded {count} episodes", Episodes.Count);
             ShowNotify("项目已载入", Status, NotificationType.Success);
@@ -226,573 +267,264 @@ public partial class TeamWorkViewModel : ObservableObject
         }
     }
 
-    private static int ToInt(string key) => int.TryParse(key, out var n) ? n : 0;
-    private static byte[] TrimBom(byte[] bytes) => (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) ? bytes[3..] : bytes;
-
-    private static string WorkRoot => Path.Combine(AppContext.BaseDirectory, "work");
-
-    private async Task StartTranslateAsync(EpisodeItem? ep)
+    private void BuildTreeSource(List<EpisodeItem> episodes)
     {
-        if (ep is null) return;
-        try
-        {
-            _lastOp = () => StartTranslateAsync(ep);
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var ct = _cts.Token;
-            Logger.Info("StartTranslate: ep={ep}", ep.Number);
-            var login = await LoginAsync();
-            if (login is null) return;
-            var (baseUrl, token) = login.Value;
-            var fs = new FileSystemApi(baseUrl);
-            IsBusy = true; Progress = 0; ProgressText = "准备本地工作区";
+        var roots = episodes.Select(CreateNode).ToList();
+        var src = new HierarchicalTreeDataGridSource<NodeItem>(roots);
+        // columns
+        src.Columns.Add(new HierarchicalExpanderColumn<NodeItem>(
+            new TextColumn<NodeItem, string>("话数/阶段", x => x.Title ?? string.Empty),
+            x => x.Children,
+            x => x.Children.Count > 0));
+        src.Columns.Add(new TextColumn<NodeItem, string>("状态", x => x.Status ?? string.Empty));
+        src.Columns.Add(new TextColumn<NodeItem, string>("路径", x => x.Path ?? string.Empty));
+        src.Columns.Add(new TextColumn<NodeItem, string>("负责人", x => x.Owner ?? string.Empty));
+        src.Columns.Add(new TextColumn<NodeItem, string>("创建时间", x => x.CreatedAt ?? string.Empty));
+        src.Columns.Add(new TextColumn<NodeItem, string>("更新时间", x => x.UpdatedAt ?? string.Empty));
+        // 文件数（对话数根节点有效）
+        src.Columns.Add(new TextColumn<NodeItem, string>("文件数", x => x.FileCountText));
+        // 移除“查看文件”按钮列
 
-            // Local workspace
-            var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
-            Directory.CreateDirectory(localDir);
-
-            // Download source (dir or archive) — 若本地已有图片则跳过下载
-            if (!string.IsNullOrWhiteSpace(ep.SourcePath))
+        // 操作列：非文件节点 -> 原三按钮；文件节点 -> 下载按钮
+        src.Columns.Add(new TemplateColumn<NodeItem>("操作",
+            new FuncDataTemplate<NodeItem>((node, _) =>
             {
-                Progress = 10; ProgressText = "检查图源";
-                // 若目录下已有任意图像文件，跳过远端下载
-                var hasImages = Directory.EnumerateFiles(localDir, "*", SearchOption.TopDirectoryOnly)
-                    .Any(f => IsImageExt(Path.GetExtension(f)));
-                if (!hasImages)
+                if (node?.IsFile == true)
                 {
-                    var meta = await fs.GetAsync(token, ep.SourcePath!, cancellationToken: ct);
-                if (meta.Code == 200 && meta.Data is not null)
-                {
-                    if (meta.Data.IsDir)
-                    {
-                            var list = await fs.ListAsync(token, ep.SourcePath!, cancellationToken: ct);
-                        var items = new List<(string remotePath, string localPath)>();
-                        foreach (var it in list.Data?.Content ?? Array.Empty<FsItem>())
-                        {
-                            if (it.IsDir) continue;
-                            var ext = Path.GetExtension(it.Name ?? string.Empty);
-                            if (!IsImageExt(ext)) continue;
-                            var r = ep.SourcePath!.TrimEnd('/') + "/" + it.Name;
-                            var l = Path.Combine(localDir, it.Name!);
-                            items.Add((r, l));
-                        }
-                        ProgressText = $"下载图源（{items.Count}）";
-                        await fs.DownloadManyToFilesAsync(token, items.Select(p => (p.remotePath, p.localPath)), maxConcurrency: 6, cancellationToken: ct);
-                        Progress = 40;
-                    }
-                    else
-                    {
-                        var name = Path.GetFileName(ep.SourcePath!);
-                        var outPath = Path.Combine(localDir, name);
-                            // 若压缩包文件已存在且目录已有图片，也跳过
-                            var hasArchive = File.Exists(outPath);
-                            if (!hasArchive || !hasImages)
-                            {
-                                ProgressText = "下载图源压缩包";
-                                await fs.DownloadToFileAsync(token, ep.SourcePath!, outPath, cancellationToken: ct);
-                                ProgressText = "解压图源"; Progress = 55;
-                                var bytes = await File.ReadAllBytesAsync(outPath);
-                                await TryExtractImagesAsync(bytes, name, localDir);
-                            }
-                    }
-                }
-                }
-            }
-
-            // Create translate file if absent
-            var translateFileName = IsSpecialKey(ep.Key)
-                ? $"{Sanitize(projectName)}_{KeyToLabel(ep.Key, ep.Number)}_translate.txt"
-                : $"{Sanitize(projectName)}_{ep.Number:00}_translate.txt";
-            var localTxt = Path.Combine(localDir, translateFileName);
-            if (!File.Exists(localTxt))
-            {
-                var images = Directory.EnumerateFiles(localDir, "*", SearchOption.TopDirectoryOnly)
-                    .Where(f => IsImageExt(Path.GetExtension(f)))
-                    .Select(Path.GetFileName)
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .Cast<string>()
-                    .ToList();
-                var content = Services.TranslationFileUtils.BuildInitialContent(images);
-                await File.WriteAllTextAsync(localTxt, content, Encoding.UTF8);
-                Logger.Info("StartTranslate: created local translate file {file}", localTxt);
-            }
-
-            // Upload if not on remote
-            string remoteTxt;
-            if (string.IsNullOrWhiteSpace(ep.TranslatePath))
-            {
-                var remoteDir = RemoteDirFromProjectJson(ep.ProjectJsonPath);
-                remoteTxt = CombineRemote(remoteDir, KeyToSubDir(ep.Key, ep.Number), translateFileName);
-                var bytes = await File.ReadAllBytesAsync(localTxt);
-                var put = await fs.SafePutAsync(token, remoteTxt, bytes, cancellationToken: ct);
-                if (put.Code == 200)
-                {
-                    await UpdateEpisodeAsync(fs, token, ep, update => update.TranslatePath = remoteTxt, newStatus: "翻译");
-                    ep.TranslatePath = remoteTxt; ep.Status = "翻译";
-                    Logger.Info("StartTranslate: uploaded translate and updated JSON: {remote}", remoteTxt);
-                    ShowNotify("已开始翻译", $"话数 {EpisodeLabel(ep)} 已初始化翻译文件", NotificationType.Success);
-                }
-            }
-            else remoteTxt = ep.TranslatePath!;
-
-            // Open in Translate view
-            var session = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = remoteTxt, Username = null };
-            Views.MainWindow.Instance?.OpenTranslateWithFile(localTxt, session);
-            Progress = 100; ProgressText = "完成";
-            Logger.Info("StartTranslate: opened translate view for {file}", localTxt);
-        }
-        catch (Exception ex)
-        {
-            Status = $"开始翻译失败: {ex.Message}";
-            Logger.Error(ex, "StartTranslate failed.");
-            ShowNotify("开始翻译失败", ex.Message, NotificationType.Error);
-        }
-        finally { IsBusy = false; }
-    }
-
-    private async Task StartProofAsync(EpisodeItem? ep)
-    {
-        if (ep is null) return;
-        try
-        {
-            _lastOp = () => StartProofAsync(ep);
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var ct = _cts.Token;
-            Logger.Info("StartProof: ep={ep}", ep.Number);
-            var login = await LoginAsync();
-            if (login is null) return;
-            var (baseUrl, token) = login.Value;
-            var fs = new FileSystemApi(baseUrl);
-            IsBusy = true; Progress = 0; ProgressText = "准备校对";
-            if (string.IsNullOrWhiteSpace(ep.TranslatePath)) { Status = "无翻译文件"; return; }
-            var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
-            Directory.CreateDirectory(localDir);
-
-            // 若本地缺少图源，则按 SourcePath 下载一次
-            await EnsureLocalSourcesAsync(fs, token, ep.SourcePath, localDir, ct);
-            var fileName = Path.GetFileName(ep.TranslatePath!);
-            // 如果远端已是 checked 文件，直接视为最终版
-            var remoteIsChecked = IsCheckedFileName(fileName);
-            var checkedName = remoteIsChecked ? fileName : MakeCheckedFileName(fileName);
-            var localTxt = Path.Combine(localDir, fileName);
-            var checkedLocal = Path.Combine(localDir, checkedName);
-
-            // 计算远端 checked 路径
-            var remoteDir = Path.GetDirectoryName(ep.TranslatePath!)?.Replace('\\', '/');
-            var remoteChecked = string.IsNullOrEmpty(remoteDir) ? checkedName : $"{remoteDir}/{checkedName}";
-
-            // 1) 如果远端已是 checked：优先使用远端checked；若本地已存在相同文件，直接打开；否则下载远端checked到本地
-            if (remoteIsChecked)
-            {
-                if (File.Exists(checkedLocal))
-                {
-                    Logger.Info("StartProof: remote already checked, open local checked {file}", checkedLocal);
+                    var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    var btnD = new Button { Content = "下载" };
+                    btnD.Command = DownloadFileCommand;
+                    btnD.CommandParameter = node;
+                    sp.Children.Add(btnD);
+                    return sp;
                 }
                 else
                 {
-                    ProgressText = "下载校对";
-                    await fs.DownloadToFileAsync(token, ep.TranslatePath!, checkedLocal, cancellationToken: ct);
+                    var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    var btnT = new Button { Content = "开始翻译" };
+                    btnT.Command = StartTranslateCommand;
+                    btnT.CommandParameter = node?.Episode;
+                    var btnP = new Button { Content = "开始校对" };
+                    btnP.Command = StartProofCommand;
+                    btnP.CommandParameter = node?.Episode;
+                    var btnS = new Button { Content = "开始嵌字" };
+                    btnS.Command = StartTypesetCommand;
+                    btnS.CommandParameter = node?.Episode;
+                    sp.Children.Add(btnT);
+                    sp.Children.Add(btnP);
+                    sp.Children.Add(btnS);
+                    return sp;
                 }
-                var sessionChecked = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = ep.TranslatePath!, Username = null };
-                Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, sessionChecked);
-                Progress = 100; ProgressText = "完成";
+            }, true)));
+        TreeSource = src;
+    }
+
+    private static string Fmt(DateTimeOffset? t) => t.HasValue ? t.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
+
+    private static NodeItem CreateNode(EpisodeItem e)
+    {
+        var node = new NodeItem
+        {
+            Episode = e,
+            Title = e.DisplayNumber,
+            Status = e.Status,
+            Path = null,
+            Owner = null,
+            CreatedAt = null,
+            UpdatedAt = null
+        };
+        var stages = new List<NodeItem>
+        {
+            new() { Title = "图源", Episode = e, Status = string.IsNullOrWhiteSpace(e.SourcePath) ? "-" : "已上传", Path = e.SourcePath, Owner = e.SourceOwner, CreatedAt = Fmt(e.SourceCreatedAt), UpdatedAt = Fmt(e.SourceUpdatedAt) },
+            new() { Title = "翻译", Episode = e, Status = string.IsNullOrWhiteSpace(e.TranslatePath) ? "-" : "已上传", Path = e.TranslatePath, Owner = e.TranslateOwner, CreatedAt = Fmt(e.TranslateCreatedAt), UpdatedAt = Fmt(e.TranslateUpdatedAt) },
+            new() { Title = "校对", Episode = e, Status = string.IsNullOrWhiteSpace(e.ProofPath) ? "-" : "已上传", Path = e.ProofPath, Owner = e.ProofOwner, CreatedAt = Fmt(e.ProofCreatedAt), UpdatedAt = Fmt(e.ProofUpdatedAt) },
+            new() { Title = "嵌字", Episode = e, Status = string.IsNullOrWhiteSpace(e.TypesetPath) ? "-" : "已上传", Path = e.TypesetPath, Owner = e.PublishOwner, CreatedAt = Fmt(e.PublishCreatedAt), UpdatedAt = Fmt(e.PublishUpdatedAt) }
+        };
+        node.Children.AddRange(stages);
+
+        // 新增：文件容器 + 文件子项
+        if (e.FilePaths is { Count: > 0 })
+        {
+            var container = new NodeItem { Title = "文件", Episode = e };
+            foreach (var rp in e.FilePaths)
+            {
+                if (string.IsNullOrWhiteSpace(rp)) continue;
+                var fileName = GetFileNameFromRemote(rp);
+                container.Children.Add(new NodeItem
+                {
+                    Episode = e,
+                    Title = string.IsNullOrWhiteSpace(fileName) ? rp : fileName,
+                    Status = "-",
+                    Path = rp,
+                    IsFile = true
+                });
+            }
+            node.Children.Add(container);
+        }
+
+        return node;
+    }
+
+    private static string GetFileNameFromRemote(string remotePath)
+    {
+        try
+        {
+            var p = (remotePath ?? string.Empty).Replace('\\', '/');
+            if (string.IsNullOrEmpty(p)) return string.Empty;
+            if (p.EndsWith('/')) p = p.TrimEnd('/');
+            var idx = p.LastIndexOf('/');
+            return idx >= 0 ? p[(idx + 1)..] : p;
+        }
+        catch { return remotePath; }
+    }
+
+    // 新增：显示文件列表（用于兼容旧的命令绑定，当前 UI 未使用）
+    private async Task ShowFilesAsync(EpisodeItem? ep)
+    {
+        if (ep is null)
+        {
+            ShowNotify("文件列表", "无记录", NotificationType.Information);
+            return;
+        }
+        var list = ep.FilePaths;
+        if (list is null || list.Count == 0)
+        {
+            ShowNotify("文件列表", "无记录", NotificationType.Information);
+            return;
+        }
+        var take = Math.Min(50, list.Count);
+        var sb = new StringBuilder();
+        for (int i = 0; i < take; i++) sb.AppendLine(list[i]);
+        if (list.Count > take) sb.AppendLine($"... 其余 {list.Count - take} 条省略");
+        ShowNotify("文件列表", sb.ToString(), NotificationType.Information);
+        await Task.CompletedTask;
+    }
+
+    // 新增：下载文件实现
+    private async Task DownloadFileAsync(NodeItem? node)
+    {
+        try
+        {
+            if (node is null || !node.IsFile || string.IsNullOrWhiteSpace(node.Path))
+            {
+                ShowNotify("下载", "无效的文件项", NotificationType.Warning);
                 return;
             }
 
-            // 2) 如果本地已有 checked 文件，直接打开本地，跳过下载与上传
-            if (File.Exists(checkedLocal))
+            var login = await LoginAsync();
+            if (login is null)
             {
-                Logger.Info("StartProof: local checked exists, skip download & upload. {file}", checkedLocal);
-                var session1 = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = remoteChecked, Username = null };
-                Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, session1);
-                Progress = 100; ProgressText = "完成";
+                ShowNotify("下载失败", "未能登录服务器", NotificationType.Error);
                 return;
             }
+            var (baseUrl, token) = login.Value;
+            var fs = new FileSystemApi(baseUrl);
 
-            // 3) 若本地已有原翻译，则复制为 checked；否则从远端下载原翻译，再生成 checked
-            if (File.Exists(localTxt))
+            // 目标路径：桌面/LabelPlus_Downloads/<项目名>/<话数显示名>/<文件名>
+            var fileName = GetFileNameFromRemote(node.Path);
+            var projectName = string.IsNullOrWhiteSpace(SelectedProject) ? "Project" : SelectedProject!;
+            var episodeName = string.IsNullOrWhiteSpace(node.Episode?.DisplayNumber) ? (node.Episode?.Key ?? "Episode") : node.Episode!.DisplayNumber!;
+            var destDir = BuildDownloadDirectory(projectName, episodeName);
+            Directory.CreateDirectory(destDir);
+            var localPath = Path.Combine(destDir, SanitizeFileName(fileName));
+
+            var res = await fs.DownloadToFileAsync(token, node.Path, localPath);
+            if (res.Code == 200)
             {
-                Logger.Info("StartProof: local translate exists, make checked copy. {file}", localTxt);
-                File.Copy(localTxt, checkedLocal, overwrite: true);
+                ShowNotify("下载完成", localPath, NotificationType.Success);
             }
             else
             {
-                ProgressText = "下载翻译";
-                await fs.DownloadToFileAsync(token, ep.TranslatePath!, localTxt, cancellationToken: ct);
-                File.Copy(localTxt, checkedLocal, overwrite: true);
-            }
-
-            // 4) 上传 checked 并更新 JSON
-            var put = await fs.SafePutAsync(token, remoteChecked, await File.ReadAllBytesAsync(checkedLocal), cancellationToken: ct);
-            if (put.Code == 200)
-            {
-                await UpdateEpisodeAsync(fs, token, ep, update => update.TranslatePath = remoteChecked, newStatus: "校对");
-                ep.TranslatePath = remoteChecked; ep.Status = "校对";
-                Logger.Info("StartProof: uploaded checked file and updated JSON {remote}", remoteChecked);
-                ShowNotify("校对完成", $"话数 {EpisodeLabel(ep)} 已上传校对文件", NotificationType.Success);
-            }
-            var session = new Services.CollaborationSession { BaseUrl = baseUrl, Token = token, RemoteTranslatePath = remoteChecked, Username = null };
-            Views.MainWindow.Instance?.OpenTranslateWithFile(checkedLocal, session);
-            Progress = 100; ProgressText = "完成";
-        }
-        catch (Exception ex)
-        {
-            Status = $"开始校对失败: {ex.Message}";
-            Logger.Error(ex, "StartProof failed.");
-            ShowNotify("开始校对失败", ex.Message, NotificationType.Error);
-        }
-        finally { IsBusy = false; }
-    }
-
-    private async Task EnsureLocalSourcesAsync(FileSystemApi fs, string token, string? sourcePath, string localDir, CancellationToken ct)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(sourcePath)) return;
-            var hasImages = Directory.EnumerateFiles(localDir, "*", SearchOption.TopDirectoryOnly)
-                .Any(f => IsImageExt(Path.GetExtension(f)));
-            if (hasImages) return;
-            ProgressText = "下载图源";
-            var meta = await fs.GetAsync(token, sourcePath!, cancellationToken: ct);
-            if (meta.Code == 200 && meta.Data is not null)
-            {
-                if (meta.Data.IsDir)
-                {
-                    var list = await fs.ListAsync(token, sourcePath!, cancellationToken: ct);
-                    var items = new List<(string remotePath, string localPath)>();
-                    foreach (var it in list.Data?.Content ?? Array.Empty<FsItem>())
-                    {
-                        if (it.IsDir) continue;
-                        var ext = Path.GetExtension(it.Name ?? string.Empty);
-                        if (!IsImageExt(ext)) continue;
-                        var r = sourcePath!.TrimEnd('/') + "/" + it.Name;
-                        var l = Path.Combine(localDir, it.Name!);
-                        items.Add((r, l));
-                    }
-                    await fs.DownloadManyToFilesAsync(token, items.Select(p => (p.remotePath, p.localPath)), maxConcurrency: 6, cancellationToken: ct);
-                }
-                else
-                {
-                    var name = Path.GetFileName(sourcePath!);
-                    var outPath = Path.Combine(localDir, name);
-                    await fs.DownloadToFileAsync(token, sourcePath!, outPath, cancellationToken: ct);
-                    var bytes = await File.ReadAllBytesAsync(outPath, ct);
-                    await TryExtractImagesAsync(bytes, name, localDir);
-                }
+                var msg = string.IsNullOrWhiteSpace(res.Message) ? $"错误码 {res.Code}" : res.Message!;
+                ShowNotify("下载失败", msg, NotificationType.Error);
             }
         }
         catch (Exception ex)
         {
-            Logger.Warn(ex, "EnsureLocalSources failed");
+            Logger.Error(ex, "DownloadFile failed");
+            ShowNotify("下载异常", ex.Message, NotificationType.Error);
         }
     }
 
-    private async Task StartTypesetAsync(EpisodeItem? ep)
+    private static string BuildDownloadDirectory(string project, string episode)
     {
-        if (ep is null) return;
-        try
-        {
-            _lastOp = () => StartTypesetAsync(ep);
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
-            var ct = _cts.Token;
-            Logger.Info("StartTypeset: ep={ep}", ep.Number);
-            var login = await LoginAsync();
-            if (login is null) return;
-            var (baseUrl, token) = login.Value;
-            var fs = new FileSystemApi(baseUrl);
-            IsBusy = true; Progress = 0; ProgressText = "准备本地目录";
-            var projectName = SelectedProject ?? "project";
-            var localDir = Path.Combine(WorkRoot, Sanitize(projectName), KeyToSubDir(ep.Key, ep.Number));
-            Directory.CreateDirectory(localDir);
-            // Download source
-            if (!string.IsNullOrWhiteSpace(ep.SourcePath))
-            {
-        var meta = await fs.GetAsync(token, ep.SourcePath!, cancellationToken: ct);
-                if (meta.Code == 200 && meta.Data is not null)
-                {
-                    if (meta.Data.IsDir)
-                    {
-            var list = await fs.ListAsync(token, ep.SourcePath!, cancellationToken: ct);
-                        var items = new List<(string remotePath, string localPath)>();
-                        foreach (var it in list.Data?.Content ?? Array.Empty<FsItem>())
-                        {
-                            if (it.IsDir) continue;
-                            var r = ep.SourcePath!.TrimEnd('/') + "/" + it.Name;
-                            var l = Path.Combine(localDir, it.Name!);
-                            items.Add((r, l));
-                        }
-                        ProgressText = $"下载资源（{items.Count}）";
-                        await fs.DownloadManyToFilesAsync(token, items.Select(p => (p.remotePath, p.localPath)), maxConcurrency: 6, cancellationToken: ct);
-                    }
-                    else
-                    {
-                        var name = Path.GetFileName(ep.SourcePath!);
-                        var outPath = Path.Combine(localDir, name);
-                        ProgressText = "下载图源压缩包";
-                        await fs.DownloadToFileAsync(token, ep.SourcePath!, outPath, cancellationToken: ct);
-                        var bytes = await File.ReadAllBytesAsync(outPath);
-                        ProgressText = "解压资源";
-                        await TryExtractAllAsync(bytes, name, localDir);
-                    }
-                }
-            }
-            // Download translate
-            if (!string.IsNullOrWhiteSpace(ep.TranslatePath))
-            {
-                var name = Path.GetFileName(ep.TranslatePath!);
-                var outPath = Path.Combine(localDir, name);
-                ProgressText = "下载翻译";
-                // 冲突保护：若本地已存在且与远端不同，则提示合并
-                if (File.Exists(outPath))
-                {
-                    try
-                    {
-                        var localTxt = await File.ReadAllTextAsync(outPath, Encoding.UTF8);
-                        var remoteRes = await fs.DownloadAsync(token, ep.TranslatePath!, ct);
-                        if (remoteRes.Code == 200 && remoteRes.Content is not null)
-                        {
-                            var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
-                            if (!string.Equals(localTxt, remoteTxt, StringComparison.Ordinal))
-                            {
-                                // 打开合并助手供用户选择，返回后再写入
-                                var win = Views.MainWindow.Instance;
-                                string? merged = null;
-                                if (win is not null)
-                                {
-                                    var dlg = new Views.Windows.MergeConflictWindow();
-                                    merged = await dlg.ShowAsync(win, remoteTxt, localTxt, name);
-                                }
-                                if (merged is not null)
-                                {
-                                    await File.WriteAllTextAsync(outPath, merged, Encoding.UTF8);
-                                }
-                                else
-                                {
-                                    // 用户取消合并：保留本地文件，不覆盖
-                                    Logger.Warn("Skip overwrite local translate due to unresolved conflict: {file}", outPath);
-                                }
-                            }
-                            else
-                            {
-                                // 内容一致，无需下载
-                            }
-                        }
-                        else
-                        {
-                            // 无法读取远端，按原逻辑尝试下载覆盖
-                            await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn(ex, "Conflict check on download failed, fallback to overwrite.");
-                        await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
-                    }
-                }
-                else
-                {
-                    await fs.DownloadToFileAsync(token, ep.TranslatePath!, outPath, cancellationToken: ct);
-                }
-            }
-            // Open folder
-            try
-            {
-                var dirToOpen = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = localDir,
-                    UseShellExecute = true
-                };
-                System.Diagnostics.Process.Start(dirToOpen);
-                ShowNotify("已准备嵌字", $"话数 {EpisodeLabel(ep)} 本地目录已打开", NotificationType.Information);
-            }
-            catch { }
-        }
-        catch (Exception ex)
-        {
-            Status = $"开始嵌字失败: {ex.Message}";
-            Logger.Error(ex, "StartTypeset failed.");
-            ShowNotify("开始嵌字失败", ex.Message, NotificationType.Error);
-        }
-        finally { IsBusy = false; }
+        string baseDir;
+        try { baseDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory); }
+        catch { baseDir = Path.GetTempPath(); }
+        return Path.Combine(baseDir, "LabelPlus_Downloads", SanitizeFileName(project), SanitizeFileName(episode));
     }
 
-    private static bool IsImageExt(string ext)
-        => new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" }.Contains(ext, StringComparer.OrdinalIgnoreCase);
-
-    private static string Sanitize(string name)
+    private static string SanitizeFileName(string name)
     {
-        var invalid = Path.GetInvalidFileNameChars();
-        var s = new string(name.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
-        return string.IsNullOrWhiteSpace(s) ? "project" : s;
+        if (string.IsNullOrWhiteSpace(name)) return "file";
+        foreach (var c in Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+        return name;
     }
+
+    // 还原缺失的帮助方法
+    private static byte[] TrimBom(byte[] bytes) => (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) ? bytes[3..] : bytes;
 
     private void ShowNotify(string title, string message, NotificationType type)
     {
-    try { NotificationManager?.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]); }
-    catch { }
+        try { NotificationManager?.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]); }
+        catch { }
     }
 
-    private static string RemoteDirFromProjectJson(string projectJsonPath)
-    {
-        var dir = Path.GetDirectoryName(projectJsonPath)?.Replace('\\', '/').TrimEnd('/') ?? "/";
-        return dir.EndsWith('/') ? dir : dir + "/";
-    }
-    private static string CombineRemote(string dir, string sub, string file)
-    {
-        dir = dir.Replace('\\', '/');
-        if (!dir.EndsWith('/')) dir += "/";
-        return $"{dir}{sub}/{file}";
-    }
+    private static int ToInt(string key) => int.TryParse(new string((key ?? string.Empty).Where(char.IsDigit).ToArray()), out var n) ? n : 0;
 
-    private static bool IsSpecialKey(string key) => !string.IsNullOrEmpty(key) && (key.StartsWith("番外", StringComparison.OrdinalIgnoreCase) || key.StartsWith("SP", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Special", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Extra", StringComparison.OrdinalIgnoreCase));
-    private static bool IsVolumeKey(string key) => !string.IsNullOrEmpty(key) && (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || key.StartsWith("V", StringComparison.OrdinalIgnoreCase) || key.StartsWith("Vol", StringComparison.OrdinalIgnoreCase));
-    private static string KeyToLabel(string key, int number)
-    {
-        if (IsSpecialKey(key))
-        {
-            var digits = new string(key.Where(char.IsDigit).ToArray());
-            if (int.TryParse(digits, out var n) && n > 0) return $"番外{n:00}";
-            return "番外";
-        }
-        if (IsVolumeKey(key))
-        {
-            var digits = new string(key.Where(char.IsDigit).ToArray());
-            if (int.TryParse(digits, out var n) && n > 0) return $"卷{n:00}";
-            return $"卷{number:00}";
-        }
-        return number.ToString("00");
-    }
-    private static string KeyToSubDir(string key, int number)
-    {
-        if (IsSpecialKey(key))
-        {
-            var digits = new string(key.Where(char.IsDigit).ToArray());
-            return string.IsNullOrEmpty(digits) ? "番外" : $"番外{int.Parse(digits):00}";
-        }
-        if (IsVolumeKey(key))
-        {
-            var digits = new string(key.Where(char.IsDigit).ToArray());
-            return string.IsNullOrEmpty(digits) ? $"卷{number:00}" : $"卷{int.Parse(digits):00}";
-        }
-        return number.ToString("00");
-    }
-    private static string EpisodeLabel(EpisodeItem ep) => KeyToLabel(ep.Key, ep.Number);
-
-    private async Task UpdateEpisodeAsync(FileSystemApi fs, string token, EpisodeItem ep, Action<EpisodeCn> edit, string? newStatus = null)
-    {
-        var dl = await fs.DownloadAsync(token, ep.ProjectJsonPath!);
-        if (dl.Code != 200 || dl.Content is null) return;
-        var txt = Encoding.UTF8.GetString(TrimBom(dl.Content)).TrimStart('\uFEFF');
-        ProjectCn cn;
-        try { cn = JsonSerializer.Deserialize(txt, AppJsonContext.Default.ProjectCn) ?? new ProjectCn(); }
-        catch { cn = new ProjectCn(); }
-        if (!cn.Items.TryGetValue(ep.Key, out var ecn))
-        {
-            ecn = new EpisodeCn();
-            cn.Items[ep.Key] = ecn;
-        }
-        edit(ecn);
-        if (!string.IsNullOrWhiteSpace(newStatus)) ecn.Status = newStatus;
-        var jsonOut = JsonSerializer.Serialize(cn, AppJsonContext.Default.ProjectCn);
-        await fs.SafePutAsync(token, ep.ProjectJsonPath!, Encoding.UTF8.GetBytes(jsonOut));
-    }
-
-    private static bool IsCheckedFileName(string fileName)
-    {
-        var baseName = Path.GetFileNameWithoutExtension(fileName) ?? string.Empty;
-        return baseName.EndsWith("_checked", StringComparison.OrdinalIgnoreCase) || baseName.EndsWith("checked", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string MakeCheckedFileName(string originalFileName)
-    {
-        var dir = Path.GetDirectoryName(originalFileName);
-        var nameNoExt = Path.GetFileNameWithoutExtension(originalFileName) ?? string.Empty;
-        var ext = Path.GetExtension(originalFileName);
-        // 避免重复追加
-        if (!nameNoExt.EndsWith("_checked", StringComparison.OrdinalIgnoreCase))
-            nameNoExt += "_checked";
-        var finalName = nameNoExt + (string.IsNullOrEmpty(ext) ? ".txt" : ext);
-        return string.IsNullOrEmpty(dir) ? finalName : Path.Combine(dir, finalName);
-    }
-
-    // Extraction helpers using SharpCompress — run heavy work on background threads to avoid UI stalls
-    private static async Task TryExtractImagesAsync(byte[] archiveBytes, string fileName, string extractDir)
-    {
-        await Task.Run(() => ExtractArchiveCore(archiveBytes, fileName, extractDir, imagesOnly: true));
-    }
-
-    private static async Task TryExtractAllAsync(byte[] archiveBytes, string fileName, string extractDir)
-    {
-        await Task.Run(() => ExtractArchiveCore(archiveBytes, fileName, extractDir, imagesOnly: false));
-    }
-
-    private static void ExtractArchiveCore(byte[] archiveBytes, string fileName, string extractDir, bool imagesOnly)
-    {
-        try
-        {
-            Directory.CreateDirectory(extractDir);
-            using var ms = new MemoryStream(archiveBytes);
-            SC.IArchive? archive = null;
-            if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) archive = SCZip.ZipArchive.Open(ms);
-            else if (fileName.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)) archive = SCRar.RarArchive.Open(ms);
-            else if (fileName.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) || fileName.EndsWith(".7zip", StringComparison.OrdinalIgnoreCase)) archive = SC7z.SevenZipArchive.Open(ms);
-            if (archive is null) return;
-            foreach (var entry in archive.Entries)
-            {
-                if (entry.IsDirectory) continue;
-                var key = entry.Key;
-                if (string.IsNullOrEmpty(key)) continue;
-                var outPath = imagesOnly
-                    ? Path.Combine(extractDir, Path.GetFileName(key))
-                    : Path.Combine(extractDir, key.Replace('/', Path.DirectorySeparatorChar));
-
-                if (imagesOnly)
-                {
-                    var ext = Path.GetExtension(key);
-                    if (ext is null || !IsImageExt(ext)) continue;
-                    // Avoid collisions by appending index
-                    if (File.Exists(outPath))
-                    {
-                        var baseName = Path.GetFileNameWithoutExtension(outPath);
-                        var ext2 = Path.GetExtension(outPath);
-                        var i = 1;
-                        string tryPath;
-                        do { tryPath = Path.Combine(extractDir, $"{baseName}_{i}{ext2}"); i++; }
-                        while (File.Exists(tryPath));
-                        outPath = tryPath;
-                    }
-                }
-                else
-                {
-                    var dir = Path.GetDirectoryName(outPath);
-                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-                }
-
-                using var outStream = File.Create(outPath);
-                using var inStream = entry.OpenEntryStream();
-                inStream?.CopyTo(outStream);
-            }
-        }
-        catch (Exception ex)
-        {
-            if (imagesOnly) Logger.Warn(ex, "Extract images failed for {file}", fileName);
-            else Logger.Warn(ex, "Extract all failed for {file}", fileName);
-        }
-    }
+    // 占位实现，后续可接入实际业务流程
+    private async Task StartTranslateAsync(EpisodeItem? ep) { await Task.CompletedTask; }
+    private async Task StartProofAsync(EpisodeItem? ep) { await Task.CompletedTask; }
+    private async Task StartTypesetAsync(EpisodeItem? ep) { await Task.CompletedTask; }
 
     public sealed partial class EpisodeItem : ObservableObject
     {
         public int Number { get; set; }
         public string Key { get; set; } = "";
-    public string DisplayNumber { get; set; } = "";
+        public string DisplayNumber { get; set; } = "";
         [ObservableProperty] private string? status;
         public string? SourcePath { get; set; }
         [ObservableProperty] private string? translatePath;
+        public string? ProofPath { get; set; }
         public string? TypesetPath { get; set; }
         public string ProjectJsonPath { get; set; } = "";
+        // 新增：文件路径列表（解析支持）
+        public List<string>? FilePaths { get; set; }
+
+        public string? SourceOwner { get; set; }
+        public DateTimeOffset? SourceCreatedAt { get; set; }
+        public DateTimeOffset? SourceUpdatedAt { get; set; }
+        public string? TranslateOwner { get; set; }
+        public DateTimeOffset? TranslateCreatedAt { get; set; }
+        public DateTimeOffset? TranslateUpdatedAt { get; set; }
+        public string? ProofOwner { get; set; }
+        public DateTimeOffset? ProofCreatedAt { get; set; }
+        public DateTimeOffset? ProofUpdatedAt { get; set; }
+        public string? PublishOwner { get; set; }
+        public DateTimeOffset? PublishCreatedAt { get; set; }
+        public DateTimeOffset? PublishUpdatedAt { get; set; }
+
+        public string SourceInfo => $"负责人: {SourceOwner ?? "-"}  创建: {FormatTime(SourceCreatedAt)}  更新: {FormatTime(SourceUpdatedAt)}";
+        public string TranslateInfo => $"负责人: {TranslateOwner ?? "-"}  创建: {FormatTime(TranslateCreatedAt)}  更新: {FormatTime(TranslateUpdatedAt)}";
+        public string ProofInfo => $"负责人: {ProofOwner ?? "-"}  创建: {FormatTime(ProofCreatedAt)}  更新: {FormatTime(ProofUpdatedAt)}";
+        public string PublishInfo => $"负责人: {PublishOwner ?? "-"}  创建: {FormatTime(PublishCreatedAt)}  更新: {FormatTime(PublishUpdatedAt)}";
+        private static string FormatTime(DateTimeOffset? t) => t.HasValue ? t.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
+    }
+
+    public class NodeItem
+    {
+        public EpisodeItem Episode { get; set; } = null!;
+        public string? Title { get; set; }
+        public string? Status { get; set; }
+        public string? Path { get; set; }
+        public string? Owner { get; set; }
+        public string? CreatedAt { get; set; }
+        public string? UpdatedAt { get; set; }
+        public List<NodeItem> Children { get; } = new();
+        // 新增：标记是否为文件子项
+        public bool IsFile { get; set; } // 新增
+        // 新增：为表达式树提供安全访问的文件数文本
+        public string FileCountText => (Episode?.FilePaths != null) ? Episode.FilePaths.Count.ToString() : "0";
     }
 }

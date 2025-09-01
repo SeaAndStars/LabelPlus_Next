@@ -352,16 +352,27 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (_dialogs is null) return;
         IsBusy = true; Progress = 5; ProgressText = "选择图片...";
-        var folder = await _dialogs.PickFolderAsync("选择翻译目录");
-        if (string.IsNullOrEmpty(folder)) return;
-        var selected = await _dialogs.ChooseImagesAsync(folder);
-        if (selected == null || selected.Count == 0) return;
         try
         {
+            var folder = await _dialogs.PickFolderAsync("选择翻译目录");
+            if (string.IsNullOrEmpty(folder))
+            {
+                Progress = 100; ProgressText = "已取消";
+                return;
+            }
+            var selected = await _dialogs.ChooseImagesAsync(folder);
+            if (selected == null || selected.Count == 0)
+            {
+                Progress = 100; ProgressText = "未选择图片";
+                return;
+            }
+
             Progress = 25; ProgressText = "生成初始内容...";
-            var names = selected.Select(Path.GetFileName).Where(n => !string.IsNullOrEmpty(n))!.Cast<string>(); // 保证与 txt 同层 & 过滤空
+            var names = selected.Select(p => Path.GetFileName(p))
+                                .Where(n => !string.IsNullOrWhiteSpace(n))
+                                .Select(n => n!);
             var content = TranslationFileUtils.BuildInitialContent(names);
-            var outPath = Path.Combine(folder, "translation.txt");
+            var outPath = TranslationFileUtils.GetNonConflictPath(folder, "translation.txt");
             Progress = 60; ProgressText = "写入文件...";
             await File.WriteAllTextAsync(outPath, content, Encoding.UTF8);
             Progress = 80; ProgressText = "加载到编辑器...";
@@ -369,6 +380,11 @@ public partial class TranslateViewModel : ViewModelBase
             OpenTranslationFilePath = outPath;
             await LoadTranslationFile(outPath);
             await NotifyAsync("提示", "新建翻译文件完成并已打开。", NotificationType.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "NewTranslationCommand failed");
+            await NotifyAsync("错误", $"新建翻译失败：{ex.Message}", NotificationType.Error);
         }
         finally
         {
@@ -633,4 +649,6 @@ public partial class TranslateViewModel : ViewModelBase
         }
         await _dialogs.ShowMessageAsync($"已选择 {selected.Count} 个文件。");
     }
+    public bool HasLabelsForFile(string file)
+        => LabelFileManager1.StoreManager.HasLabels(file);
 }

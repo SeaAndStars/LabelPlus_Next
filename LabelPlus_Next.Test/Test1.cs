@@ -275,6 +275,8 @@ public sealed class Test1
         foreach (var d in results)
         {
             if (d.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("未授权，跳过");
+            if (d.Code == -1 && (d.Message?.Contains("raw_url", StringComparison.OrdinalIgnoreCase) ?? false))
+                Assert.Inconclusive("服务端未提供 raw_url，跳过");
             Assert.AreEqual(200, d.Code, d.Message);
             Assert.IsNotNull(d.Content);
             Assert.IsTrue(d.Content!.Length > 0);
@@ -329,6 +331,8 @@ public sealed class Test1
         // 第一次下载，随后中断
         var result = await fs.DownloadToFileAsync(token!, name, local);
         if (result.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("未授权");
+        if (result.Code == -1 && (result.Message?.Contains("raw_url", StringComparison.OrdinalIgnoreCase) ?? false))
+            Assert.Inconclusive("服务端未提供 raw_url，跳过");
         Assert.AreEqual(200, result.Code, result.Message);
     }
 
@@ -355,6 +359,8 @@ public sealed class Test1
         foreach (var res in results)
         {
             if (res.Code == (int)HttpStatusCode.Unauthorized) Assert.Inconclusive("未授权");
+            if (res.Code == -1 && (res.Message?.Contains("raw_url", StringComparison.OrdinalIgnoreCase) ?? false))
+                Assert.Inconclusive("服务端未提供 raw_url，跳过");
             Assert.AreEqual(200, res.Code, res.Message);
         }
     }

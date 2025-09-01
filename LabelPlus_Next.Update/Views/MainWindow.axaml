@@ -1,4 +1,4 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Update.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -23,7 +23,7 @@
         <vm:MainWindowViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="30,*">
+    <Grid RowDefinitions="30,*" Margin="25">
         <!-- Top spacer to push content down by 30 -->
         <Border Height="30" Background="Transparent" />
 

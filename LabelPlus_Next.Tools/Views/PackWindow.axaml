@@ -1,4 +1,4 @@
-<u:UrsaWindow
+﻿<u:UrsaWindow
     x:Class="LabelPlus_Next.Tools.Views.PackWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -8,8 +8,8 @@
     xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
     x:DataType="vm:PackWindowViewModel"
     Title="Build &amp; Upload Package"
-    Width="720"
-    Height="480"
+    Width="820"
+    Height="560"
     Icon="avares://LabelPlus_Next.Tools/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     mc:Ignorable="d">
 
@@ -18,9 +18,9 @@
     </Design.DataContext>
 
     <StackPanel Margin="16" Spacing="12">
-        <TextBlock Text="选择要打包的目录 (内含 Client.version.json / settings.json)" />
+        <TextBlock Text="选择要打包的目录 (内含 Client.version.json / settings.json)；留空表示自动构建多平台" />
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox Width="520" Text="{Binding SelectedFolder}" />
+            <TextBox Width="600" Text="{Binding SelectedFolder}" />
             <Button Content="浏览" Click="OnBrowseClick" />
         </StackPanel>
 
@@ -30,6 +30,31 @@
             <TextBlock Text="Version:" Margin="24 0 0 0" />
             <TextBlock Text="{Binding Version}" />
         </StackPanel>
+
+        <!-- Publish options -->
+        <Border BorderThickness="1" CornerRadius="4" Padding="8">
+            <StackPanel Spacing="8">
+                <TextBlock Text="目标平台 (RID)" FontWeight="Bold"/>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox Content="win-x64" IsChecked="{Binding WinX64}"/>
+                    <CheckBox Content="win-arm64" IsChecked="{Binding WinArm64}"/>
+                    <CheckBox Content="linux-x64" IsChecked="{Binding LinuxX64}"/>
+                    <CheckBox Content="linux-arm64" IsChecked="{Binding LinuxArm64}"/>
+                    <CheckBox Content="osx-x64" IsChecked="{Binding OsxX64}"/>
+                    <CheckBox Content="osx-arm64" IsChecked="{Binding OsxArm64}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border BorderThickness="1" CornerRadius="4" Padding="8">
+            <StackPanel Spacing="8">
+                <TextBlock Text="发布选项" FontWeight="Bold"/>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <CheckBox Content="SelfContained" IsChecked="{Binding SelfContained}"/>
+                    <CheckBox Content="SingleFile" IsChecked="{Binding SingleFile}"/>
+                    <CheckBox Content="PublishTrimmed" IsChecked="{Binding PublishTrimmed}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
 
         <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Content="生成并上传" Command="{Binding BuildAndUploadCommand}" />

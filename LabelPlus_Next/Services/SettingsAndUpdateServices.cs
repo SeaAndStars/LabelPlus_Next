@@ -1,4 +1,4 @@
-using LabelPlus_Next.Models;
+﻿using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using System.Net.Http.Headers;
 using System.Text;
@@ -45,10 +45,12 @@ public interface IUpdateService
 public class WebDavUpdateService : IUpdateService
 {
     private readonly HttpClient _http;
+    private const string DefaultUserAgent = "pan.baidu.com";
 
     public WebDavUpdateService(HttpClient? httpClient = null)
     {
         _http = httpClient ?? new HttpClient();
+        _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
     }
 
     public async Task<UpdateManifest?> FetchManifestAsync(UpdateSettings upd, CancellationToken ct = default)

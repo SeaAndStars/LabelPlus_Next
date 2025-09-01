@@ -285,7 +285,7 @@ public partial class TranslateView : UserControl
     private void Imagine_manager_OnClick(object? sender, RoutedEventArgs e)
     {
         var owner = TopLevel.GetTopLevel(this) as Window;
-        var dlg = new ImageManager { DataContext = new ImageManagerViewModel() };
+        var dlg = new ImageManager { DataContext = new ImageManagerViewModel(), Host = Vm };
         if (owner != null) dlg.Show(owner);
         else dlg.Show();
     }

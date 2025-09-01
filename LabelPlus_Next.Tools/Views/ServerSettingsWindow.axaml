@@ -1,0 +1,28 @@
+﻿<u:UrsaWindow
+    x:Class="LabelPlus_Next.Tools.Views.ServerSettingsWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
+    x:DataType="vm:ServerSettingsViewModel"
+    Width="480" Height="340" Title="服务器设置">
+    <Design.DataContext>
+        <vm:ServerSettingsViewModel />
+    </Design.DataContext>
+    <StackPanel Margin="16" Spacing="12">
+        <TextBlock Text="WebDAV BaseUrl"/>
+        <TextBox Text="{Binding BaseUrl}"/>
+        <TextBlock Text="API BaseUrl (e.g. https://host)"/>
+        <TextBox Text="{Binding ApiBaseUrl}"/>
+        <TextBlock Text="Username"/>
+        <TextBox Text="{Binding Username}"/>
+        <TextBlock Text="Password"/>
+        <TextBox Text="{Binding Password}"/>
+        <TextBlock Text="Default Target Path (DAV)"/>
+        <TextBox Text="{Binding TargetPath}"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="保存" Command="{Binding SaveCommand}"/>
+            <Button Content="关闭" Click="OnCloseClick"/>
+        </StackPanel>
+    </StackPanel>
+</u:UrsaWindow>

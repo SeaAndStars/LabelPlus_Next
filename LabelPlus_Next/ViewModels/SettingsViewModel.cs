@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +14,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -22,6 +23,8 @@ public partial class SettingsViewModel : ViewModelBase
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     private readonly ISettingsService _settingsService;
+
+    private const string DefaultUserAgent = "pan.baidu.com";
 
     [ObservableProperty] private string? baseUrl = "https://alist.seastarss.cn";
 
@@ -341,7 +344,7 @@ public partial class SettingsViewModel : ViewModelBase
             // 1) 优先更新 Updater
             if (needUpdater && uproj is not null)
             {
-                var (upUrl, upSha) = GetReleaseFileInfo(uproj, updaterLatest!);
+                var (upUrl, upSha) = GetReleaseFileInfoByOS(uproj, updaterLatest!);
                 if (!string.IsNullOrWhiteSpace(upUrl))
                 {
                     UpdateTask = $"下载更新程序 {updaterLatest}...";
@@ -437,19 +440,39 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    private static (string? url, string? sha256) GetReleaseFileInfo(ProjectReleases prj, string version)
+    private static string GetCurrentRid()
+    {
+        var arch = RuntimeInformation.ProcessArchitecture;
+        if (OperatingSystem.IsWindows())
+            return arch == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        if (OperatingSystem.IsLinux())
+            return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+        if (OperatingSystem.IsMacOS())
+            return arch == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+        // default fallback
+        return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+    }
+
+    private static (string? url, string? sha256) GetReleaseFileInfoByOS(ProjectReleases prj, string version)
     {
         foreach (var r in prj.Releases)
         {
-            if (string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase)) continue;
+            var files = r.Files;
+            if (files is { Count: > 0 })
             {
-                if (r.Files != null && r.Files.Count > 0)
-                {
-                    var f = r.Files.Find(f => !string.IsNullOrEmpty(f.Url)) ?? r.Files[0];
-                    return (f.Url, f.Sha256);
-                }
-                return (r.Url, null);
+                var rid = GetCurrentRid();
+                // Prefer matching rid in Name or Url
+                var match = files.FirstOrDefault(f => (!string.IsNullOrEmpty(f.Name) && f.Name.Contains(rid, StringComparison.OrdinalIgnoreCase))
+                                                       || (!string.IsNullOrEmpty(f.Url) && f.Url.Contains(rid, StringComparison.OrdinalIgnoreCase)));
+                if (match is not null && !string.IsNullOrWhiteSpace(match.Url))
+                    return (match.Url, match.Sha256);
+                // Fallback to first with url
+                var any = files.FirstOrDefault(f => !string.IsNullOrWhiteSpace(f.Url));
+                if (any is not null)
+                    return (any.Url, any.Sha256);
             }
+            return (r.Url, null);
         }
         return (null, null);
     }
@@ -550,6 +573,9 @@ public partial class SettingsViewModel : ViewModelBase
                 ReserveStorageSpaceBeforeStartingDownload = true,
                 EnableLiveStreaming = false
             };
+            cfg.RequestConfiguration = cfg.RequestConfiguration ?? new RequestConfiguration();
+            cfg.RequestConfiguration.Headers = cfg.RequestConfiguration.Headers ?? new System.Net.WebHeaderCollection();
+            cfg.RequestConfiguration.Headers["User-Agent"] = DefaultUserAgent;
             var service = new DownloadService(cfg);
             service.DownloadProgressChanged += (s, e) =>
             {

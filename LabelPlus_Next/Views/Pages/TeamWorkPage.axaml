@@ -8,33 +8,23 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    xmlns:tdg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.TreeDataGrid"
     x:Name="Root"
-    d:DesignHeight="450"
-    d:DesignWidth="800"
+    d:DesignHeight="600"
+    d:DesignWidth="1400"
     x:DataType="vm:TeamWorkViewModel"
     mc:Ignorable="d">
     <UserControl.Resources>
         <conv:StatusToUrsaClassConverter x:Key="StatusToClass" />
-    <conv:BoolToDoubleConverter x:Key="BoolToRowHeight" />
+        <conv:BoolToDoubleConverter x:Key="BoolToRowHeight" />
     </UserControl.Resources>
-    <Grid
-        Margin="12"
-        RowDefinitions="Auto,Auto,*"
-        RowSpacing="10">
+    <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="10">
         <StackPanel Orientation="Horizontal" Spacing="10">
             <TextBlock VerticalAlignment="Center" Text="项目：" />
-            <u:AutoCompleteBox
-                Width="360"
-                ItemsSource="{Binding Suggestions}"
-                MinimumPrefixLength="0"
-                Text="{Binding SelectedProject, Mode=TwoWay}"
-                Watermark="选择要协作的项目" />
+            <u:AutoCompleteBox Width="360" ItemsSource="{Binding Suggestions}" MinimumPrefixLength="0" Text="{Binding SelectedProject, Mode=TwoWay}" Watermark="选择要协作的项目" />
             <Button Command="{Binding RefreshCommand}" Content="刷新" />
             <Button Command="{Binding OpenSettingsCommand}" Content="设置" />
-            <TextBlock
-                Margin="16,0,0,0"
-                VerticalAlignment="Center"
-                Text="状态：" />
+            <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Text="状态：" />
             <TextBlock VerticalAlignment="Center" Text="{Binding Status}" />
         </StackPanel>
 
@@ -45,54 +35,6 @@
             <Button Content="重试" Command="{Binding RetryCommand}"/>
         </StackPanel>
 
-        <DataGrid
-            Grid.Row="2"
-            AutoGenerateColumns="False"
-            CanUserReorderColumns="False"
-            CanUserResizeColumns="True"
-            CanUserSortColumns="True"
-            HeadersVisibility="Column"
-            ItemsSource="{Binding Episodes}">
-            <DataGrid.Columns>
-                <DataGridTextColumn
-                    Width="auto"
-                    Binding="{Binding DisplayNumber}"
-                    Header="话数" />
-                <DataGridTemplateColumn Width="auto" Header="状态">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <cc:BindableDualBadge
-                                BindableClass="{Binding Status, Converter={StaticResource StatusToClass}}"
-                                Content="{Binding Status}"
-                                Header="状态" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTextColumn
-                    Width="auto"
-                    Binding="{Binding TranslatePath}"
-                    Header="翻译" />
-                <DataGridTemplateColumn Width="250" Header="操作">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Button
-                                    Command="{Binding ElementName=Root, Path=DataContext.StartTranslateCommand}"
-                                    CommandParameter="{Binding}"
-                                    Content="开始翻译" />
-                                <Button
-                                    Command="{Binding ElementName=Root, Path=DataContext.StartProofCommand}"
-                                    CommandParameter="{Binding}"
-                                    Content="开始校对" />
-                                <Button
-                                    Command="{Binding ElementName=Root, Path=DataContext.StartTypesetCommand}"
-                                    CommandParameter="{Binding}"
-                                    Content="开始嵌字" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+        <tdg:TreeDataGrid Grid.Row="2" Source="{Binding TreeSource}"/>
     </Grid>
 </UserControl>

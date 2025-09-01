@@ -1,16 +1,23 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Controls.Models.TreeDataGrid;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using NLog;
-using System.Collections.ObjectModel;
-using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.ViewModels;
@@ -22,18 +29,50 @@ public partial class UploadViewModel : ObservableObject
     private readonly ISettingsService _settingsService = new JsonSettingsService();
     private IFileDialogService? _dialogs;
 
-    // Track whether current flow is uploading to existing project (must merge existing JSON)
     private bool _uploadToExistingProject;
+
     [ObservableProperty] private string? currentUploadingPath;
-
     [ObservableProperty] private string? searchText;
-
     [ObservableProperty] private string? selectedProject;
-
     [ObservableProperty] private string? status;
-
     [ObservableProperty] private int uploadCompleted;
     [ObservableProperty] private int uploadTotal;
+
+    [ObservableProperty] private bool isTankobonFallback;
+    [ObservableProperty] private int? tankobonVolumeNumber;
+    [ObservableProperty] private bool tankobonAcknowledged;
+
+    public ObservableCollection<string> Suggestions { get; } = new();
+    public ObservableCollection<string> Projects { get; } = new();
+
+    public IAsyncRelayCommand AddProjectCommand { get; }
+    public IAsyncRelayCommand RefreshCommand { get; }
+    public IAsyncRelayCommand PickUploadFolderCommand { get; }
+    public IAsyncRelayCommand PickUploadFilesCommand { get; }
+    public IAsyncRelayCommand OpenSettingsCommand { get; }
+    public IRelayCommand CancelMetaCommand { get; }
+    public IAsyncRelayCommand ConfirmMetaCommand { get; }
+
+    public Dictionary<string, string> ProjectMap { get; } = new();
+
+    public string? LastSelectedFolderPath { get; set; }
+    public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
+
+    private string? _pendingProjectName;
+    public string? PendingProjectName
+    {
+        get => _pendingProjectName;
+        set => SetProperty(ref _pendingProjectName, value);
+    }
+
+    public bool HasDuplicates { get; private set; }
+
+    public static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
+
+    public event EventHandler? MetadataReady;
+    public event EventHandler? OpenSettingsRequested;
+    public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady;
+    public event EventHandler<bool>? MetaWindowCloseRequested;
 
     public UploadViewModel() : this(true) { }
 
@@ -41,61 +80,15 @@ public partial class UploadViewModel : ObservableObject
     {
         AddProjectCommand = new AsyncRelayCommand(AddProjectAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-        // MVVM commands
         PickUploadFolderCommand = new AsyncRelayCommand(PickUploadFolderAsync);
         PickUploadFilesCommand = new AsyncRelayCommand(PickUploadFilesAsync);
         OpenSettingsCommand = new AsyncRelayCommand(OpenSettingsAsync);
-        if (autoRefresh)
-        {
-            _ = RefreshAsync(); // auto refresh when page opens
-        }
-        Logger.Info("UploadViewModel created.");
+        CancelMetaCommand = new RelayCommand(() => MetaWindowCloseRequested?.Invoke(this, false));
+        ConfirmMetaCommand = new AsyncRelayCommand(ConfirmMetaAsync);
+        if (autoRefresh) _ = RefreshAsync();
     }
 
-    public ObservableCollection<string> Suggestions { get; } = new();
-    public ObservableCollection<string> Projects { get; } = new();
-
-    public IAsyncRelayCommand AddProjectCommand { get; }
-    public IAsyncRelayCommand RefreshCommand { get; }
-
-    // New: dialog-backed commands for MVVM
-    public IAsyncRelayCommand PickUploadFolderCommand { get; }
-    public IAsyncRelayCommand PickUploadFilesCommand { get; }
-    public IAsyncRelayCommand OpenSettingsCommand { get; }
-
-    // Keep last loaded mapping (name -> remote project json path)
-    public Dictionary<string, string> ProjectMap { get; } = new();
-
-    // For Add Project flow
-    public string? LastSelectedFolderPath { get; set; }
-    public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
-    private string? _pendingProjectName;
-    public string? PendingProjectName
-    {
-        get => _pendingProjectName;
-        set => SetProperty(ref _pendingProjectName, value);
-    }
-    public bool HasDuplicates { get; private set; }
-
-    // Tankobon (single-volume) fallback flags
-    [ObservableProperty] private bool isTankobonFallback;
-    [ObservableProperty] private int? tankobonVolumeNumber; // when detected from folder name, e.g., Vol 2 -> 2
-    [ObservableProperty] private bool tankobonAcknowledged;
-
-    public static string UploadSettingsPath
-    {
-        get => Path.Combine(AppContext.BaseDirectory, "upload.json");
-    }
-
-    public event EventHandler? MetadataReady; // Raised after PendingEpisodes prepared
-    public event EventHandler? OpenSettingsRequested; // Raised when settings should be shown
-    public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady; // New event for multiple VMs
-
-    public void InitializeServices(IFileDialogService dialogs)
-    {
-        _dialogs ??= dialogs;
-        Logger.Debug("Dialogs service injected.");
-    }
+    public void InitializeServices(IFileDialogService dialogs) => _dialogs ??= dialogs;
 
     private async Task<UploadSettings?> LoadUploadSettingsAsync()
     {
@@ -106,20 +99,19 @@ public partial class UploadViewModel : ObservableObject
                 var def = new UploadSettings { BaseUrl = "https://alist1.seastarss.cn" };
                 await using var fw = File.Create(UploadSettingsPath);
                 await JsonSerializer.SerializeAsync(fw, def, AppJsonContext.Default.UploadSettings);
-                Logger.Info("Created default upload settings at {path}", UploadSettingsPath);
                 return def;
             }
             await using var fs = File.OpenRead(UploadSettingsPath);
-            var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
-            Logger.Debug("Upload settings loaded: base={base}", s?.BaseUrl);
-            return s;
+            return await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "LoadUploadSettingsAsync failed.");
+            Logger.Error(ex, "LoadUploadSettingsAsync failed");
             return null;
         }
     }
+
+    private record ApiContext(string BaseUrl, string Token);
 
     private async Task<ApiContext?> GetApiContextAsync()
     {
@@ -133,7 +125,6 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(us.Username) || string.IsNullOrWhiteSpace(us.Password))
         {
             Status = "未配置账号或密码";
-            Logger.Warn("Missing username/password in upload settings.");
             OpenSettingsRequested?.Invoke(this, EventArgs.Empty);
             return null;
         }
@@ -143,19 +134,16 @@ public partial class UploadViewModel : ObservableObject
         if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
         {
             Status = $"登录失败: {login.Code} {login.Message}";
-            Logger.Warn("Login failed: {code} {msg}", login.Code, login.Message);
             return null;
         }
         return new ApiContext(baseUrl, login.Data!.Token!);
     }
 
-    private record ApiContext(string BaseUrl, string Token);
-
     private async Task PickUploadFolderAsync()
     {
         if (_dialogs is null) return;
         var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
-        if (string.IsNullOrEmpty(folder)) return;
+        if (string.IsNullOrWhiteSpace(folder)) return;
         _uploadToExistingProject = true;
         LastSelectedFolderPath = folder;
         var folderName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -175,17 +163,24 @@ public partial class UploadViewModel : ObservableObject
         {
             // Prepare episodes from local folder and open metadata window
             var episodes = ScanEpisodes(folder, out var isTanko, out var volNum);
+            // 设置默认负责人
+            var uploader = await GetUploaderNameAsync();
+            foreach (var e in episodes)
+            {
+                if (string.IsNullOrWhiteSpace(e.Owner)) e.Owner = uploader;
+            }
             PendingEpisodes.Clear();
             foreach (var e in episodes.OrderByDescending(e => e.Number)) PendingEpisodes.Add(e);
             HasDuplicates = false; // duplicates will be handled inside UploadPendingAsync merge stage
             IsTankobonFallback = isTanko;
             TankobonVolumeNumber = volNum;
+            BuildMetaTree();
             MetadataReady?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "PickUploadFolderAsync failed");
             Status = "未能读取文件";
-            Logger.Error(ex, "PickUploadFolderAsync prepare failed for {folder}", folder);
         }
     }
 
@@ -211,20 +206,28 @@ public partial class UploadViewModel : ObservableObject
 
         // Group files by episode number inferred from file/folder name
         var byEpisode = new Dictionary<int, EpisodeEntry>();
+        var bySpecial = new Dictionary<int, EpisodeEntry>();
         var specialBucket = new EpisodeEntry { Number = 0, IsSpecial = true, Status = "立项" };
+        // 新增：杂项
+        var miscBucket = new EpisodeEntry { Number = 0, IsMisc = true, Status = "立项", Display = "杂项", Kind = "杂项" };
         foreach (var path in files)
         {
             var name = Path.GetFileNameWithoutExtension(path);
             if (IsSpecialName(name))
             {
-                specialBucket.LocalFiles.Add(path);
-                var extS = Path.GetExtension(path);
-                if (extS.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
-                else if (extS.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                EpisodeEntry target;
+                if (TryParseSpecialNumber(name, out var spNum, out _) && spNum > 0)
                 {
-                    var lowerS = Path.GetFileName(path).ToLowerInvariant();
-                    specialBucket.Status = PickHigherStatus(specialBucket.Status, lowerS.Contains("校对") || lowerS.Contains("校隊") || lowerS.Contains("check") ? "校对" : "翻译");
+                    if (!bySpecial.TryGetValue(spNum, out var t) || t is null)
+                    {
+                        t = new EpisodeEntry { Number = spNum, Status = "立项", IsSpecial = true };
+                        bySpecial[spNum] = t;
+                    }
+                    target = bySpecial[spNum];
                 }
+                else target = specialBucket;
+                target.LocalFiles.Add(path);
+                UpgradeStatusFromFile(ref target, path);
                 continue;
             }
             var isVolLocal = false;
@@ -234,14 +237,19 @@ public partial class UploadViewModel : ObservableObject
                 var folder = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
                 if (IsSpecialName(folder))
                 {
-                    specialBucket.LocalFiles.Add(path);
-                    var extS2 = Path.GetExtension(path);
-                    if (extS2.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
-                    else if (extS2.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                    EpisodeEntry target2;
+                    if (TryParseSpecialNumber(folder, out var spNum2, out _) && spNum2 > 0)
                     {
-                        var lowerS2 = Path.GetFileName(path).ToLowerInvariant();
-                        specialBucket.Status = PickHigherStatus(specialBucket.Status, lowerS2.Contains("校对") || lowerS2.Contains("校隊") || lowerS2.Contains("check") ? "校对" : "翻译");
+                        if (!bySpecial.TryGetValue(spNum2, out var t2) || t2 is null)
+                        {
+                            t2 = new EpisodeEntry { Number = spNum2, Status = "立项", IsSpecial = true };
+                            bySpecial[spNum2] = t2;
+                        }
+                        target2 = bySpecial[spNum2];
                     }
+                    else target2 = specialBucket;
+                    target2.LocalFiles.Add(path);
+                    UpgradeStatusFromFile(ref target2, path);
                     continue;
                 }
                 if (!TryParseEpisodeNumber(folder, out num))
@@ -249,18 +257,23 @@ public partial class UploadViewModel : ObservableObject
                     var (kind, n2) = ParseEpisodeOrVolume(name);
                     if (kind == NameKind.Special)
                     {
-                        specialBucket.LocalFiles.Add(path);
-                        var extSp3 = Path.GetExtension(path);
-                        if (extSp3.Equals(".psd", StringComparison.OrdinalIgnoreCase)) specialBucket.Status = PickHigherStatus(specialBucket.Status, "嵌字");
-                        else if (extSp3.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                        EpisodeEntry t;
+                        if (TryParseSpecialNumber(name, out var sn, out _) && sn > 0)
                         {
-                            var lowSp3 = Path.GetFileName(path).ToLowerInvariant();
-                            specialBucket.Status = PickHigherStatus(specialBucket.Status, lowSp3.Contains("校对") || lowSp3.Contains("校隊") || lowSp3.Contains("check") ? "校对" : "翻译");
+                            if (!bySpecial.TryGetValue(sn, out var ts) || ts is null)
+                            {
+                                ts = new EpisodeEntry { Number = sn, Status = "立项", IsSpecial = true };
+                                bySpecial[sn] = ts;
+                            }
+                            t = bySpecial[sn];
                         }
+                        else t = specialBucket;
+                        t.LocalFiles.Add(path);
+                        UpgradeStatusFromFile(ref t, path);
                         continue;
                     }
                     if (kind == NameKind.Volume) isVolLocal = true;
-                    if (n2 <= 0) continue;
+                    if (n2 <= 0) { miscBucket.LocalFiles.Add(path); UpgradeStatusFromFile(ref miscBucket, path); continue; }
                     num = n2;
                 }
             }
@@ -280,18 +293,46 @@ public partial class UploadViewModel : ObservableObject
             }
         }
 
+        // 计算范围+默认负责人
+        var uploaderName = await GetUploaderNameAsync();
+        foreach (var ep in byEpisode.Values)
+        {
+            var range = DetectRangeFromFiles(ep.LocalFiles);
+            ep.RangeStart = range.lo; ep.RangeEnd = range.hi; ep.RangeDisplay = range.disp;
+            if (string.IsNullOrWhiteSpace(ep.Owner)) ep.Owner = uploaderName;
+        }
+        foreach (var sp in bySpecial.Values)
+        {
+            var range = DetectRangeFromFiles(sp.LocalFiles);
+            sp.RangeStart = range.lo; sp.RangeEnd = range.hi; sp.RangeDisplay = range.disp;
+            if (string.IsNullOrWhiteSpace(sp.Owner)) sp.Owner = uploaderName;
+            if (string.IsNullOrWhiteSpace(sp.Display)) sp.Display = $"番外{sp.Number:00}";
+        }
+        if (specialBucket.LocalFiles.Count > 0)
+        {
+            var range = DetectRangeFromFiles(specialBucket.LocalFiles);
+            specialBucket.RangeStart = range.lo; specialBucket.RangeEnd = range.hi; specialBucket.RangeDisplay = range.disp;
+            if (string.IsNullOrWhiteSpace(specialBucket.Owner)) specialBucket.Owner = uploaderName;
+        }
+        if (miscBucket.LocalFiles.Count > 0)
+        {
+            if (string.IsNullOrWhiteSpace(miscBucket.Owner)) miscBucket.Owner = uploaderName;
+        }
+
         PendingEpisodes.Clear();
         foreach (var ep in byEpisode.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(ep);
+        foreach (var sp in bySpecial.Values.OrderByDescending(e => e.Number)) PendingEpisodes.Add(sp);
         if (specialBucket.LocalFiles.Count > 0) PendingEpisodes.Add(specialBucket);
-        LastSelectedFolderPath = Path.GetDirectoryName(first); // remember base folder
+        if (miscBucket.LocalFiles.Count > 0) PendingEpisodes.Add(miscBucket);
+        LastSelectedFolderPath = Path.GetDirectoryName(first);
         Status = $"已选择文件：{files.Count} 个";
         HasDuplicates = false;
+        BuildMetaTree();
         MetadataReady?.Invoke(this, EventArgs.Empty);
     }
 
     private Task OpenSettingsAsync()
     {
-        Logger.Debug("OpenSettings requested.");
         OpenSettingsRequested?.Invoke(this, EventArgs.Empty);
         return Task.CompletedTask;
     }
@@ -304,9 +345,7 @@ public partial class UploadViewModel : ObservableObject
 
             List<string> candidateFolders = new();
             if (!string.IsNullOrWhiteSpace(LastSelectedFolderPath) && Directory.Exists(LastSelectedFolderPath))
-            {
                 candidateFolders.Add(LastSelectedFolderPath!);
-            }
             else if (_dialogs is not null)
             {
                 // let user pick multiple episode folders
@@ -336,7 +375,6 @@ public partial class UploadViewModel : ObservableObject
                 var folder = candidateFolders[0];
                 var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                 PendingProjectName = projectName;
-                Logger.Info("AddProject(single) for {project} at {dir}", projectName, folder);
 
                 if (ProjectMap.ContainsKey(projectName))
                 {
@@ -361,7 +399,11 @@ public partial class UploadViewModel : ObservableObject
                 }
                 PendingEpisodes.Clear();
                 foreach (var e in episodes.OrderByDescending(e => e.Number)) PendingEpisodes.Add(e);
+                BuildMetaTree();
                 MetadataReady?.Invoke(this, EventArgs.Empty);
+
+                // Build metadata tree for MVVM binding
+                BuildMetaTree();
                 return;
             }
 
@@ -420,7 +462,7 @@ public partial class UploadViewModel : ObservableObject
         catch (Exception ex)
         {
             Status = $"新增项目失败: {ex.Message}";
-            Logger.Error(ex, "AddProjectAsync failed.");
+            Logger.Error(ex, "AddProjectAsync failed");
         }
     }
 
@@ -442,18 +484,12 @@ public partial class UploadViewModel : ObservableObject
                     if (doc.RootElement.TryGetProperty("episodes", out var eps) && eps.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var prop in eps.EnumerateObject())
-                        {
-                            if (TryParseEpisodeNumber(prop.Name, out var n))
-                                set.Add(n);
-                        }
+                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
                     }
                     else if (doc.RootElement.TryGetProperty("项目", out var items) && items.ValueKind == JsonValueKind.Object)
                     {
                         foreach (var prop in items.EnumerateObject())
-                        {
-                            if (TryParseEpisodeNumber(prop.Name, out var n))
-                                set.Add(n);
-                        }
+                            if (TryParseEpisodeNumber(prop.Name, out var n)) set.Add(n);
                     }
                 }
             }
@@ -462,272 +498,93 @@ public partial class UploadViewModel : ObservableObject
         return set;
     }
 
-    private static int StatusRank(string status)
+    private static int StatusRank(string status) => status switch
     {
-        return status switch
-        {
-            "发布" => 4,
-            "嵌字" => 3,
-            "校对" => 2,
-            "翻译" => 1,
-            _ => 0
-        };
-    }
+        "发布" => 4,
+        "嵌字" => 3,
+        "校对" => 2,
+        "翻译" => 1,
+        _ => 0
+    };
 
     private static string PickHigherStatus(string a, string b) => StatusRank(b) > StatusRank(a) ? b : a;
 
-    private static List<EpisodeEntry> ScanEpisodes(string localDir, out bool tankobonFallback, out int? tankobonVolumeNumber)
+    private async Task<string?> GetUploaderNameAsync()
     {
-        tankobonFallback = false;
-        tankobonVolumeNumber = null;
-        var archives = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".zip", ".7z", ".rar" };
-        var allEntries = Directory.EnumerateFileSystemEntries(localDir, "*", SearchOption.TopDirectoryOnly).ToList();
-
-        var map = new Dictionary<int, EpisodeEntry>();
-        var specials = new EpisodeEntry { Number = 0, IsSpecial = true, Status = "立项" }; // 番外聚合
-
-        foreach (var entry in allEntries)
-        {
-            if (Directory.Exists(entry))
-            {
-                var name = Path.GetFileName(entry);
-                if (IsSpecialName(name))
-                {
-                    var folderEpSpecial = BuildEpisodeFromFolder(entry, 0, isSpecial: true);
-                    specials.Status = PickHigherStatus(specials.Status, folderEpSpecial.Status);
-                    foreach (var f in folderEpSpecial.LocalFiles)
-                        if (!specials.LocalFiles.Contains(f, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(f);
-                    continue;
-                }
-                var isVolumeHere = false;
-                if (!TryParseEpisodeNumber(name, out var num))
-                {
-                    // 尝试智能解析：卷/章/集
-                    var (kind, n2) = ParseEpisodeOrVolume(name);
-                    if (kind == NameKind.Special)
-                    {
-                        var sp = BuildEpisodeFromFolder(entry, 0, isSpecial: true);
-                        specials.Status = PickHigherStatus(specials.Status, sp.Status);
-                        foreach (var f in sp.LocalFiles)
-                            if (!specials.LocalFiles.Contains(f, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(f);
-                        continue;
-                    }
-                    if (kind == NameKind.Volume) isVolumeHere = true;
-                    if (n2 <= 0) continue;
-                    num = n2;
-                }
-                var folderEp = BuildEpisodeFromFolder(entry, num, isSpecial: false, isVolume: isVolumeHere);
-                if (!map.TryGetValue(num, out var existing))
-                {
-                    map[num] = folderEp;
-                }
-                else
-                {
-                    var set = new HashSet<string>(existing.LocalFiles, StringComparer.OrdinalIgnoreCase);
-                    foreach (var f in folderEp.LocalFiles)
-                    {
-                        if (set.Add(f))
-                            existing.LocalFiles.Add(f);
-                    }
-                    existing.Status = PickHigherStatus(existing.Status, folderEp.Status);
-                    if (isVolumeHere) existing.IsVolume = true;
-                }
-            }
-            else if (File.Exists(entry))
-            {
-                var ext = Path.GetExtension(entry);
-                if (archives.Contains(ext))
-                {
-                    var name = Path.GetFileNameWithoutExtension(entry);
-                    if (IsSpecialName(name))
-                    {
-                        if (!specials.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(entry);
-                        specials.Status = PickHigherStatus(specials.Status, "立项");
-                        continue;
-                    }
-                    var isVolHere2 = false;
-                    if (!TryParseEpisodeNumber(name, out var num))
-                    {
-                        var (kind, n2) = ParseEpisodeOrVolume(name);
-                        if (kind == NameKind.Special)
-                        {
-                            if (!specials.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(entry);
-                            specials.Status = PickHigherStatus(specials.Status, "立项");
-                            continue;
-                        }
-                        if (kind == NameKind.Volume) isVolHere2 = true;
-                        if (n2 <= 0) continue;
-                        num = n2;
-                    }
-                    if (!map.TryGetValue(num, out var existing))
-                    {
-                        var ep = new EpisodeEntry { Number = num, Status = "立项", IsVolume = isVolHere2 };
-                        ep.LocalFiles.Add(entry);
-                        map[num] = ep;
-                    }
-                    else
-                    {
-                        if (!existing.LocalFiles.Contains(entry, StringComparer.OrdinalIgnoreCase))
-                            existing.LocalFiles.Add(entry);
-                        existing.Status = PickHigherStatus(existing.Status, "立项");
-                        if (isVolHere2) existing.IsVolume = true;
-                    }
-                }
-            }
-        }
-
-        // Robustness: any txt file with episode number in its file name marks that episode as 翻译 (lower priority than 校对)
-        try
-        {
-            var txtFiles = Directory.EnumerateFiles(localDir, "*.txt", SearchOption.AllDirectories).ToList();
-            foreach (var txt in txtFiles)
-            {
-                var nameWithoutExt = Path.GetFileNameWithoutExtension(txt);
-                int num;
-                if (IsSpecialName(nameWithoutExt))
-                {
-                    if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt);
-                    var lowerSpecial = nameWithoutExt.ToLowerInvariant();
-                    var candidateSpecial = lowerSpecial.Contains("校对") || lowerSpecial.Contains("校隊") || lowerSpecial.Contains("check") ? "校对" : "翻译";
-                    specials.Status = PickHigherStatus(specials.Status, candidateSpecial);
-                    continue;
-                }
-                if (!TryParseEpisodeNumber(nameWithoutExt, out num))
-                {
-                    var parent = Path.GetFileName(Path.GetDirectoryName(txt) ?? string.Empty);
-                    if (IsSpecialName(parent))
-                    {
-                        if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt);
-                        var lower2 = nameWithoutExt.ToLowerInvariant();
-                        var candidate2 = lower2.Contains("校对") || lower2.Contains("校隊") || lower2.Contains("check") ? "校对" : "翻译";
-                        specials.Status = PickHigherStatus(specials.Status, candidate2);
-                        continue;
-                    }
-                    if (!TryParseEpisodeNumber(parent, out num))
-                    {
-                        var (kind, n3) = ParseEpisodeOrVolume(nameWithoutExt);
-                        if (kind == NameKind.Special) { if (!specials.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase)) specials.LocalFiles.Add(txt); continue; }
-                        if (n3 > 0) num = n3; else continue;
-                    }
-                }
-                if (!map.TryGetValue(num, out var epEntry))
-                {
-                    epEntry = new EpisodeEntry { Number = num, Status = "立项" };
-                    map[num] = epEntry;
-                }
-                if (!epEntry.LocalFiles.Contains(txt, StringComparer.OrdinalIgnoreCase))
-                    epEntry.LocalFiles.Add(txt);
-
-                // Determine candidate status: prefer 校对 if keywords, else 翻译
-                var lower = nameWithoutExt.ToLowerInvariant();
-                var candidate = lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check") ? "校对" : "翻译";
-                epEntry.Status = PickHigherStatus(epEntry.Status, candidate);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "ScanEpisodes: txt pass failed");
-        }
-
-        // Tankobon fallback: if nothing parsed, treat as 单行本（1卷）
-        try
-        {
-            var rootName = Path.GetFileName(localDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (map.Count == 0)
-            {
-                var files = Directory.EnumerateFiles(localDir, "*", SearchOption.AllDirectories).ToList();
-                if (files.Count > 0)
-                {
-                    var hasPsd = files.Any(f => string.Equals(Path.GetExtension(f), ".psd", StringComparison.OrdinalIgnoreCase));
-                    var hasTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase));
-                    var hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
-                                                     ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "校队", "校对" }));
-                    var status = hasPsd ? "嵌字" : hasCheckTxt ? "校对" : hasTxt ? "翻译" : "立项";
-                    // Try detect volume number from folder name; else default 1
-                    var vol = TryParseEpisodeNumber(rootName, out var n1) && n1 > 0 ? n1 : 1;
-                    var ep = new EpisodeEntry { Number = vol, Status = status };
-                    ep.LocalFiles.AddRange(files);
-                    map[vol] = ep;
-                    tankobonFallback = true;
-                    tankobonVolumeNumber = vol;
-                    Logger.Info("ScanEpisodes: fallback to tankobon (vol={vol}) with {count} files", vol, files.Count);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "ScanEpisodes: tankobon fallback failed");
-        }
-
-        // 挂载番外
-        var list = map.Values.ToList();
-        if (specials.LocalFiles.Count > 0)
-        {
-            list.Add(specials);
-        }
-        Logger.Debug("ScanEpisodes: merged into {count} episodes (+special={special})", list.Count, specials.LocalFiles.Count);
-        return list;
-    }
-
-    private static EpisodeEntry BuildEpisodeFromFolder(string folder, int number, bool isSpecial = false, bool isVolume = false)
-    {
-        var files = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
-        var hasArchive = files.Any(f => new[] { ".zip", ".7z", ".rar" }.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase));
-        var hasTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase));
-        var hasPsd = files.Any(f => string.Equals(Path.GetExtension(f), ".psd", StringComparison.OrdinalIgnoreCase));
-        var hasCheckTxt = files.Any(f => string.Equals(Path.GetExtension(f), ".txt", StringComparison.OrdinalIgnoreCase) &&
-                                         ContainsAny(Path.GetFileNameWithoutExtension(f), new[] { "check", "校队", "校对" }));
-        var status = hasPsd ? "嵌字" : hasCheckTxt ? "校对" : hasTxt ? "翻译" : hasArchive ? "立项" : "立项";
-        var ep = new EpisodeEntry { Number = number, Status = status, IsSpecial = isSpecial, IsVolume = isVolume };
-        ep.LocalFiles.AddRange(files);
-        return ep;
-    }
-
-    private static bool ContainsAny(string s, IEnumerable<string> needles)
-    {
-        foreach (var n in needles)
-        {
-            if (s?.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-        }
-        return false;
-    }
-
-    private static bool IsTankobonName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return false;
-        var needles = new[] { "单行本", "單行本", "tankobon", "tankoubon", "volume", "vol", "合集", "総集編", "总集篇", "总集编" };
-        return ContainsAny(name, needles);
+        var us = await LoadUploadSettingsAsync();
+        return !string.IsNullOrWhiteSpace(us?.Username) ? us!.Username! : Environment.UserName;
     }
 
     private static bool IsSpecialName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return false;
-        var needles = new[] { "番外", "特別篇", "特别篇", "SP", "Special", "Extra", "外传", "外傳" };
+        var needles = new[] { "番外", "特別篇", "特别篇", "SP", "Special", "Extra", "外传", "外傳", "特典", "付录", "附录", "後記", "后记", "前日谈", "前日譚", "後日談", "后日谈", "前传", "前傳", "序章", "序", "终章", "終章", "Prologue", "Epilogue", "Omake", "Bonus" };
         return needles.Any(n => name.Contains(n, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool TryParseSpecialNumber(string? name, out int number, out string? label)
+    {
+        number = 0; label = null;
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        var s = name.Trim();
+        if (!IsSpecialName(s)) return false;
+        var m = Regex.Match(s, @"(?:番外|外传|外傳|特典|SP|S\.?P\.?|Special|Extra)\s*[-_#]?(?:第)?(?<num>\d{1,4}|[一二三四五六七八九十百千两〇零]+)", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            var v = m.Groups["num"].Value;
+            if (int.TryParse(v, out var n) && n > 0) { number = n; return true; }
+            var cn = ParseChineseNumeral(v); if (cn > 0) { number = cn; return true; }
+        }
+        m = Regex.Match(s, @"(?<num>\d{1,4}|[一二三四五六七八九十百千两〇零]+)\s*(?:番外|外传|外傳|特典|SP|S\.?P\.?|Special|Extra)", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            var v = m.Groups["num"].Value;
+            if (int.TryParse(v, out var n) && n > 0) { number = n; return true; }
+            var cn = ParseChineseNumeral(v); if (cn > 0) { number = cn; return true; }
+        }
+        var prelude = new[] { "前传", "前傳", "序", "序章", "Prologue" };
+        var epilogue = new[] { "后传", "後傳", "终章", "終章", "Epilogue", "后日谈", "後日談" };
+        if (prelude.Any(k => s.Contains(k, StringComparison.OrdinalIgnoreCase))) { label = "前传"; number = 0; return true; }
+        if (epilogue.Any(k => s.Contains(k, StringComparison.OrdinalIgnoreCase))) { label = "后传"; number = 999; return true; }
+        var dm = Regex.Match(s, @"(?<!\d)(\d{1,4})(?!\d)");
+        if (dm.Success && int.TryParse(dm.Groups[1].Value, out var dn) && dn > 0) { number = dn; return true; }
+        return true;
+    }
+
+    private static bool ContainsVolumeKeyword(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var keys = new[] { "卷", "巻", "vol", "vol.", "volume", "v", "v.", "单行本", "單行本", "tankobon" };
+        return keys.Any(k => s.Contains(k, StringComparison.OrdinalIgnoreCase));
+    }
+
     private enum NameKind { Episode, Volume, Special, Unknown }
-    // 智能解析：识别 第X话/卷/章/集、EP/CH/VOL、中文数字；过滤分辨率/日期
+
     private static (NameKind kind, int number) ParseEpisodeOrVolume(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return (NameKind.Unknown, 0);
         var s = name.Trim();
         if (IsSpecialName(s)) return (NameKind.Special, 0);
 
-        // 常见噪声去除
-        s = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
-        s = Regex.Replace(s, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase); // 1080x1920
+        var volTailPattern = new Regex(@"(?:(?<a>\d{1,5})\s*[-_~～—–至到]\s*(?<b>\d{1,5})|(?<n>\d{1,5})|第\s*(?<cn>[一二三四五六七八九十百千两〇零]+))\s*(卷|巻|vol\.?|volume|v\.?|单行本|單行本|tankobon)", RegexOptions.IgnoreCase);
+        var volTailMatch = volTailPattern.Match(s);
+        if (volTailMatch.Success)
+        {
+            if (int.TryParse(volTailMatch.Groups["a"].Value, out var a) && int.TryParse(volTailMatch.Groups["b"].Value, out var b))
+                return (NameKind.Volume, Math.Max(a, b));
+            if (int.TryParse(volTailMatch.Groups["n"].Value, out var nnum) && nnum > 0)
+                return (NameKind.Volume, nnum);
+            var cn = volTailMatch.Groups["cn"].Value; var ncn = ParseChineseNumeral(cn); if (ncn > 0) return (NameKind.Volume, ncn);
+        }
 
-        // 标记与别名
+        s = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
+        s = Regex.Replace(s, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
         var map = new (NameKind kind, string[] keys)[]
         {
-            (NameKind.Volume, new[]{"卷","vol","volume","v"}),
-            (NameKind.Episode, new[]{"话","話","chap","chapter","ch","ep","episode","集","章"}),
+            (NameKind.Volume, new[]{"卷","巻","vol","vol.","volume","v","v.","单行本","單行本","tankobon"}),
+            (NameKind.Episode, new[]{"话","話","chap","chapter","ch","ep","episode","e","集","章","篇","part","act","story","回"}),
         };
-
-        // 先尝试 key + 数字
-    foreach (var (kind, keys) in map)
+        foreach (var (kind, keys) in map)
         {
             foreach (var k in keys)
             {
@@ -735,17 +592,20 @@ public partial class UploadViewModel : ObservableObject
                 if (idx >= 0)
                 {
                     var tail = s[(idx + k.Length)..];
-            // 优先识别区间，如 15-51/15~51
-            if (TryParseRangeNumber(tail, out var nRange) && nRange > 0) return (kind, nRange);
-            var digits = new string(tail.Where(char.IsDigit).ToArray());
-            if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
-                    // 中文数字
-                    var ncn = ParseChineseNumeral(tail);
-                    if (ncn > 0) return (kind, ncn);
+                    if (TryParseRangeNumber(tail, out var nRange) && nRange > 0) return (kind, nRange);
+                    var mEp = Regex.Match(tail, @"^\s*(?:S\d+E(?<e>\d+)|(?<n>\d+)(?:\.\d+)?|第\s*(?<cn>[一二三四五六七八九十百千两〇零]+))", RegexOptions.IgnoreCase);
+                    if (mEp.Success)
+                    {
+                        if (int.TryParse(mEp.Groups["e"].Value, out var se)) return (kind, se);
+                        if (int.TryParse(mEp.Groups["n"].Value, out var nn) && nn > 0) return (kind, nn);
+                        var ncn = ParseChineseNumeral(mEp.Groups["cn"].Value); if (ncn > 0) return (kind, ncn);
+                    }
+                    var digits = new string(tail.Where(char.IsDigit).ToArray());
+                    if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
+                    var ncn2 = ParseChineseNumeral(tail); if (ncn2 > 0) return (kind, ncn2);
                 }
             }
         }
-        // 纯数字 + 关键词在前
         foreach (var (kind, keys) in map)
         {
             if (keys.Any(k => s.StartsWith(k, StringComparison.OrdinalIgnoreCase)))
@@ -753,19 +613,23 @@ public partial class UploadViewModel : ObservableObject
                 var rem = s[keys.Max(k => s.StartsWith(k, StringComparison.OrdinalIgnoreCase) ? k.Length : 0)..];
                 var digits = new string(rem.Where(char.IsDigit).ToArray());
                 if (int.TryParse(digits, out var n) && n > 0) return (kind, n);
-                var ncn = ParseChineseNumeral(rem);
-                if (ncn > 0) return (kind, ncn);
+                var ncn = ParseChineseNumeral(rem); if (ncn > 0) return (kind, ncn);
             }
         }
-        // 只有数字
-        // 只有数字/或包含区间
         if (TryParseRangeNumber(s, out var numRange) && numRange > 0)
+        {
+            if (ContainsVolumeKeyword(name)) return (NameKind.Volume, numRange);
             return (NameKind.Episode, numRange);
-        if (int.TryParse(new string(s.Where(char.IsDigit).ToArray()), out var num) && num > 0)
-            return (NameKind.Episode, num);
-        // 只有中文数字
-        var nn = ParseChineseNumeral(s);
-        if (nn > 0) return (NameKind.Episode, nn);
+        }
+        var m = Regex.Match(s, @"\b(?:S\d+E(?<e>\d+)|EP\s*(?<e2>\d+)|E\s*(?<e3>\d+))\b", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            if (int.TryParse(m.Groups["e"].Value, out var se)) return (NameKind.Episode, se);
+            if (int.TryParse(m.Groups["e2"].Value, out var e2)) return (NameKind.Episode, e2);
+            if (int.TryParse(m.Groups["e3"].Value, out var e3)) return (NameKind.Episode, e3);
+        }
+        if (int.TryParse(new string(s.Where(char.IsDigit).ToArray()), out var num) && num > 0) return (NameKind.Episode, num);
+        var nn2 = ParseChineseNumeral(s); if (nn2 > 0) return (NameKind.Episode, nn2);
         return (NameKind.Unknown, 0);
     }
 
@@ -773,127 +637,89 @@ public partial class UploadViewModel : ObservableObject
     {
         number = 0;
         if (string.IsNullOrWhiteSpace(name)) return false;
-
-        // 1) 匹配 “第 N 话/集/章” 优先（N 可以是阿拉伯数字或中文数字）
-    var m1 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)\s*(话|話|集|章)?", RegexOptions.IgnoreCase);
+        if (ContainsVolumeKeyword(name)) return false;
+        var m1 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)\s*(话|話|集|章|篇|回)?", RegexOptions.IgnoreCase);
         if (m1.Success)
         {
             var grp = m1.Groups[1].Value;
             if (int.TryParse(grp, out var n1)) { number = n1; return number > 0; }
-            number = ParseChineseNumeral(grp);
-            if (number > 0) return true;
+            number = ParseChineseNumeral(grp); if (number > 0) return true;
         }
-
-        // 2) 匹配 “N 话/集/章” （避免把小数当连在一起的数字）
-    var m2 = Regex.Match(name, @"(?<![0-9\.])(\d{1,4})(?!\d|\.\d)\s*(话|話|集|章)", RegexOptions.IgnoreCase);
+        var m2 = Regex.Match(name, @"(?<![0-9\.])(\d{1,4})(?:\.\d+)?(?!\d|\.\d)\s*(话|話|集|章|篇|回)", RegexOptions.IgnoreCase);
         if (m2.Success && int.TryParse(m2.Groups[1].Value, out var n2) && n2 > 0) { number = n2; return true; }
-
-        // 3) 匹配 “第 N”
-    var m3 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)", RegexOptions.IgnoreCase);
+        var mEp = Regex.Match(name, @"\b(?:S\d+E(?<e>\d+)|EP\s*(?<e2>\d+)|E\s*(?<e3>\d+))\b", RegexOptions.IgnoreCase);
+        if (mEp.Success)
+        {
+            if (int.TryParse(mEp.Groups["e"].Value, out var se)) { number = se; return true; }
+            if (int.TryParse(mEp.Groups["e2"].Value, out var e2)) { number = e2; return true; }
+            if (int.TryParse(mEp.Groups["e3"].Value, out var e3)) { number = e3; return true; }
+        }
+        var m3 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)", RegexOptions.IgnoreCase);
         if (m3.Success)
         {
             var grp = m3.Groups[1].Value;
             if (int.TryParse(grp, out var n3)) { number = n3; return number > 0; }
-            number = ParseChineseNumeral(grp);
-            if (number > 0) return true;
+            number = ParseChineseNumeral(grp); if (number > 0) return true;
         }
-
-        // 3.5) 识别区间（如 113-115 / 108~112 / 90～107），取右端最大值
-        if (TryParseRangeNumber(name, out var nRange) && nRange > 0)
-        {
-            number = nRange;
-            return true;
-        }
-
-        // 4) 常见命名：62.1/62-1 代表“第62话 Part1” —— 取主数字 62
-        var mPart = Regex.Match(name, @"(?<!\d)(\d{1,4})[\.-_](\d+)(?!\d)");
-        if (mPart.Success && int.TryParse(mPart.Groups[1].Value, out var nMain) && nMain > 0) { number = nMain; return true; }
-
-        // 5) 兜底：取最后一个不在小数中的整数 token
-        // 移除日期和分辨率等噪声
+        if (TryParseRangeNumber(name, out var nRange) && nRange > 0) { number = nRange; return true; }
         var s = Regex.Replace(name, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
         s = Regex.Replace(s, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
-        var matches = Regex.Matches(s, @"(?<![0-9\.])(\d{1,4})(?!\d|\.\d)");
-        if (matches.Count > 0 && int.TryParse(matches[^1].Groups[1].Value, out var nLast) && nLast > 0)
-        {
-            number = nLast;
-            return true;
-        }
-
-        // 6) 中文数字兜底
+        var matches = Regex.Matches(s, @"(?<![0-9\.])(\d{1,4})(?:\.\d+)?(?!\d|\.\d)");
+        if (matches.Count > 0 && int.TryParse(matches[^1].Groups[1].Value, out var nLast) && nLast > 0) { number = nLast; return true; }
         number = ParseChineseNumeral(name);
         return number > 0;
     }
 
-    // 尝试解析数字区间（15-51 / 15~51 / 15_51 / 15～51 / 15至51 / 15到51），
-    // 支持一条字符串中出现多个区间，取所有区间的较大值中的最大值；
-    // 如果字符串中出现了任意区间分隔符，则直接取（去除日期/分辨率噪声后）所有数字的最大值，
-    // 以适配类似 “1-3-8.15” 这种复合写法（解析为 15）。
-    private static bool TryParseRangeNumber(string s, out int hi)
+    private static int TryPickNumberFromFiles(IEnumerable<string> files)
     {
-        hi = 0;
-        if (string.IsNullOrWhiteSpace(s)) return false;
-        var hasRangeSep = s.IndexOf('-') >= 0 || s.IndexOf('_') >= 0 || s.IndexOf('~') >= 0 || s.IndexOf('～') >= 0 || s.IndexOf('—') >= 0 || s.IndexOf('–') >= 0 || s.Contains("至") || s.Contains("到");
-        var matches = Regex.Matches(s, @"(\d{1,5})\s*[-_~～—–至到]\s*(\d{1,5})");
-        foreach (Match m in matches)
-        {
-            if (m.Success && int.TryParse(m.Groups[1].Value, out var a) && int.TryParse(m.Groups[2].Value, out var b))
-            {
-                hi = Math.Max(hi, Math.Max(a, b));
-            }
-        }
-        if (hi > 0) return true;
-        if (hasRangeSep)
-        {
-            // 去除日期和分辨率等噪声后，取全部数字的最大值
-            var cleaned = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
-            // 注意：这里不要避开小数，直接抽取所有数字片段（如 1.3-8.15 -> 1,3,8,15），取最大值
-            var nums = Regex.Matches(cleaned, @"\d{1,5}");
-            foreach (Match m in nums)
-            {
-                if (int.TryParse(m.Value, out var n)) hi = Math.Max(hi, n);
-            }
-        }
-        return hi > 0;
-    }
+        if (files is null) return 0;
+        var volCounts = new Dictionary<int, int>();
+        var epCounts = new Dictionary<int, int>();
 
-    private static int ParseChineseNumeral(string s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return 0;
-        var map = new Dictionary<char, int>
+        foreach (var f in files)
         {
-            ['零'] = 0, ['一'] = 1, ['二'] = 2, ['两'] = 2, ['三'] = 3, ['四'] = 4, ['五'] = 5, ['六'] = 6, ['七'] = 7, ['八'] = 8, ['九'] = 9,
-            ['十'] = 10, ['百'] = 100, ['千'] = 1000, ['〇'] = 0
-        };
-        var total = 0;
-        var section = 0;
-        var number = 0;
-        foreach (var ch in s)
-        {
-            if (!map.TryGetValue(ch, out var val)) continue;
-            if (val == 10 || val == 100 || val == 1000)
+            var name = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            // 先尝试按“卷”关键字解析卷号
+            var (kind, num) = ParseEpisodeOrVolume(name);
+            if (kind == NameKind.Volume && num > 0)
             {
-                if (number == 0) number = 1;
-                section += number * val;
-                number = 0;
+                volCounts[num] = volCounts.TryGetValue(num, out var c) ? c + 1 : 1;
+                continue;
             }
-            else
+
+            // 再尝试解析“话/集/章/ep/ch”等关键字；避免把纯数字页码当作话号
+            if (TryParseEpisodeNumber(name, out var n) && n > 0)
             {
-                number = val;
+                var hasKeyword = Regex.IsMatch(name, @"(话|話|章|篇|集|ep|episode|ch|chap)", RegexOptions.IgnoreCase);
+                var digitsOnly = name.All(ch => char.IsDigit(ch) || ch == '_' || ch == '-' || ch == '.' || char.IsWhiteSpace(ch));
+                if (hasKeyword || !digitsOnly)
+                {
+                    epCounts[n] = epCounts.TryGetValue(n, out var c2) ? c2 + 1 : 1;
+                }
             }
         }
-        total += section + number;
-        return total;
+
+        static int PickMostLikely(Dictionary<int, int> counts)
+            => counts.Count == 0 ? 0 : counts.OrderByDescending(kv => kv.Value).ThenByDescending(kv => kv.Key).First().Key;
+
+        var vol = PickMostLikely(volCounts);
+        if (vol > 0) return vol;
+        var ep = PickMostLikely(epCounts);
+        return ep > 0 ? ep : 0;
     }
 
     private static string BuildSubDir(EpisodeEntry ep)
     {
         if (ep.IsSpecial)
         {
-            // 番外编号：如果文件集合中可解析出序号，使用 番外NN，否则 "番外"
             var n = TryPickNumberFromFiles(ep.LocalFiles);
             return n > 0 ? $"番外{n:00}" : "番外";
+        }
+        if (ep.IsMisc)
+        {
+            return "杂项";
         }
         if (ep.IsVolume)
         {
@@ -901,15 +727,21 @@ public partial class UploadViewModel : ObservableObject
             var use = n > 0 ? n : ep.Number;
             return $"卷{use:00}";
         }
-        return ep.Number.ToString();
+        if (ep.RangeStart.HasValue && ep.RangeEnd.HasValue && ep.RangeEnd.Value >= ep.RangeStart.Value)
+            return $"{ep.RangeStart}-{ep.RangeEnd}";
+        return ep.Number.ToString("00");
     }
-
+    
     private static string BuildEpisodeKey(EpisodeEntry ep, int useNum)
     {
         if (ep.IsSpecial)
         {
-            var n = TryPickNumberFromFiles(ep.LocalFiles);
+            int n = ep.Number > 0 ? ep.Number : TryPickNumberFromFiles(ep.LocalFiles);
             return n > 0 ? $"番外{n:00}" : "番外";
+        }
+        if (ep.IsMisc)
+        {
+            return "杂项";
         }
         if (ep.IsVolume)
         {
@@ -917,39 +749,9 @@ public partial class UploadViewModel : ObservableObject
             var use = n > 0 ? n : useNum;
             return $"卷{use:00}";
         }
+        if (ep.RangeStart.HasValue && ep.RangeEnd.HasValue && ep.RangeEnd.Value >= ep.RangeStart.Value)
+            return $"{ep.RangeStart}-{ep.RangeEnd}";
         return useNum.ToString("00");
-    }
-
-    private static int RankKey(string key)
-    {
-        if (string.IsNullOrWhiteSpace(key)) return 0;
-        // 排序优先：番外(最高，编号越大越前) > 卷 > 话
-        if (key.StartsWith("番外", StringComparison.OrdinalIgnoreCase))
-            return 2_000_000 + ExtractTrailingNumber(key);
-        if (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || key.StartsWith("V", StringComparison.OrdinalIgnoreCase))
-            return 1_000_000 + ExtractTrailingNumber(key);
-        return ExtractTrailingNumber(key);
-    }
-
-    private static int ExtractTrailingNumber(string s)
-    {
-        var digits = new string((s ?? string.Empty).Where(char.IsDigit).ToArray());
-        return int.TryParse(digits, out var n) ? n : 0;
-    }
-
-    private static int TryPickNumberFromFiles(IEnumerable<string> files)
-    {
-        foreach (var f in files)
-        {
-            var name = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
-            var (kind, n) = ParseEpisodeOrVolume(name);
-            if (kind == NameKind.Special || kind == NameKind.Volume)
-            {
-                if (n > 0) return n;
-            }
-            if (TryParseEpisodeNumber(name, out var n2) && n2 > 0) return n2;
-        }
-        return 0;
     }
 
     private async Task RefreshAsync()
@@ -965,7 +767,6 @@ public partial class UploadViewModel : ObservableObject
             if (result.Code != 200 || result.Content is null)
             {
                 Status = $"下载失败: {result.Code} {result.Message}";
-                Logger.Warn("Download project.json failed: {code} {msg}", result.Code, result.Message);
                 return;
             }
 
@@ -977,7 +778,6 @@ public partial class UploadViewModel : ObservableObject
             if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
             {
                 Status = "清单格式错误（缺少 projects）";
-                Logger.Warn("Invalid manifest: projects missing.");
                 return;
             }
 
@@ -996,13 +796,61 @@ public partial class UploadViewModel : ObservableObject
             }
 
             Status = $"已加载 {Projects.Count} 个项目";
-            Logger.Info("Projects loaded: {count}", Projects.Count);
         }
         catch (Exception ex)
         {
             Status = $"刷新失败: {ex.Message}";
-            Logger.Error(ex, "RefreshAsync failed.");
+            Logger.Error(ex, "RefreshAsync failed");
         }
+    }
+
+    private static (int? lo, int? hi, string? disp) DetectRangeFromFiles(IEnumerable<string> files)
+    {
+        int? bestLo = null, bestHi = null; string? bestDisp = null;
+        foreach (var f in files)
+        {
+            var name = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
+            var m = Regex.Match(name, @"(\d{1,5})\s*[-_~～—–至到]\s*(\d{1,5})");
+            if (m.Success && int.TryParse(m.Groups[1].Value, out var a) && int.TryParse(m.Groups[2].Value, out var b))
+            {
+                var lo = Math.Min(a, b); var hi = Math.Max(a, b);
+                if (!bestLo.HasValue || (bestHi - bestLo) < (hi - lo))
+                {
+                    bestLo = lo; bestHi = hi;
+                    var disp = m.Value;
+                    disp = disp.Replace("到", "-").Replace("至", "-").Replace("～", "-").Replace("~", "-").Replace("—", "-").Replace("–", "-").Replace("_", "-");
+                    disp = Regex.Replace(disp, @"\s+", string.Empty);
+                    disp = Regex.Replace(disp, @"-+", "-");
+                    bestDisp = disp;
+                }
+            }
+        }
+        return (bestLo, bestHi, bestDisp);
+    }
+
+    private static bool TryParseRangeNumber(string s, out int hi)
+    {
+        hi = 0;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        var hasRangeSep = s.IndexOf('-') >= 0 || s.IndexOf('_') >= 0 || s.IndexOf('~') >= 0 || s.IndexOf('～') >= 0 || s.IndexOf('—') >= 0 || s.IndexOf('–') >= 0 || s.Contains("至") || s.Contains("到");
+        var matches = Regex.Matches(s, @"(\d{1,5})\s*[-_~～—–至到]\s*(\d{1,5})");
+        foreach (Match m in matches)
+        {
+            if (m.Success && int.TryParse(m.Groups[1].Value, out var a) && int.TryParse(m.Groups[2].Value, out var b))
+            {
+                var right = Math.Max(a, b);
+                hi = Math.Max(hi, right);
+            }
+        }
+        if (hi > 0) return true;
+        if (hasRangeSep)
+        {
+            var cleaned = Regex.Replace(s, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
+            cleaned = Regex.Replace(cleaned, @"\b(\d{3,4})[xX](\d{3,4})\b", " ", RegexOptions.IgnoreCase);
+            var nums = Regex.Matches(cleaned, @"\d{1,5}");
+            foreach (Match m in nums) if (int.TryParse(m.Value, out var n)) hi = Math.Max(hi, n);
+        }
+        return hi > 0;
     }
 
     public async Task<bool> UploadPendingAsync()
@@ -1012,26 +860,19 @@ public partial class UploadViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(PendingProjectName))
             {
                 Status = "无项目";
-                Logger.Warn("Upload aborted: no project name.");
                 return false;
             }
 
             var ctx = await GetApiContextAsync();
             if (ctx is null) return false;
 
+            var uploader = await GetUploaderNameAsync();
+
             var toUpload = PendingEpisodes.Where(e => e.Include).ToList();
             var episodesCount = toUpload.Count;
             var plannedFilesCount = toUpload.Sum(e => e.LocalFiles.Count);
-            var includeAggregate = !_uploadToExistingProject; // only for new project
-            var preSteps = 0
-                           + 1 // 登录
-                           + 1 // 创建项目目录
-                           + episodesCount // 创建各话目录
-                           + plannedFilesCount // 读取与规划文件
-                           + (includeAggregate ? 2 : 0) // 下载/上传根清单
-                           + 1 // 下载项目JSON
-                           + 1 // 合并JSON
-                           + 1; // 上传项目JSON
+            var includeAggregate = !_uploadToExistingProject;
+            var preSteps = 0 + 1 + 1 + episodesCount + plannedFilesCount + (includeAggregate ? 2 : 0) + 1 + 1 + 1;
             var uploadSteps = plannedFilesCount;
             var totalSteps = preSteps + uploadSteps;
 
@@ -1045,7 +886,6 @@ public partial class UploadViewModel : ObservableObject
                 UploadCompleted = Math.Min(UploadCompleted + 1, UploadTotal);
             }
 
-            // Confirm single-volume fallback (tankobon) if detected
             if (IsTankobonFallback && !TankobonAcknowledged)
             {
                 var volNum = TankobonVolumeNumber.GetValueOrDefault(1);
@@ -1068,14 +908,12 @@ public partial class UploadViewModel : ObservableObject
             var mkProj = await fsApi.MkdirAsync(ctx.Token, projectDir);
             if (mkProj.Code is >= 400 and < 500)
             {
-                // Fallback: treat as ok if directory already exists
                 var chk = await fsApi.GetAsync(ctx.Token, projectDir.TrimEnd('/'));
                 if (chk.Code != 200 || chk.Data is null || !chk.Data.IsDir)
                 {
                     Status = $"创建目录失败: {mkProj.Message}";
                     return false;
                 }
-                Logger.Info("Project directory already exists: {dir}", projectDir);
             }
             Step("已创建项目目录", projectDir);
 
@@ -1091,68 +929,55 @@ public partial class UploadViewModel : ObservableObject
                         Status = $"创建话数目录失败: {mk.Message}";
                         return false;
                     }
-                    Logger.Info("Episode directory already exists: {dir}", epDir);
                 }
                 Step($"目录就绪: {ep.Number}", epDir);
             }
 
-            // Build items and map paths; count planning steps
             var items = new List<FileUploadItem>();
-            var resultMap = new Dictionary<int, (string? source, string? translate, string? typeset)>();
+            var resultMap = new Dictionary<EpisodeEntry, (string? source, string? translate, string? proof, string? typeset, (int? lo, int? hi, string? disp) range, List<string> all)>();
             foreach (var ep in toUpload)
             {
-                // 与目录创建阶段保持一致：卷→"卷NN"，番外→"番外NN/番外"，普通话→"NN"
                 var epDir = projectDir + BuildSubDir(ep) + "/";
-                string? sourcePath = null;
-                string? translatePath = null;
-                string? typesetPath = null;
+                string? sourcePath = null, translatePath = null, proofPath = null, typesetPath = null;
+                var remoteAll = new List<string>();
                 foreach (var file in ep.LocalFiles)
                 {
-                    if (!File.Exists(file))
-                    {
-                        Step("跳过缺失文件", file);
-                        continue;
-                    }
+                    if (!File.Exists(file)) { Step("跳过缺失文件", file); continue; }
                     var name = Path.GetFileName(file);
                     var remote = epDir + name;
-                    // 大文件走 LocalPath 流式上传；极小文本（如 .txt 元数据）直接读取为字节
+                    remoteAll.Add(remote);
                     var ext = Path.GetExtension(name);
                     if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
                     {
                         var content = await File.ReadAllBytesAsync(file);
                         items.Add(new FileUploadItem { FilePath = remote, Content = content, LocalPath = null });
+                        var lower = name.ToLowerInvariant();
+                        var isCheck = lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check");
+                        if (isCheck) proofPath = proofPath ?? remote; else translatePath = translatePath ?? remote;
                     }
                     else
                     {
                         items.Add(new FileUploadItem { FilePath = remote, LocalPath = file, Content = Array.Empty<byte>() });
+                        if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase) || ext.Equals(".7z", StringComparison.OrdinalIgnoreCase) || ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
+                            sourcePath = sourcePath ?? remote;
+                        else if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase))
+                            typesetPath = typesetPath ?? remote;
                     }
-                    if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase) || ext.Equals(".7z", StringComparison.OrdinalIgnoreCase) || ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
-                        sourcePath ??= remote;
-                    else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (translatePath is null) translatePath = remote;
-                        var lower = name.ToLowerInvariant();
-                        if (lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check")) translatePath = remote;
-                    }
-                    else if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase))
-                        typesetPath ??= remote;
                     Step("已规划文件", remote);
                 }
-                resultMap[ep.Number] = (sourcePath, translatePath, typesetPath);
+                var range = DetectRangeFromFiles(ep.LocalFiles);
+                resultMap[ep] = (source: sourcePath, translate: translatePath, proof: proofPath, typeset: typesetPath, range: range, all: remoteAll);
             }
 
-            // Update aggregate /project.json if creating a new project
-            // Resolve project JSON path: if the (possibly edited) name exists in aggregate, use it to merge; otherwise default under projectDir
-            var projectJsonPath = ProjectMap.TryGetValue(PendingProjectName, out var pj) && !string.IsNullOrWhiteSpace(pj)
-                ? pj
+            var projectJsonPath = ProjectMap.TryGetValue(PendingProjectName!, out var pj) && !string.IsNullOrWhiteSpace(pj)
+                ? pj!
                 : projectDir + PendingProjectName + "_project.json";
 
-            if (includeAggregate)
+            if (!_uploadToExistingProject)
             {
-                // If user edited project name to an existing one, prevent accidental conflict when creating a new project
-                if (ProjectMap.ContainsKey(PendingProjectName))
+                if (ProjectMap.ContainsKey(PendingProjectName!))
                 {
-                    Status = $"聚合清单中已存在项目“{PendingProjectName}”，请更换名称或改用‘上传到项目’。";
+                    Status = $"聚合清单中已存在项目“PendingProjectName”，请更换名称或改用‘上传到项目’。";
                     return false;
                 }
                 const string aggregatePath = "/project.json";
@@ -1173,10 +998,7 @@ public partial class UploadViewModel : ObservableObject
                         Status = "聚合清单格式错误";
                         return false;
                     }
-                    foreach (var prop in projects.EnumerateObject())
-                    {
-                        map[prop.Name] = prop.Value.GetString() ?? string.Empty;
-                    }
+                    foreach (var prop in projects.EnumerateObject()) map[prop.Name] = prop.Value.GetString() ?? string.Empty;
                 }
                 catch
                 {
@@ -1184,10 +1006,8 @@ public partial class UploadViewModel : ObservableObject
                     return false;
                 }
 
-                // merge
-                map[PendingProjectName] = projectJsonPath;
+                map[PendingProjectName!] = projectJsonPath;
                 var aggObj = new AggregateProjects { Projects = map };
-                // 使用非转义中文写出并缩进，便于阅读
                 var aggCtx = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
                 {
                     Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -1203,9 +1023,7 @@ public partial class UploadViewModel : ObservableObject
                 Step("聚合清单已更新", aggregatePath);
             }
 
-            // Download and merge per-project JSON
             ProjectCn cn;
-            var requireMergeExisting = _uploadToExistingProject;
             var getMeta = await fsApi.GetAsync(ctx.Token, projectJsonPath);
             if (getMeta.Code == 200 && getMeta.Data is { IsDir: false })
             {
@@ -1217,61 +1035,97 @@ public partial class UploadViewModel : ObservableObject
                         var txt = Encoding.UTF8.GetString(dl.Content).TrimStart('\uFEFF');
                         cn = JsonSerializer.Deserialize(txt, AppJsonContext.Default.ProjectCn) ?? new ProjectCn();
                     }
-                    catch
-                    {
-                        if (requireMergeExisting)
-                        {
-                            Logger.Warn("Deserialize project JSON failed, continue with empty model.");
-                            Status = "项目JSON读取失败，已以空模板继续";
-                            cn = new ProjectCn();
-                        }
-                        else
-                        {
-                            cn = new ProjectCn();
-                        }
-                    }
+                    catch { cn = new ProjectCn(); }
                 }
-                else
-                {
-                    if (requireMergeExisting)
-                    {
-                        Logger.Warn("Download project JSON failed (code={code}), continue with empty model.", dl.Code);
-                        Status = "未能下载项目JSON，已以空模板继续";
-                        cn = new ProjectCn();
-                    }
-                    else
-                    {
-                        cn = new ProjectCn();
-                    }
-                }
+                else cn = new ProjectCn();
             }
-            else
-            {
-                if (requireMergeExisting)
-                {
-                    Logger.Warn("Project JSON not found at {path}, continue with empty model.", projectJsonPath);
-                    Status = "未找到项目JSON，已以空模板继续";
-                    cn = new ProjectCn();
-                }
-                else
-                {
-                    cn = new ProjectCn();
-                }
-            }
+            else cn = new ProjectCn();
             Step("已获取项目JSON", projectJsonPath);
 
             foreach (var ep in toUpload)
             {
-                resultMap.TryGetValue(ep.Number, out var pmap);
-                var useNum = IsTankobonFallback && TankobonVolumeNumber.HasValue && TankobonVolumeNumber.Value > 0
-                    ? TankobonVolumeNumber.Value
-                    : ep.Number;
+                resultMap.TryGetValue(ep, out var pmap);
+                var useNum = IsTankobonFallback && TankobonVolumeNumber.HasValue && TankobonVolumeNumber.Value > 0 ? TankobonVolumeNumber.Value : ep.Number;
                 var key = BuildEpisodeKey(ep, useNum);
-                cn.Items[key] = new EpisodeCn { Status = ep.Status, SourcePath = pmap.source, TranslatePath = pmap.translate, TypesetPath = pmap.typeset };
+
+                var now = DateTimeOffset.UtcNow;
+                var kind = ep.IsSpecial ? "番外" : (IsTankobonFallback ? "单行本" : (ep.IsMisc ? "杂项" : (ep.IsVolume ? "卷" : "话")));
+                var display = key;
+
+                if (!cn.Items.TryGetValue(key, out var ecn))
+                {
+                    ecn = new EpisodeCn { CreatedAt = now };
+                    cn.Items[key] = ecn;
+                }
+
+                ecn.Status = ep.Status;
+                if (!string.IsNullOrWhiteSpace(pmap.source))
+                {
+                    ecn.SourcePath = pmap.source;
+                    ecn.SourceOwner ??= uploader;
+                    ecn.SourceCreatedAt ??= now;
+                    ecn.SourceUpdatedAt = now;
+                }
+                if (!string.IsNullOrWhiteSpace(pmap.translate))
+                {
+                    ecn.TranslatePath = pmap.translate;
+                    ecn.TranslateOwner ??= uploader;
+                    ecn.TranslateCreatedAt ??= now;
+                    ecn.TranslateUpdatedAt = now;
+                }
+                if (!string.IsNullOrWhiteSpace(pmap.proof))
+                {
+                    ecn.ProofPath = pmap.proof;
+                    ecn.ProofOwner ??= uploader;
+                    ecn.ProofCreatedAt ??= now;
+                    ecn.ProofUpdatedAt = now;
+                }
+                if (!string.IsNullOrWhiteSpace(pmap.typeset))
+                {
+                    ecn.TypesetPath = pmap.typeset;
+                    ecn.PublishOwner ??= uploader;
+                    ecn.PublishCreatedAt ??= now;
+                    ecn.PublishUpdatedAt = now;
+                }
+
+                // 写入文件路径列表
+                if (pmap.all is { Count: > 0 }) ecn.FilePaths = pmap.all;
+
+                if (!string.IsNullOrWhiteSpace(ep.Display)) ecn.Display = ep.Display;
+                if (!string.IsNullOrWhiteSpace(ep.Kind)) ecn.Kind = ep.Kind; else ecn.Kind = kind;
+                if (ep.RangeStart.HasValue) ecn.RangeStart = ep.RangeStart;
+                if (ep.RangeEnd.HasValue) ecn.RangeEnd = ep.RangeEnd;
+                if (!string.IsNullOrWhiteSpace(ep.RangeDisplay)) ecn.RangeDisplay = ep.RangeDisplay;
+                if (!string.IsNullOrWhiteSpace(ep.Owner)) ecn.Owner = ep.Owner;
+                if (ep.Tags is { Count: > 0 }) ecn.Tags = ep.Tags;
+                if (!string.IsNullOrWhiteSpace(ep.Notes)) ecn.Notes = ep.Notes;
+
+                ecn.Kind = kind;
+                ecn.Number = useNum;
+                ecn.Display = display;
+                if (pmap.range.lo.HasValue && pmap.range.hi.HasValue && pmap.range.lo > 0 && pmap.range.hi >= pmap.range.lo)
+                {
+                    ecn.RangeStart = pmap.range.lo;
+                    ecn.RangeEnd = pmap.range.hi;
+                    ecn.RangeDisplay = pmap.range.disp ?? $"{pmap.range.lo}-{pmap.range.hi}";
+                }
+                ecn.UpdatedAt = now;
+                ecn.CreatedAt ??= now;
             }
-            cn.Items = cn.Items
-                .OrderByDescending(kv => RankKey(kv.Key))
-                .ToDictionary(k => k.Key, v => v.Value);
+
+            static int ComputeRank(string key)
+            {
+                if (string.IsNullOrWhiteSpace(key)) return 0;
+                int Extract(string s)
+                {
+                    var digits = new string((s ?? string.Empty).Where(char.IsDigit).ToArray());
+                    return int.TryParse(digits, out var n) ? n : 0;
+                }
+                if (key.StartsWith("番外", StringComparison.OrdinalIgnoreCase)) return 2_000_000 + Extract(key);
+                if (key.StartsWith("卷", StringComparison.OrdinalIgnoreCase) || key.StartsWith("V", StringComparison.OrdinalIgnoreCase)) return 1_000_000 + Extract(key);
+                return Extract(key);
+            }
+            cn.Items = cn.Items.OrderByDescending(kv => ComputeRank(kv.Key)).ToDictionary(k => k.Key, v => v.Value);
             Step("JSON 合并完成", projectJsonPath);
 
             var ctxSer = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
@@ -1290,21 +1144,16 @@ public partial class UploadViewModel : ObservableObject
             }
             Step("JSON 已上传", projectJsonPath);
 
-            // Offset for upload progress
             var offset = UploadCompleted;
             var progress = new Progress<UploadProgress>(p =>
             {
-                UploadTotal = totalSteps; // keep total constant
+                UploadTotal = totalSteps;
                 UploadCompleted = Math.Min(offset + p.Completed, UploadTotal);
                 CurrentUploadingPath = p.CurrentRemotePath;
                 if (p.SpeedMBps is double sp)
-                {
                     Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath} ({sp:F2} MB/s)";
-                }
                 else
-                {
                     Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
-                }
             });
 
             var res = await fsApi.PutManyAsync(ctx.Token, items, progress, 6);
@@ -1316,15 +1165,431 @@ public partial class UploadViewModel : ObservableObject
             }
 
             Status = "上传完成";
-            Logger.Info("Upload completed successfully.");
             await RefreshAsync();
+            try
+            {
+                if (_dialogs is not null) await _dialogs.ShowMessageAsync("上传完成");
+                else await MessageBox.ShowAsync("上传完成", "提示", MessageBoxIcon.Information);
+            }
+            catch { }
             return true;
         }
         catch (Exception ex)
         {
             Status = $"上传异常: {ex.Message}";
-            Logger.Error(ex, "UploadPendingAsync failed.");
+            Logger.Error(ex, "UploadPendingAsync failed");
             return false;
+        }
+    }
+
+    public sealed class MetaNode
+    {
+        public bool IsFile { get; init; }
+        public string? Name { get; set; }
+        public int Number { get; set; }
+        public bool IsVolume { get; set; }
+        public bool IsSpecial { get; set; }
+        public bool Include { get; set; }
+        public string Status { get; set; } = "立项";
+        public int LocalFileCount { get; init; }
+        public string EpisodeDisplay { get; init; } = string.Empty;
+        public string LocalFileCountDisplay { get; init; } = string.Empty;
+        public List<MetaNode> Children { get; } = new();
+        public EpisodeEntry? Ref { get; init; }
+        public string? Display { get; set; }
+        public int? RangeStart { get; set; }
+        public int? RangeEnd { get; set; }
+        public string? RangeDisplay { get; set; }
+        public string? Owner { get; set; }
+        public string? Tags { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private HierarchicalTreeDataGridSource<MetaNode>? _metaTreeSource;
+    public HierarchicalTreeDataGridSource<MetaNode>? MetaTreeSource
+    {
+        get => _metaTreeSource;
+        private set => SetProperty(ref _metaTreeSource, value);
+    }
+    private List<MetaNode> _metaRoots = new();
+
+    private void BuildMetaTree()
+    {
+        _metaRoots = PendingEpisodes.Select(ep => CreateMetaRoot(ep)).ToList();
+        var src = new HierarchicalTreeDataGridSource<MetaNode>(_metaRoots);
+        src.Columns.Add(new CheckBoxColumn<MetaNode>("包含", x => x.Include, (x, v) => x.Include = v));
+        src.Columns.Add(new HierarchicalExpanderColumn<MetaNode>(
+            new TextColumn<MetaNode, string>("名称", x => x.Name ?? string.Empty, (x, v) => x.Name = v ?? x.Name),
+            x => x.Children,
+            x => x.Children.Count > 0));
+        src.Columns.Add(new TextColumn<MetaNode, string>("状态", x => x.Status ?? string.Empty, (x, v) => x.Status = v ?? x.Status));
+        src.Columns.Add(new TextColumn<MetaNode, string>("显示名", x => x.Display ?? string.Empty, (x, v) => x.Display = v));
+        src.Columns.Add(new TextColumn<MetaNode, string>("负责人", x => x.Owner ?? string.Empty, (x, v) => x.Owner = v));
+        src.Columns.Add(new TextColumn<MetaNode, string>("范围", x => x.RangeDisplay ?? string.Empty, (x, v) => x.RangeDisplay = v));
+        src.Columns.Add(new TextColumn<MetaNode, string>("标签", x => x.Tags ?? string.Empty, (x, v) => x.Tags = v));
+        src.Columns.Add(new TextColumn<MetaNode, string>("备注", x => x.Notes ?? string.Empty, (x, v) => x.Notes = v));
+        src.Columns.Add(new TextColumn<MetaNode, string>("文件数", x => x.LocalFileCountDisplay));
+        MetaTreeSource = src;
+    }
+
+    private MetaNode CreateMetaRoot(EpisodeEntry ep)
+    {
+        var episodeDisp = !string.IsNullOrWhiteSpace(ep.Display)
+            ? ep.Display!
+            : (ep.IsSpecial ? "番外" : (ep.IsVolume ? string.Format("{0:00}(卷)", ep.Number) : string.Format("{0:00}", ep.Number)));
+        var node = new MetaNode
+        {
+            IsFile = false,
+            Name = BuildMetaName(ep, ep.RangeDisplay),
+            Number = ep.Number,
+            Include = ep.Include,
+            Status = ep.Status,
+            IsSpecial = ep.IsSpecial,
+            IsVolume = ep.IsVolume,
+            LocalFileCount = ep.LocalFiles.Count,
+            EpisodeDisplay = episodeDisp,
+            LocalFileCountDisplay = ep.LocalFiles.Count.ToString(),
+            Ref = ep,
+            Display = ep.Display,
+            RangeStart = ep.RangeStart,
+            RangeEnd = ep.RangeEnd,
+            RangeDisplay = ep.RangeDisplay,
+            Owner = ep.Owner,
+            Tags = ep.Tags is null ? string.Empty : string.Join(",", ep.Tags),
+            Notes = ep.Notes
+        };
+        foreach (var f in ep.LocalFiles)
+        {
+            node.Children.Add(new MetaNode
+            {
+                IsFile = true,
+                Name = Path.GetFileName(f),
+                Number = ep.Number,
+                Include = true,
+                Status = string.Empty,
+                LocalFileCount = 0,
+                EpisodeDisplay = episodeDisp,
+                LocalFileCountDisplay = "0"
+            });
+        }
+        return node;
+    }
+
+    private static int ParseChineseNumeral(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return 0;
+        var map = new Dictionary<char, int>
+        {
+            ['零'] = 0, ['一'] = 1, ['二'] = 2, ['两'] = 2, ['三'] = 3, ['四'] = 4, ['五'] = 5, ['六'] = 6, ['七'] = 7, ['八'] = 8, ['九'] = 9,
+            ['十'] = 10, ['百'] = 100, ['千'] = 1000, ['〇'] = 0
+        };
+        var total = 0; var section = 0; var number = 0;
+        foreach (var ch in s)
+        {
+            if (!map.TryGetValue(ch, out var val)) continue;
+            if (val is 10 or 100 or 1000)
+            {
+                if (number == 0) number = 1;
+                section += number * val; number = 0;
+            }
+            else number = val;
+        }
+        total += section + number; return total;
+    }
+
+    private static string BuildMetaName(EpisodeEntry ep, string? rangeDisplay)
+    {
+        if (ep.IsSpecial) return "番外";
+        if (ep.IsMisc) return "杂项";
+        if (ep.IsVolume)
+        {
+            var coreVol = string.IsNullOrWhiteSpace(rangeDisplay) ? ep.Number.ToString() : Regex.Replace(rangeDisplay, @"[ 到至~～—–_]", "-");
+            coreVol = Regex.Replace(coreVol, @"\s+", string.Empty);
+            coreVol = Regex.Replace(coreVol, @"-+", "-");
+            return $"第{coreVol}卷";
+        }
+        var core = string.IsNullOrWhiteSpace(rangeDisplay) ? ep.Number.ToString() : Regex.Replace(rangeDisplay, @"[ 到至~～—–_]", "-");
+        core = Regex.Replace(core, @"\s+", string.Empty);
+        core = Regex.Replace(core, @"-+", "-");
+        return $"第{core}话";
+    }
+
+    private async Task ConfirmMetaAsync()
+    {
+        if (_metaRoots is not null)
+        {
+            foreach (var n in _metaRoots.Where(x => !x.IsFile))
+            {
+                if (n.Ref is null) continue;
+                var ep = n.Ref;
+                ep.Include = n.Include;
+                ep.Status = n.Status;
+                ep.Number = n.Number;
+                ep.IsSpecial = n.IsSpecial;
+                ep.IsVolume = n.IsVolume;
+                ep.Display = n.Display;
+                ep.RangeStart = n.RangeStart;
+                ep.RangeEnd = n.RangeEnd;
+                ep.RangeDisplay = n.RangeDisplay;
+                ep.Owner = n.Owner;
+                ep.Tags = string.IsNullOrWhiteSpace(n.Tags) ? null : n.Tags.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+                ep.Notes = n.Notes;
+            }
+        }
+        var ok = await UploadPendingAsync();
+        MetaWindowCloseRequested?.Invoke(this, ok);
+    }
+
+    private static List<EpisodeEntry> ScanEpisodes(string folder, out bool isTankobonFallback, out int? volumeNumber)
+    {
+        isTankobonFallback = false;
+        volumeNumber = null;
+        var list = new List<EpisodeEntry>();
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return list;
+
+        var byEpisode = new Dictionary<int, EpisodeEntry>();
+        var bySpecial = new Dictionary<int, EpisodeEntry>();
+        var special = new EpisodeEntry { Number = 0, IsSpecial = true, Status = "立项" };
+        var misc = new EpisodeEntry { Number = 0, IsMisc = true, Status = "立项", Display = "杂项", Kind = "杂项" };
+
+        // 先按子目录扫描
+        foreach (var sub in Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly))
+        {
+            var dirName = Path.GetFileName(sub);
+            if (IsSpecialName(dirName))
+            {
+                if (TryParseSpecialNumber(dirName, out var folderSpNum, out _) && folderSpNum > 0)
+                {
+                    if (!bySpecial.TryGetValue(folderSpNum, out var epSpFolder) || epSpFolder is null)
+                    {
+                        epSpFolder = new EpisodeEntry { Number = folderSpNum, Status = "立项", IsSpecial = true };
+                        bySpecial[folderSpNum] = epSpFolder;
+                    }
+                    foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
+                    {
+                        epSpFolder.LocalFiles.Add(f);
+                        UpgradeStatusFromFile(ref epSpFolder, f);
+                    }
+                    continue;
+                }
+                // 无明确番外编号则归入 special 桶
+                foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
+                {
+                    var baseName = Path.GetFileNameWithoutExtension(f);
+                    if (TryParseSpecialNumber(baseName, out var spNum, out _))
+                    {
+                        EpisodeEntry target;
+                        if (spNum > 0)
+                        {
+                            if (!bySpecial.TryGetValue(spNum, out var t) || t is null)
+                            {
+                                t = new EpisodeEntry { Number = spNum, Status = "立项", IsSpecial = true };
+                                bySpecial[spNum] = t;
+                            }
+                            target = bySpecial[spNum];
+                        }
+                        else target = special;
+                        target.LocalFiles.Add(f);
+                        UpgradeStatusFromFile(ref target, f);
+                    }
+                    else
+                    {
+                        special.LocalFiles.Add(f);
+                        UpgradeStatusFromFile(ref special, f);
+                    }
+                }
+                continue;
+            }
+
+            var isVolLocal = false;
+            if (!TryParseEpisodeNumber(dirName, out var num))
+            {
+                var (kind, n2) = ParseEpisodeOrVolume(dirName);
+                if (kind == NameKind.Special)
+                {
+                    EpisodeEntry target;
+                    if (TryParseSpecialNumber(dirName, out var sn, out _))
+                    {
+                        if (sn > 0)
+                        {
+                            if (!bySpecial.TryGetValue(sn, out var ts) || ts is null)
+                            {
+                                ts = new EpisodeEntry { Number = sn, Status = "立项", IsSpecial = true };
+                                bySpecial[sn] = ts;
+                            }
+                            target = bySpecial[sn];
+                        }
+                        else target = special;
+                    }
+                    else target = special;
+                    foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
+                    {
+                        target.LocalFiles.Add(f);
+                        UpgradeStatusFromFile(ref target, f);
+                    }
+                    continue;
+                }
+                if (kind == NameKind.Volume) isVolLocal = true;
+                if (n2 <= 0)
+                {
+                    foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
+                    {
+                        misc.LocalFiles.Add(f);
+                        UpgradeStatusFromFile(ref misc, f);
+                    }
+                    continue;
+                }
+                num = n2;
+            }
+
+            if (!byEpisode.TryGetValue(num, out var ep))
+            {
+                ep = new EpisodeEntry { Number = num, Status = "立项", IsVolume = isVolLocal };
+                byEpisode[num] = ep;
+            }
+            foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
+            {
+                ep.LocalFiles.Add(f);
+                UpgradeStatusFromFile(ref ep, f);
+            }
+        }
+
+        // 根目录文件
+        foreach (var f in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileNameWithoutExtension(f);
+            if (IsSpecialName(name))
+            {
+                EpisodeEntry target;
+                if (TryParseSpecialNumber(name, out var spNum, out _))
+                {
+                    if (spNum > 0)
+                    {
+                        if (!bySpecial.TryGetValue(spNum, out var t) || t is null)
+                        {
+                            t = new EpisodeEntry { Number = spNum, Status = "立项", IsSpecial = true };
+                            bySpecial[spNum] = t;
+                        }
+                        target = bySpecial[spNum];
+                    }
+                    else target = special;
+                }
+                else target = special;
+                target.LocalFiles.Add(f);
+                UpgradeStatusFromFile(ref target, f);
+                continue;
+            }
+            var isVolRoot = false;
+            if (!TryParseEpisodeNumber(name, out var numRoot))
+            {
+                var (kind, n) = ParseEpisodeOrVolume(name);
+                if (kind == NameKind.Special)
+                {
+                    EpisodeEntry target;
+                    if (TryParseSpecialNumber(name, out var sn, out _))
+                    {
+                        if (sn > 0)
+                        {
+                            if (!bySpecial.TryGetValue(sn, out var ts) || ts is null)
+                            {
+                                ts = new EpisodeEntry { Number = sn, Status = "立项", IsSpecial = true };
+                                bySpecial[sn] = ts;
+                            }
+                            target = bySpecial[sn];
+                        }
+                        else target = special;
+                    }
+                    else target = special;
+                    target.LocalFiles.Add(f);
+                    UpgradeStatusFromFile(ref target, f);
+                    continue;
+                }
+                if (kind == NameKind.Volume) isVolRoot = true;
+                if (n <= 0) { misc.LocalFiles.Add(f); UpgradeStatusFromFile(ref misc, f); continue; }
+                numRoot = n;
+            }
+            if (!byEpisode.TryGetValue(numRoot, out var epRoot))
+            {
+                epRoot = new EpisodeEntry { Number = numRoot, Status = "立项", IsVolume = isVolRoot };
+                byEpisode[numRoot] = epRoot;
+            }
+            epRoot.LocalFiles.Add(f);
+            UpgradeStatusFromFile(ref epRoot, f);
+        }
+
+        // 计算范围与显示
+        foreach (var ep in byEpisode.Values)
+        {
+            var range = DetectRangeFromFiles(ep.LocalFiles);
+            ep.RangeStart = range.lo; ep.RangeEnd = range.hi; ep.RangeDisplay = range.disp;
+        }
+        foreach (var sp in bySpecial.Values)
+        {
+            var range = DetectRangeFromFiles(sp.LocalFiles);
+            sp.RangeStart = range.lo; sp.RangeEnd = range.hi; sp.RangeDisplay = range.disp;
+            sp.Display ??= $"番外{sp.Number:00}";
+        }
+        if (special.LocalFiles.Count > 0)
+        {
+            var range = DetectRangeFromFiles(special.LocalFiles);
+            special.RangeStart = range.lo; special.RangeEnd = range.hi; special.RangeDisplay = range.disp;
+            special.Display ??= "番外";
+            list.Add(special);
+        }
+        if (misc.LocalFiles.Count > 0)
+        {
+            misc.Display ??= "杂项";
+            list.Add(misc);
+        }
+        foreach (var e in byEpisode.Values)
+        {
+            if (e.IsSpecial && e.Number > 0 && string.IsNullOrWhiteSpace(e.Display))
+                e.Display = $"番外{e.Number:00}";
+        }
+        list.AddRange(bySpecial.Values.OrderByDescending(e => e.Number));
+        list.AddRange(byEpisode.Values.OrderByDescending(e => e.Number));
+
+        // 若解析不到任何话，尝试单行本回退
+        if (list.Count == 0)
+        {
+            var allFiles = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
+            if (allFiles.Count > 0)
+            {
+                isTankobonFallback = true;
+                var dirName = new DirectoryInfo(folder).Name;
+                var (kind, n) = ParseEpisodeOrVolume(dirName);
+                if (kind == NameKind.Volume && n > 0) volumeNumber = n;
+                else
+                {
+                    var tryNum = TryPickNumberFromFiles(allFiles);
+                    volumeNumber = tryNum > 0 ? tryNum : 1;
+                }
+                var ep = new EpisodeEntry { Number = volumeNumber ?? 1, Status = "立项", IsVolume = true };
+                foreach (var f in allFiles)
+                {
+                    ep.LocalFiles.Add(f);
+                    UpgradeStatusFromFile(ref ep, f);
+                }
+                var range = DetectRangeFromFiles(ep.LocalFiles);
+                ep.RangeStart = range.lo; ep.RangeEnd = range.hi; ep.RangeDisplay = range.disp;
+                list.Add(ep);
+            }
+            return list;
+        }
+
+        isTankobonFallback = false;
+        volumeNumber = null;
+        return list;
+    }
+
+    private static void UpgradeStatusFromFile(ref EpisodeEntry ep, string filePath)
+    {
+        var ext = Path.GetExtension(filePath);
+        if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase)) ep.Status = PickHigherStatus(ep.Status, "嵌字");
+        else if (ext.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+        {
+            var lower = Path.GetFileName(filePath).ToLowerInvariant();
+            ep.Status = PickHigherStatus(ep.Status, lower.Contains("校对") || lower.Contains("校隊") || lower.Contains("check") ? "校对" : "翻译");
         }
     }
 }

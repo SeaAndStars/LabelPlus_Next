@@ -4,9 +4,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    xmlns:tdg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.TreeDataGrid"
     Title="确认上传话数"
-    Width="720"
-    Height="560"
+    Width="1400"
+    Height="800"
     x:DataType="vm:UploadViewModel">
     <Grid
         Margin="25"
@@ -17,7 +18,7 @@
             <TextBox Width="280" Text="{Binding PendingProjectName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         </StackPanel>
 
-        <TreeDataGrid x:Name="EpisodeTree" Grid.Row="1" />
+        <tdg:TreeDataGrid Grid.Row="1" Source="{Binding MetaTreeSource}" />
 
         <!--  Progress area  -->
         <StackPanel
@@ -42,11 +43,8 @@
             HorizontalAlignment="Right"
             Orientation="Horizontal"
             Spacing="8">
-            <Button Click="OnCancelClick" Content="取消" />
-            <Button
-                Click="OnConfirmClick"
-                Content="开始上传"
-                IsDefault="True" />
+            <Button Content="取消" Command="{Binding CancelMetaCommand}" />
+            <Button Content="开始上传" IsDefault="True" Command="{Binding ConfirmMetaCommand}" />
         </StackPanel>
     </Grid>
 </u:UrsaWindow>
