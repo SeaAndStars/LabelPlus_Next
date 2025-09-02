@@ -12,7 +12,6 @@ namespace LabelPlus_Next.Views.Pages;
 public partial class UploadPage : UserControl
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    private bool _servicesInitialized;
 
     private UploadViewModel? _vm;
 
@@ -21,10 +20,6 @@ public partial class UploadPage : UserControl
         try
         {
             InitializeComponent();
-            if (Design.IsDesignMode)
-            {
-                DataContext = new UploadViewModel();
-            }
             DataContextChanged += OnDataContextChanged;
             TryHookVm(DataContext as UploadViewModel);
             Logger.Info("UploadPage constructed.");
@@ -45,38 +40,12 @@ public partial class UploadPage : UserControl
     {
         base.OnAttachedToVisualTree(e);
         Logger.Debug("UploadPage attached to visual tree.");
-        EnsureServices();
-    }
-
-    private void EnsureServices()
-    {
-        if (_servicesInitialized) return;
-        try
-        {
-            var top = TopLevel.GetTopLevel(this);
-            if (top is null)
-            {
-                Logger.Warn("EnsureServices: TopLevel is null, will retry later.");
-                return;
-            }
-            if (_vm is not null)
-            {
-                _vm.InitializeServices(new AvaloniaFileDialogService(top));
-                _servicesInitialized = true;
-                Logger.Info("UploadPage services initialized.");
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "EnsureServices failed.");
-        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         Logger.Debug("DataContext changed: {type}", DataContext?.GetType().FullName);
         TryHookVm(DataContext as UploadViewModel);
-        EnsureServices();
     }
 
     private void TryHookVm(UploadViewModel? vm)
@@ -141,7 +110,7 @@ public partial class UploadPage : UserControl
             if (_vm.HasDuplicates)
             {
                 Logger.Info("Duplicate episodes detected, asking for confirmation.");
-                var res = await MessageBox.ShowAsync("��⵽��Զ�˴�����ͬ�������Ƿ����?", "��ʾ", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var res = await MessageBox.ShowAsync("检测到与远端存在相同话数，是否继续?", "提示", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
                 if (res != MessageBoxResult.Yes)
                 {
                     Logger.Info("User cancelled due to duplicates.");

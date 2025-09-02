@@ -19,7 +19,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using WebDav;
+using LabelPlus_Next.Services.Api;
 
 namespace LabelPlus_Next.Tools.ViewModels;
 
@@ -188,18 +188,44 @@ public partial class PackWindowViewModel : ObservableObject
                 var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
                 var targetDir = NormalizePath(TargetPath);
                 var destBase = new Uri(new Uri(baseDir), targetDir);
-                var zipUrl = new Uri(destBase, fileName).ToString();
-                var davManifestUrl = new Uri(destBase, "manifest.json");
+                var pubBase = new Uri(new Uri(baseDir), "d/" + targetDir);
+                var zipUrl = new Uri(pubBase, fileName).ToString();
                 var manifestDownloadUrlFromProject = ManifestUrl;
 
-                var client = CreateWebDavClient(uploadSettings);
+                // 使用文件 API 上传
+                var auth = new AuthApi(baseDir);
+                var login = await auth.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
+                if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
+                {
+                    Status = $"登录失败: {login.Code} {login.Message}";
+                    return;
+                }
+                var token = login.Data!.Token!;
+                var fs = new FileSystemApi(baseDir);
+
+                // 远端路径（以 / 开头）
+                var remoteBase = "/" + targetDir;
+                var remoteZipPath = remoteBase + fileName;
+                await EnsureRemoteDirAsync(fs, token, remoteBase);
 
                 CurrentTask = "上传包...";
                 CurrentProgress = 0;
-                await UploadFileWithRetryAsync(client, outZip, zipUrl, "包", (sent, total) =>
+                var progress = new Progress<UploadProgress>(p =>
                 {
-                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
+                    var percent = (p.BytesTotal.HasValue && p.BytesTotal.Value > 0)
+                        ? (p.BytesSent * 100.0) / p.BytesTotal.Value
+                        : 0;
+                    CurrentProgress = Math.Round(percent, 1);
                 });
+                var putRes = await fs.PutManyAsync(token,
+                    new[] { new FileUploadItem { FilePath = remoteZipPath, LocalPath = outZip, Content = Array.Empty<byte>() } },
+                    progress: progress, maxConcurrency: 1, asTask: false);
+                if (putRes.Count == 0 || putRes[0].Code != 200)
+                {
+                    var code = putRes.Count > 0 ? putRes[0].Code : -1;
+                    Status = $"上传失败: {code}";
+                    return;
+                }
 
                 var fileEntry = new ReleaseFile
                 {
@@ -210,18 +236,21 @@ public partial class PackWindowViewModel : ObservableObject
                 };
 
                 CurrentTask = "合并清单...";
-                var mergedManifestJson = await BuildMergedManifestV1JsonAsync(client, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, davManifestUrl, fileEntry);
+                var remoteManifestPath = remoteBase + "manifest.json";
+                var mergedManifestJson = await BuildMergedManifestV1JsonAsync(fs, token, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, remoteManifestPath, fileEntry);
                 var manifestFile = Path.Combine(outDir, "manifest.json");
                 await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Encoding.UTF8);
                 ManifestPath = manifestFile;
-                ManifestUrl = davManifestUrl.ToString();
+                ManifestUrl = new Uri(pubBase, "manifest.json").ToString();
 
                 CurrentTask = "上传清单...";
                 CurrentProgress = 0;
-                await UploadFileWithRetryAsync(client, manifestFile, ManifestUrl, "manifest", (sent, total) =>
+                var putManifest = await fs.SafePutAsync(token, remoteManifestPath, await File.ReadAllBytesAsync(manifestFile));
+                if (putManifest.Code != 200)
                 {
-                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
-                });
+                    Status = $"上传清单失败: {putManifest.Code} {putManifest.Message}";
+                    return;
+                }
 
                 CurrentTask = null;
                 CurrentProgress = 0;
@@ -300,21 +329,35 @@ public partial class PackWindowViewModel : ObservableObject
             var baseUrl = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
             var target = NormalizePath(TargetPath);
             var destRoot = new Uri(new Uri(baseUrl), target);
-            var davManifestUri = new Uri(destRoot, "manifest.json");
-            var clientDav = CreateWebDavClient(uploadSettings);
+            var pubRoot = new Uri(new Uri(baseUrl), "d/" + target);
+            var auth2 = new AuthApi(baseUrl);
+            var login2 = await auth2.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
+            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token)) { Status = $"登录失败: {login2.Code} {login2.Message}"; return; }
+            var token2 = login2.Data!.Token!;
+            var fs2 = new FileSystemApi(baseUrl);
+            var remoteBase2 = "/" + target;
+            await EnsureRemoteDirAsync(fs2, token2, remoteBase2);
 
             // Upload all artifacts
             var uploaded = new List<(string Project, string Version, ReleaseFile File)>();
             foreach (var a in artifacts)
             {
                 var name = Path.GetFileName(a.ZipPath);
-                var url = new Uri(destRoot, name).ToString();
+                var url = new Uri(pubRoot, name).ToString();
+                var remoteZip = remoteBase2 + name;
                 CurrentTask = $"上传 {name}...";
                 CurrentProgress = 0;
-                await UploadFileWithRetryAsync(clientDav, a.ZipPath, url, "包", (sent, total) =>
+                var progress2 = new Progress<UploadProgress>(p =>
                 {
-                    if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
+                    var percent = (p.BytesTotal.HasValue && p.BytesTotal.Value > 0)
+                        ? (p.BytesSent * 100.0) / p.BytesTotal.Value
+                        : 0;
+                    CurrentProgress = Math.Round(percent, 1);
                 });
+                var put = await fs2.PutManyAsync(token2,
+                    new[] { new FileUploadItem { FilePath = remoteZip, LocalPath = a.ZipPath, Content = Array.Empty<byte>() } },
+                    progress: progress2, maxConcurrency: 1, asTask: false);
+                if (put.Count == 0 || put[0].Code != 200) { Status = $"上传失败: {name}"; return; }
                 uploaded.Add((a.Project, a.Version, new ReleaseFile { Name = name, Url = url, Size = a.Size, Sha256 = a.Sha256 }));
             }
 
@@ -323,11 +366,12 @@ public partial class PackWindowViewModel : ObservableObject
             string? json = null;
             try
             {
-                var resp = await clientDav.GetRawFile(davManifestUri);
-                if (resp.IsSuccessful && resp.Stream is not null)
+                var get = await fs2.GetAsync(token2, remoteBase2 + "manifest.json");
+                if (get.Code == 200 && get.Data is not null && !get.Data.IsDir)
                 {
-                    using var sr = new StreamReader(resp.Stream, Encoding.UTF8, true);
-                    json = await sr.ReadToEndAsync();
+                    var dl = await fs2.DownloadAsync(token2, remoteBase2 + "manifest.json");
+                    if (dl.Code == 200 && dl.Content is not null)
+                        json = Encoding.UTF8.GetString(dl.Content);
                 }
             }
             catch { }
@@ -356,14 +400,12 @@ public partial class PackWindowViewModel : ObservableObject
             var manifestOut = Path.Combine(outDir, "manifest.json");
             await File.WriteAllTextAsync(manifestOut, JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }), Encoding.UTF8);
             ManifestPath = manifestOut;
-            ManifestUrl = davManifestUri.ToString();
+            ManifestUrl = new Uri(pubRoot, "manifest.json").ToString();
 
             CurrentTask = "上传清单...";
             CurrentProgress = 0;
-            await UploadFileWithRetryAsync(clientDav, manifestOut, ManifestUrl, "manifest", (sent, total) =>
-            {
-                if (total > 0) CurrentProgress = Math.Round(sent * 100.0 / total, 1);
-            });
+            var putMan2 = await fs2.SafePutAsync(token2, remoteBase2 + "manifest.json", await File.ReadAllBytesAsync(manifestOut));
+            if (putMan2.Code != 200) { Status = $"上传清单失败: {putMan2.Code} {putMan2.Message}"; return; }
 
             CurrentTask = null;
             CurrentProgress = 0;
@@ -424,57 +466,7 @@ public partial class PackWindowViewModel : ObservableObject
         if (code != 0) throw new InvalidOperationException($"dotnet 命令失败: exit={code}, args={args}");
     }
 
-    private static WebDavClient CreateWebDavClient(ToolsSettings s)
-    {
-        var handler = new SocketsHttpHandler
-        {
-            PreAuthenticate = true,
-            UseCookies = true,
-            AllowAutoRedirect = true,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-            MaxConnectionsPerServer = 2,
-            AutomaticDecompression = DecompressionMethods.All
-        };
-        if (!string.IsNullOrEmpty(s.Username)) handler.Credentials = new NetworkCredential(s.Username, s.Password ?? string.Empty);
-        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan, DefaultRequestVersion = new Version(1, 1) };
-        httpClient.DefaultRequestHeaders.ExpectContinue = false;
-        return new WebDavClient(httpClient);
-    }
-
-    private static bool IsTransient(Exception ex) => ex is TaskCanceledException ||
-                                                     ex is IOException ||
-                                                     ex is HttpRequestException ||
-                                                     ex is SocketException se && (se.SocketErrorCode == SocketError.ConnectionReset || se.SocketErrorCode == SocketError.TimedOut);
-
-    private static async Task UploadFileWithRetryAsync(WebDavClient client, string localPath, string absoluteUrl, string kind, Action<long, long>? onProgress)
-    {
-        const int maxRetries = 3;
-        const int baseDelayMs = 800;
-        const int bufferSize = 128 * 1024; // 128KB
-        for (var attempt = 1; attempt <= maxRetries; attempt++)
-        {
-            try
-            {
-                await using var fs = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, true);
-                // Wrap with progress stream and use StreamContent (lets HttpClient handle Content-Length correctly)
-                using var ps = new ProgressReadStream(fs, fs.Length, onProgress);
-                using var content = new StreamContent(ps, bufferSize);
-                content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                content.Headers.ContentLength = fs.Length;
-                var result = await client.PutFile(new Uri(absoluteUrl), content);
-                if (!result.IsSuccessful)
-                {
-                    if (attempt >= maxRetries) throw new InvalidOperationException($"上传失败: {absoluteUrl} {result.StatusCode} {result.Description}");
-                }
-                else return;
-            }
-            catch (Exception ex) when (IsTransient(ex) && attempt < maxRetries)
-            {
-                Logger.Warn(ex, "临时性错误，第 {attempt}/{max} 次重试 {kind}: {url}", attempt, maxRetries, kind, absoluteUrl);
-            }
-            await Task.Delay(TimeSpan.FromMilliseconds(baseDelayMs * Math.Pow(2, attempt - 1) + Random.Shared.Next(0, 300)));
-        }
-    }
+    // WebDAV 已移除，上传走 FileSystemApi
 
     private static string AppendSlash(string url) => url.EndsWith('/') ? url : url + '/';
     private static string NormalizePath(string? p)
@@ -606,76 +598,7 @@ public partial class PackWindowViewModel : ObservableObject
         return manifest;
     }
 
-    private async Task<string> BuildMergedManifestV1JsonAsync(WebDavClient davClient, ToolsSettings s, string? downloadUrl, IReadOnlyList<(string Project, string Version)> entries, string zipUrl, Uri davManifestUrl, ReleaseFile fileEntry)
-    {
-        string? json = null;
-
-        // 1) Prefer WebDAV manifest
-        try
-        {
-            var resp = await davClient.GetRawFile(davManifestUrl);
-            if (resp.IsSuccessful && resp.Stream is not null)
-            {
-                using var sr = new StreamReader(resp.Stream, Encoding.UTF8, true);
-                json = await sr.ReadToEndAsync();
-                Logger.Info("已通过 WebDAV 获取 manifest.json: {url}", davManifestUrl);
-                LogFetchedJson("WebDAV", davManifestUrl.ToString(), json);
-            }
-            else
-            {
-                Logger.Info("WebDAV 获取 manifest.json 为空或失败: {code} {desc}", resp.StatusCode, resp.Description);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "通过 WebDAV 获取 manifest.json 异常");
-        }
-
-        // 2) Fallback to HTTP download URL only if needed and content looks like a valid manifest
-        if (json is null && !string.IsNullOrWhiteSpace(downloadUrl))
-        {
-            try
-            {
-                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-                if (!string.IsNullOrEmpty(s.Username))
-                {
-                    var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{s.Username}:{s.Password}"));
-                    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-                }
-                var httpJson = await http.GetStringAsync(downloadUrl);
-                Logger.Info("已从下载地址获取 manifest.json: {url}", downloadUrl);
-                LogFetchedJson("HTTP", downloadUrl!, httpJson);
-                if (LooksLikeManifestJson(httpJson)) json = httpJson;
-                else Logger.Warn("HTTP 返回的 JSON 不像 manifest（可能为错误响应），已忽略");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "HTTP 下载 manifest.json 失败");
-            }
-        }
-
-        ManifestV1? manifest = null;
-        if (!string.IsNullOrWhiteSpace(json))
-        {
-            try
-            {
-                manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
-                {
-                    // not our schema -> treat as null to migrate
-                    manifest = null;
-                }
-            }
-            catch { manifest = null; }
-        }
-        manifest ??= MigrateOldToV1(entries[0].Project, json);
-
-        foreach (var (proj, ver) in entries)
-            UpsertV1(manifest, proj, ver, zipUrl, fileEntry);
-
-        var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
-        return JsonSerializer.Serialize(manifest, opts);
-    }
+    // 旧的 WebDAV 合并方法已移除，改用文件 API 的 BuildMergedManifestV1JsonAsync
 
     private static bool LooksLikeManifestJson(string json)
     {
@@ -710,6 +633,96 @@ public partial class PackWindowViewModel : ObservableObject
         const int maxLen = 10000;
         var preview = json.Length > maxLen ? json[..maxLen] + $"\n...（截断 {json.Length - maxLen} 字符）" : json;
         Logger.Info("Fetched manifest ({source}) from {url} length={len} content=\n{json}", source, url, json.Length, preview);
+    }
+
+    // 使用文件 API 合并 manifest（不依赖 WebDAV）
+    private async Task<string> BuildMergedManifestV1JsonAsync(FileSystemApi fs, string token, ToolsSettings s, string? downloadUrl,
+        IReadOnlyList<(string Project, string Version)> entries, string zipUrl, string remoteManifestPath, ReleaseFile fileEntry)
+    {
+        string? json = null;
+        // 1) 从文件 API 获取 manifest.json
+        try
+        {
+            var get = await fs.GetAsync(token, remoteManifestPath);
+            if (get.Code == 200 && get.Data is not null && !get.Data.IsDir)
+            {
+                var dl = await fs.DownloadAsync(token, remoteManifestPath);
+                if (dl.Code == 200 && dl.Content is not null)
+                {
+                    json = Encoding.UTF8.GetString(dl.Content);
+                    Logger.Info("已通过 FileAPI 获取 manifest.json: {path}", remoteManifestPath);
+                    LogFetchedJson("FileAPI", remoteManifestPath, json);
+                }
+            }
+            else
+            {
+                Logger.Info("FileAPI 获取 manifest.json 为空或失败: {code} {msg}", get.Code, get.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "通过 FileAPI 获取 manifest.json 异常");
+        }
+
+        // 2) 回退到 HTTP 下载地址（若像 manifest）
+        if (json is null && !string.IsNullOrWhiteSpace(downloadUrl))
+        {
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                if (!string.IsNullOrEmpty(s.Username))
+                {
+                    var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{s.Username}:{s.Password}"));
+                    http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", basic);
+                }
+                var httpJson = await http.GetStringAsync(downloadUrl);
+                Logger.Info("已从下载地址获取 manifest.json: {url}", downloadUrl);
+                LogFetchedJson("HTTP", downloadUrl!, httpJson);
+                if (LooksLikeManifestJson(httpJson)) json = httpJson;
+                else Logger.Warn("HTTP 返回的 JSON 不像 manifest（可能为错误响应），已忽略");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, "HTTP 下载 manifest.json 失败");
+            }
+        }
+
+        ManifestV1? manifest = null;
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            try
+            {
+                manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
+                    manifest = null;
+            }
+            catch { manifest = null; }
+        }
+        manifest ??= MigrateOldToV1(entries[0].Project, json);
+
+        foreach (var (proj, ver) in entries)
+            UpsertV1(manifest, proj, ver, zipUrl, fileEntry);
+
+        var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+        return JsonSerializer.Serialize(manifest, opts);
+    }
+
+    private static async Task EnsureRemoteDirAsync(FileSystemApi fs, string token, string baseDir)
+    {
+    // baseDir like "/OneDrive2/Update/"
+        if (string.IsNullOrWhiteSpace(baseDir)) return;
+        var p = baseDir.Replace("\\", "/");
+        if (!p.StartsWith('/')) p = "/" + p;
+        p = p.TrimEnd('/');
+        if (p == "/") return;
+        var parts = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var current = "/";
+        foreach (var part in parts)
+        {
+            current = current == "/" ? "/" + part : current + "/" + part;
+            try { await fs.MkdirAsync(token, current); }
+            catch { }
+        }
     }
 
     private static async Task<string> ComputeSha256Async(string path)
@@ -851,9 +864,11 @@ public partial class PackWindowViewModel : ObservableObject
 
     private static string GetPublishDir(string repoRoot, string projectName, string rid)
     {
-        var parts = projectName.Split('.', 2);
-        var dir = parts[0];
-        var projDir = Path.Combine(repoRoot, dir);
+        // Use the actual csproj location to derive the publish folder to avoid
+        // accidentally pointing to the root project (e.g. LabelPlus_Next) when
+        // we really want LabelPlus_Next.Desktop or LabelPlus_Next.Update.
+        var csproj = GetProjectPath(repoRoot, projectName);
+        var projDir = Path.GetDirectoryName(csproj) ?? Path.Combine(repoRoot, projectName);
         // Assume net9.0 and Release
         return Path.Combine(projDir, "bin", "Release", "net9.0", rid, "publish");
     }

@@ -13,6 +13,7 @@ using LabelPlus_Next.Services.Api;
 using Newtonsoft.Json;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LabelPlus_Next.Views;
 
@@ -22,7 +23,7 @@ public partial class MainWindow : UrsaWindow
     private readonly NavMenu? _menuFooter;
     private readonly NavMenu? _menuMain;
     private readonly ContentControl? _navHost;
-    private readonly SettingsViewModel _settingsVm = new();
+    private readonly SettingsViewModel _settingsVm;
     private bool _didStartupCheck;
     private bool _navCollapsed;
     private TranslateView? _translateView;
@@ -50,6 +51,8 @@ public partial class MainWindow : UrsaWindow
         _navHost = this.FindControl<ContentControl>("NavContent");
         _menuMain = this.FindControl<NavMenu>("NavMenuMain");
         _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
+
+        _settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
 
         _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
         UpdateToggleItemVisual();
@@ -233,6 +236,10 @@ public partial class MainWindow : UrsaWindow
         if (_didStartupCheck) return;
         _didStartupCheck = true;
 
+        // set TopLevel for dialog service
+        var topProvider = App.Services.GetRequiredService<ITopLevelProvider>();
+        topProvider.TopLevel = this;
+
         var manager = WindowNotificationManager.TryGetNotificationManager(this, out var existing) && existing is not null
             ? existing
             : new WindowNotificationManager(this) { Position = NotificationPosition.TopRight };
@@ -330,18 +337,18 @@ public partial class MainWindow : UrsaWindow
         switch (tag)
         {
             case "translate":
-                _translateView ??= new TranslateView { DataContext = new TranslateViewModel() };
+                _translateView ??= new TranslateView { DataContext = App.Services.GetRequiredService<TranslateViewModel>() };
                 host.Content = _translateView;
                 break;
             case "teamwork":
-                _teamWorkPage ??= new TeamWorkPage { DataContext = new TeamWorkViewModel() };
+                _teamWorkPage ??= new TeamWorkPage { DataContext = App.Services.GetRequiredService<TeamWorkViewModel>() };
                 host.Content = _teamWorkPage;
                 break;
             case "proof":
                 host.Content = new SimpleTextPage("校对页面");
                 break;
             case "upload":
-                _uploadPage ??= new UploadPage { DataContext = new UploadViewModel() };
+                _uploadPage ??= new UploadPage { DataContext = App.Services.GetRequiredService<UploadViewModel>() };
                 host.Content = _uploadPage;
                 break;
             case "deliver":

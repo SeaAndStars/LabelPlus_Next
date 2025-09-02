@@ -9,8 +9,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Folder Include="Models\"/>
-        <AvaloniaResource Include="Assets\**"/>
+        <Folder Include="Models\" />
+        <AvaloniaResource Include="Assets\**" />
         <!-- Link icon from Tools project into this project's Assets -->
         <AvaloniaResource Include="..\LabelPlus_Next.Tools\Assets\LabelPlus_Next_rounded_icon_transparent.ico">
             <Link>Assets\LabelPlus_Next_rounded_icon_transparent.ico</Link>
@@ -18,22 +18,23 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia"/>
-        <PackageReference Include="Avalonia.Desktop"/>
-        <PackageReference Include="Avalonia.Themes.Fluent"/>
-        <PackageReference Include="Avalonia.Fonts.Inter"/>
-        <PackageReference Include="Downloader"/>
-        <PackageReference Include="WebDav.Client"/>
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Avalonia.Themes.Fluent" />
+        <PackageReference Include="Avalonia.Fonts.Inter" />
+        <PackageReference Include="Downloader" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="WebDav.Client" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Include="Avalonia.Diagnostics">
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
         </PackageReference>
-        <PackageReference Include="CommunityToolkit.Mvvm"/>
-        <PackageReference Include="Irihi.Ursa"/>
-        <PackageReference Include="Irihi.Ursa.Themes.Semi"/>
-        <PackageReference Include="Semi.Avalonia"/>
-        <PackageReference Include="NLog"/>
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Irihi.Ursa" />
+        <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+        <PackageReference Include="Semi.Avalonia" />
+        <PackageReference Include="NLog" />
     </ItemGroup>
 
     <ItemGroup>

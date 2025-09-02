@@ -11,7 +11,7 @@ public class UpdateSettings
 {
     // Default, hard-coded configuration for update checking
     public const string DefaultBaseUrl = "https://alist.seastarss.cn";
-    public const string DefaultManifestPath = "/OneDrive/Update/manifest.json";
+    public const string DefaultManifestPath = "/OneDrive2/Update/manifest.json";
 
     [JsonPropertyName("baseUrl")] public string? BaseUrl { get; set; } = DefaultBaseUrl;
     [JsonPropertyName("manifestPath")] public string? ManifestPath { get; set; } = DefaultManifestPath;

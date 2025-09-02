@@ -9,30 +9,44 @@ using Ursa.Controls;
 
 namespace LabelPlus_Next.Services;
 
+public interface ITopLevelProvider
+{
+    TopLevel? TopLevel { get; set; }
+}
+
+public class TopLevelProvider : ITopLevelProvider
+{
+    public TopLevel? TopLevel { get; set; }
+}
+
 public class AvaloniaFileDialogService : IFileDialogService
 {
-    private readonly TopLevel _topLevel;
-    public AvaloniaFileDialogService(TopLevel topLevel)
+    private readonly ITopLevelProvider _top;
+    public AvaloniaFileDialogService(ITopLevelProvider top)
     {
-        _topLevel = topLevel;
+        _top = top;
     }
 
     public async Task<string?> OpenTranslationFileAsync()
     {
-        var files = await _topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = I18NExtension.Translate(LangKeys.openToolStripMenuItem),
             FileTypeFilter = new List<FilePickerFileType> { FilePickerFileTypes.TextPlain }
         });
         if (files == null || files.Count == 0) return null;
         var file = files[0];
-        return ToLocalPath(file?.Path);
+        return ToLocalPath(file.Path);
     }
 
     public async Task<string?> SaveAsTranslationFileAsync(string suggestedFileName = "translation")
     {
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
         var fileTypeChoices = new List<FilePickerFileType> { new("Text") { Patterns = new List<string> { "*.txt" } } };
-        var saveFile = await _topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var saveFile = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = I18NExtension.Translate(LangKeys.saveAsDToolStripMenuItem),
             SuggestedFileName = suggestedFileName,
@@ -44,28 +58,34 @@ public class AvaloniaFileDialogService : IFileDialogService
 
     public async Task<string?> PickFolderAsync(string title)
     {
-        var folders = await _topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = title,
             AllowMultiple = false
         });
         if (folders is null || folders.Count == 0) return null;
-        return ToLocalPath(folders[0]?.Path);
+        return ToLocalPath(folders[0].Path);
     }
 
     public async Task<IReadOnlyList<string>?> PickFoldersAsync(string title)
     {
-        var folders = await _topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = title,
             AllowMultiple = true
         });
         if (folders is null || folders.Count == 0) return null;
-        return folders.Select(f => ToLocalPath(f.Path)!).Where(p => p is not null).ToList();
+        return folders.Select(f => ToLocalPath(f.Path)).Where(p => p != null).Select(p => p!).ToList();
     }
 
     public async Task<IReadOnlyList<string>?> PickFilesAsync(string title)
     {
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
         var types = new List<FilePickerFileType>
         {
             new("常见类型") { Patterns = new List<string> { "*.zip", "*.7z", "*.rar", "*.txt", "*.psd", "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
@@ -74,18 +94,20 @@ public class AvaloniaFileDialogService : IFileDialogService
             new("图片") { Patterns = new List<string> { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
             new("PSD") { Patterns = new List<string> { "*.psd" } }
         };
-        var files = await _topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = title,
             AllowMultiple = true,
             FileTypeFilter = types
         });
         if (files is null || files.Count == 0) return null;
-        return files.Select(f => ToLocalPath(f.Path)!).Where(p => p is not null).ToList();
+        return files.Select(f => ToLocalPath(f.Path)).Where(p => p != null).Select(p => p!).ToList();
     }
 
     public async Task<IReadOnlyList<string>?> ChooseImagesAsync(string folderPath)
     {
+        var topLevel = _top.TopLevel;
+        if (topLevel is null) return null;
         if (!Directory.Exists(folderPath)) return null;
         var exts = new HashSet<string>(new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp" }, StringComparer.OrdinalIgnoreCase);
         var files = Directory.EnumerateFiles(folderPath)
@@ -96,7 +118,7 @@ public class AvaloniaFileDialogService : IFileDialogService
         foreach (var f in files)
             vm.FileFolderList.Add(Path.GetFileName(f));
 
-        var owner = _topLevel as Window;
+        var owner = topLevel as Window;
         if (owner == null)
             return null;
 

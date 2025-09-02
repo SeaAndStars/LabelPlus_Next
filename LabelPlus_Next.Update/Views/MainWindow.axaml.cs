@@ -1,6 +1,5 @@
 using LabelPlus_Next.Update.ViewModels;
 using System;
-using System.Diagnostics;
 using Ursa.Controls;
 
 namespace LabelPlus_Next.Update.Views;
@@ -10,33 +9,14 @@ public partial class MainWindow : UrsaWindow
     public MainWindow()
     {
         InitializeComponent();
-        DataContextChanged += OnDataContextChanged;
     }
 
-    private async void OnDataContextChanged(object? sender, EventArgs e)
+    protected override void OnOpened(EventArgs e)
     {
+        base.OnOpened(e);
         if (DataContext is MainWindowViewModel vm)
         {
-            var args = Environment.GetCommandLineArgs();
-            var waitPid = 0;
-            string? targetDir = null;
-            for (var i = 0; i < args.Length; i++)
-            {
-                if (args[i] == "--waitpid" && i + 1 < args.Length && int.TryParse(args[i + 1], out var p)) waitPid = p;
-                if (args[i] == "--target" && i + 1 < args.Length) targetDir = args[i + 1];
-                if (args[i] == "--targetpath" && i + 1 < args.Length) targetDir = args[i + 1];
-            }
-            if (waitPid > 0)
-            {
-                try
-                {
-                    var proc = Process.GetProcessById(waitPid);
-                    proc.WaitForExit();
-                }
-                catch { }
-            }
-            if (!string.IsNullOrWhiteSpace(targetDir)) vm.OverrideAppDir(targetDir);
-            await vm.RunUpdateAsyncPublic();
+            _ = vm.RunUpdateAsyncPublic();
         }
     }
 }

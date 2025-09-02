@@ -20,15 +20,21 @@ namespace LabelPlus_Next.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    protected static LabelFileManager LabelFileManager1 = new();
+    private static readonly LabelFileManager LabelFileManager1 = new();
     private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
     private int _autoSaveBusy; // 0 = idle, 1 = running
 
     // Auto-save timer
     private Timer? _autoSaveTimer;
 
-    private IFileDialogService? _dialogs;
+    private readonly IFileDialogService _dialogs;
     private string? _lastBackupSignature; // avoid duplicate backups
+
+
+    public MainWindowViewModel(IFileDialogService dialogs)
+    {
+        _dialogs = dialogs;
+    }
 
     [ObservableProperty] private ObservableCollection<LabelItem> currentLabels = new();
     [ObservableProperty] private string? currentText;
@@ -40,8 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string? selectedImageFile;
     [ObservableProperty] private LabelItem? selectedLabel;
 
-    [ObservableProperty]
-    private string? selectedLang = "default";
+    [ObservableProperty]private string? selectedLang = "default";
 
     // Notification manager (injected from MainWindow)
     public WindowNotificationManager? NotificationManager { get; set; }
@@ -51,12 +56,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool HasUnsavedChanges
     {
         get => LabelFileManager1.StoreManager.IsDirty;
-    }
-
-    public void InitializeServices(IFileDialogService dialogs)
-    {
-        _dialogs ??= dialogs;
-        Logger.Debug("Services initialized.");
     }
 
     // Start/Stop auto-save

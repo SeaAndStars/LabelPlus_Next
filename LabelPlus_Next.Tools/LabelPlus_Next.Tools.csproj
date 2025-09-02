@@ -31,7 +31,7 @@
         <PackageReference Include="Irihi.Ursa.Themes.Semi"/>
         <PackageReference Include="RestSharp"/>
         <PackageReference Include="Semi.Avalonia"/>
-        <PackageReference Include="WebDav.Client"/>
+    <!-- WebDAV 已废弃，改为文件 API 上传 -->
         <PackageReference Include="NLog"/>
         <PackageReference Include="NLog.Extensions.Logging"/>
     </ItemGroup>

@@ -10,11 +10,15 @@ using NLog.Layouts;
 using NLog.Targets;
 using NLog.Targets.Wrappers;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection;
+using LabelPlus_Next.Services;
 
 namespace LabelPlus_Next;
 
 public class App : Application
 {
+    public static IServiceProvider Services { get; private set; } = default!;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -24,6 +28,26 @@ public class App : Application
     {
         ConfigureLogging();
 
+        // Setup DI container once
+        if (Services is null)
+        {
+            var sc = new ServiceCollection();
+            // Providers & Services
+            sc.AddSingleton<ITopLevelProvider, TopLevelProvider>();
+            sc.AddSingleton<IFileDialogService, AvaloniaFileDialogService>();
+            sc.AddSingleton<ISettingsService, JsonSettingsService>();
+            sc.AddSingleton<IUpdateService, WebDavUpdateService>();
+            // ViewModels
+            sc.AddSingleton<SettingsViewModel>();
+            sc.AddTransient<MainWindowViewModel>();
+            sc.AddTransient<TranslateViewModel>();
+            sc.AddTransient<TeamWorkViewModel>();
+            sc.AddTransient<UploadViewModel>();
+            sc.AddTransient<ImageOutputViewModel>();
+            // build
+            Services = sc.BuildServiceProvider();
+        }
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
@@ -31,14 +55,15 @@ public class App : Application
             DisableAvaloniaDataAnnotationValidation();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel()
+                // DataContext can be set by DI if needed; window manages its own pages
+                DataContext = Services.GetRequiredService<MainWindowViewModel>()
             };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             singleViewPlatform.MainView = new MainWindow
             {
-                DataContext = new MainWindowViewModel()
+                DataContext = Services.GetRequiredService<MainWindowViewModel>()
             };
         }
 

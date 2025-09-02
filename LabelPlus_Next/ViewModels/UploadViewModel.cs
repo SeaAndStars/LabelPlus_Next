@@ -19,6 +19,7 @@ using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using NLog;
 using Ursa.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -26,8 +27,8 @@ public partial class UploadViewModel : ObservableObject
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-    private readonly ISettingsService _settingsService = new JsonSettingsService();
-    private IFileDialogService? _dialogs;
+    private readonly ISettingsService _settingsService;
+    private readonly IFileDialogService _dialogs;
 
     private bool _uploadToExistingProject;
 
@@ -74,10 +75,12 @@ public partial class UploadViewModel : ObservableObject
     public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady;
     public event EventHandler<bool>? MetaWindowCloseRequested;
 
-    public UploadViewModel() : this(true) { }
+    public UploadViewModel(ISettingsService settingsService, IFileDialogService dialogs) : this(settingsService, dialogs, true) { }
 
-    public UploadViewModel(bool autoRefresh)
+    public UploadViewModel(ISettingsService settingsService, IFileDialogService dialogs, bool autoRefresh)
     {
+        _settingsService = settingsService;
+        _dialogs = dialogs;
         AddProjectCommand = new AsyncRelayCommand(AddProjectAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         PickUploadFolderCommand = new AsyncRelayCommand(PickUploadFolderAsync);
@@ -87,8 +90,6 @@ public partial class UploadViewModel : ObservableObject
         ConfirmMetaCommand = new AsyncRelayCommand(ConfirmMetaAsync);
         if (autoRefresh) _ = RefreshAsync();
     }
-
-    public void InitializeServices(IFileDialogService dialogs) => _dialogs ??= dialogs;
 
     private async Task<UploadSettings?> LoadUploadSettingsAsync()
     {
@@ -141,7 +142,6 @@ public partial class UploadViewModel : ObservableObject
 
     private async Task PickUploadFolderAsync()
     {
-        if (_dialogs is null) return;
         var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
         if (string.IsNullOrWhiteSpace(folder)) return;
         _uploadToExistingProject = true;
@@ -186,7 +186,6 @@ public partial class UploadViewModel : ObservableObject
 
     private async Task PickUploadFilesAsync()
     {
-        if (_dialogs is null) return;
         var files = await _dialogs.PickFilesAsync("选择要上传的文件（可多选）");
         if (files is null || files.Count == 0) return;
         _uploadToExistingProject = true;
@@ -346,7 +345,7 @@ public partial class UploadViewModel : ObservableObject
             List<string> candidateFolders = new();
             if (!string.IsNullOrWhiteSpace(LastSelectedFolderPath) && Directory.Exists(LastSelectedFolderPath))
                 candidateFolders.Add(LastSelectedFolderPath!);
-            else if (_dialogs is not null)
+            else
             {
                 // let user pick multiple episode folders
                 var pickedMany = await _dialogs.PickFoldersAsync("选择要上传的话数文件夹（可多选）");
@@ -417,7 +416,7 @@ public partial class UploadViewModel : ObservableObject
                     var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     if (ProjectMap.ContainsKey(projectName))
                     {
-                        await _dialogs!.ShowMessageAsync($"聚合清单中已存在项目“{projectName}”，已跳过。");
+                        await _dialogs.ShowMessageAsync($"聚合清单中已存在项目“{projectName}”，已跳过。");
                         continue;
                     }
                     var projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
@@ -428,13 +427,11 @@ public partial class UploadViewModel : ObservableObject
                     var dup = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                     if (dup)
                     {
-                        await _dialogs!.ShowMessageAsync($"项目“{projectName}”存在与远端相同话数，已跳过。请使用‘上传到项目’。");
+                        await _dialogs.ShowMessageAsync($"项目“{projectName}”存在与远端相同话数，已跳过。请使用‘上传到项目’。");
                         continue;
                     }
 
-                    var vm = new UploadViewModel();
-                    vm.InitializeServices(_dialogs!);
-                    // copy project map for correct path resolution
+                    var vm = App.Services.GetRequiredService<UploadViewModel>();
                     foreach (var kv in ProjectMap) vm.ProjectMap[kv.Key] = kv.Value;
                     vm.PendingProjectName = projectName;
                     vm.LastSelectedFolderPath = folder;
@@ -890,7 +887,7 @@ public partial class UploadViewModel : ObservableObject
             {
                 var volNum = TankobonVolumeNumber.GetValueOrDefault(1);
                 var keyPreview = volNum.ToString("00");
-                var msg = $"检测到‘单行本回退模式’：将把整个目录当作卷 {volNum} 上传，并在项目 JSON 中写入键名 {keyPreview}。\n是否继续？";
+                var msg = $"检测到‘单行本回退模式’：��把整个目录当作卷 {volNum} 上传，并在项目 JSON 中写入键名 {keyPreview}。\n是否继续？";
                 var confirm = await MessageBox.ShowAsync(msg, "单行本回退模式", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
                 if (confirm != MessageBoxResult.Yes)
                 {

@@ -85,7 +85,7 @@ public class ProductionVmIntegrationTests
             await JsonSerializer.SerializeAsync(fs, upload, AppJsonContext.Default.UploadSettings);
         }
 
-        var vm = new UploadViewModel();
+        var vm = new UploadViewModel(new MemorySettingsService(), new NoopFileDialogService());
         // 构造函数会触发一次刷新，这里主动再刷新一遍以确保
         await vm.RefreshCommand.ExecuteAsync(null);
 

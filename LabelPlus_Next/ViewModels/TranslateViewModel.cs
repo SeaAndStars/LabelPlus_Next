@@ -22,14 +22,20 @@ using WindowNotificationManager = WindowNotificationManager;
 public partial class TranslateViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    protected static LabelFileManager LabelFileManager1 = new();
+    private static readonly LabelFileManager LabelFileManager1 = new();
     private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
     private int _autoSaveBusy;
     private Timer? _autoSaveTimer;
-    private IFileDialogService? _dialogs;
+    private readonly IFileDialogService _dialogs;
     private string? _lastBackupSignature;
     private bool _autoSaveConflictNotified; // 防止重复通知
     public CollaborationSession? Collab { get; set; } // null for local-only
+    
+    public TranslateViewModel() : this(new NoopFileDialogService()) { }
+    public TranslateViewModel(IFileDialogService dialogs)
+    {
+        _dialogs = dialogs;
+    }
     
     // UI progress and status
     [ObservableProperty] private bool isBusy;
@@ -52,12 +58,6 @@ public partial class TranslateViewModel : ViewModelBase
     public bool HasUnsavedChanges
     {
         get => LabelFileManager1.StoreManager.IsDirty;
-    }
-
-    public void InitializeServices(IFileDialogService dialogs)
-    {
-        _dialogs ??= dialogs;
-        Logger.Debug("Services initialized.");
     }
 
     private async Task NotifyAsync(string title, string message, NotificationType type = NotificationType.Information)
@@ -506,7 +506,7 @@ public partial class TranslateViewModel : ViewModelBase
             catch (Exception ex)
             {
                 Logger.Warn(ex, "Manual save remote upload failed.");
-                await NotifyAsync("错误", $"远端上传失败：{ex.Message}", NotificationType.Error);
+                await NotifyAsync("错误", $"远端上传���败：{ex.Message}", NotificationType.Error);
             }
             var fileNameOnly = Path.GetFileName(OpenTranslationFilePath);
             await NotifyAsync("提示", $"保存成功：{fileNameOnly}", NotificationType.Success);
@@ -545,62 +545,53 @@ public partial class TranslateViewModel : ViewModelBase
     }
     [RelayCommand] public async Task LoadTranslationFile(string path)
     {
-    IsBusy = true; Progress = 15; ProgressText = "读取翻译文件...";
-    OpenTranslationFilePath = path;
-    await LabelFileManager1.LoadAsync(path);
-        // Initialize remote hash if in collaboration session
         try
         {
-            if (Collab is not null)
-            {
-        Progress = 55; ProgressText = "同步远端状态...";
-                var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
-                var res = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath);
-                if (res.Code == 200 && res.Content is not null)
-                {
-                    var txt = Encoding.UTF8.GetString(res.Content);
-                    Collab.LastRemoteHash = ComputeHash(txt);
-                }
-                else Collab.LastRemoteHash = null;
-            }
+            IsBusy = true; Progress = 15; ProgressText = "读取翻译文件...";
+            await LabelFileManager1.LoadAsync(path);
+            ImageFileNames.Clear();
+            foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
+            if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
+            UpdateCurrentLabels();
+            OpenTranslationFilePath = path;
+            StartAutoSave();
+            Logger.Info("Translation file loaded: {file}", path);
+            Progress = 100; ProgressText = "完成";
         }
-        catch (Exception ex) { Logger.Warn(ex, "Init remote hash on load failed"); }
-        ImageFileNames.Clear();
-        foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
-        if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
-        UpdateCurrentLabels();
-        StartAutoSave();
-    Progress = 100; ProgressText = "完成"; IsBusy = false;
-        Logger.Info("Translation file loaded: {file}", path);
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "LoadTranslationFile failed");
+            await NotifyAsync("错误", $"加载失败：{ex.Message}", NotificationType.Error);
+        }
+        finally { IsBusy = false; }
     }
-    [RelayCommand] public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
+
+    [RelayCommand]
+    public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
+
     partial void OnOpenTranslationFilePathChanged(string? value)
     {
-        if (!string.IsNullOrEmpty(value)) StartAutoSave();
-        else StopAutoSave();
+        if (!string.IsNullOrEmpty(value)) StartAutoSave(); else StopAutoSave();
     }
+
     partial void OnSelectedImageFileChanged(string? value)
     {
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
             var translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
-            var translationDir = !string.IsNullOrEmpty(translationFilePath) ? Path.GetDirectoryName(translationFilePath) : null;
+            string? translationDir = null;
+            if (!string.IsNullOrEmpty(translationFilePath)) translationDir = Path.GetDirectoryName(translationFilePath);
             var imagePath = value;
-            if (!string.IsNullOrEmpty(translationDir) && !Path.IsPathRooted(imagePath))
-                imagePath = Path.Combine(translationDir!, imagePath);
-            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar);
+            if (translationDir != null && !Path.IsPathRooted(imagePath)) imagePath = Path.Combine(translationDir, imagePath);
+            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString());
             imagePath = Uri.UnescapeDataString(imagePath);
-            var fullPath = Path.GetFullPath(imagePath);
-            Logger.Debug("Resolve image path: base={base}, value={value}, full={full}, exists={exists}", translationDir, value, fullPath, File.Exists(fullPath));
-            if (File.Exists(fullPath))
-            {
-                try { PicImageSource = new Bitmap(fullPath); }
-                catch { PicImageSource = null; }
-            }
+            imagePath = Path.GetFullPath(imagePath);
+            if (File.Exists(imagePath)) { try { PicImageSource = new Bitmap(imagePath); } catch { PicImageSource = null; } }
             else { PicImageSource = null; }
         }
         else { PicImageSource = null; }
+
         if (CurrentLabels.Count > 0)
         {
             SelectedLabel = CurrentLabels[0];
@@ -612,7 +603,9 @@ public partial class TranslateViewModel : ViewModelBase
             CurrentText = string.Empty;
         }
     }
+
     partial void OnSelectedLabelChanged(LabelItem? value) => CurrentText = value?.Text ?? string.Empty;
+
     partial void OnCurrentTextChanged(string? value)
     {
         if (SelectedLabel != null)
@@ -622,10 +615,12 @@ public partial class TranslateViewModel : ViewModelBase
             Logger.Debug("Label text updated: {text}", value);
         }
     }
+
     private void UpdateCurrentLabels()
     {
         CurrentLabels.Clear();
-        if (!string.IsNullOrEmpty(SelectedImageFile) && LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
+        if (!string.IsNullOrEmpty(SelectedImageFile) &&
+            LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
         {
             for (var i = 0; i < labels.Count; i++)
             {
@@ -636,19 +631,10 @@ public partial class TranslateViewModel : ViewModelBase
             }
         }
     }
-    [RelayCommand] public async Task ManageImagesCommand()
+
+    public bool HasLabelsForFile(string? file)
     {
-        if (_dialogs is null) return;
-        var folder = await _dialogs.PickFolderAsync("选择图片目录");
-        if (string.IsNullOrEmpty(folder)) return;
-        var selected = await _dialogs.ChooseImagesAsync(folder);
-        if (selected == null)
-        {
-            await _dialogs.ShowMessageAsync("已取消。");
-            return;
-        }
-        await _dialogs.ShowMessageAsync($"已选择 {selected.Count} 个文件。");
+        if (string.IsNullOrWhiteSpace(file)) return false;
+        return LabelFileManager1.StoreManager.Store.TryGetValue(file, out var labels) && labels is { Count: > 0 };
     }
-    public bool HasLabelsForFile(string file)
-        => LabelFileManager1.StoreManager.HasLabels(file);
 }

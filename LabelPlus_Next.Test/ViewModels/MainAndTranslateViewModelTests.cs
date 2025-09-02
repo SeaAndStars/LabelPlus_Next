@@ -1,5 +1,6 @@
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Models;
+using LabelPlus_Next.Services;
 using System.Collections.ObjectModel;
 
 namespace LabelPlus_Next.Test.ViewModels;
@@ -11,7 +12,7 @@ public class MainAndTranslateViewModelTests
     [TestMethod]
     public void MainWindowViewModel_InitialState()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new LabelPlus_Next.ViewModels.MainWindowViewModel(new LabelPlus_Next.Services.NoopFileDialogService());
         Assert.IsNotNull(vm.ImageFileNames);
         Assert.AreEqual(0, vm.ImageFileNames.Count);
         Assert.IsNull(vm.SelectedImageFile);
@@ -53,7 +54,7 @@ public class MainAndTranslateViewModelTests
     [TestMethod]
     public async Task MainWindowViewModel_LabelAddRemoveUndo()
     {
-        var vm = new MainWindowViewModel();
+        var vm = new LabelPlus_Next.ViewModels.MainWindowViewModel(new LabelPlus_Next.Services.NoopFileDialogService());
 
         // prepare image entry and select it
         await vm.AddImageFileAsync("a.png");

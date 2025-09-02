@@ -42,13 +42,23 @@ public partial class TranslateView : UserControl
         _picViewer = this.FindControl<PicViewer>("Pic");
         _labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
-        if (DataContext is TranslateViewModel vm) InitServices(vm);
+        if (DataContext is TranslateViewModel vm) SetNotification(vm);
         if (_labelsGrid is not null)
         {
             _labelsGrid.SelectionChanged += OnGridSelectionChanged;
             _labelsGrid.GotFocus += OnGridGotFocus;
         }
         if (_picViewer is not null) _picViewer.AddLabelRequested += OnAddLabelRequested;
+    }
+
+    private void SetNotification(TranslateViewModel vm)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window win) return;
+        if (vm.NotificationManager is null)
+        {
+            vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(win, out var mgr) ? mgr : new WindowNotificationManager(win)
+                { Position = NotificationPosition.TopRight };
+        }
     }
 
     private void OnGridGotFocus(object? sender, GotFocusEventArgs e)
@@ -72,17 +82,6 @@ public partial class TranslateView : UserControl
             {
                 _picViewer.CenterOnLabel(item);
             }
-        }
-    }
-
-    private void InitServices(TranslateViewModel vm)
-    {
-        if (TopLevel.GetTopLevel(this) is not Window win) return;
-        vm.InitializeServices(new AvaloniaFileDialogService(win));
-        if (vm.NotificationManager is null)
-        {
-            vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(win, out var mgr) ? mgr : new WindowNotificationManager(win)
-                { Position = NotificationPosition.TopRight };
         }
     }
 
