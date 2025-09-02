@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using BCrypt.Net;
 using LabelPlus_Next.ApiServer.Data;
 using LabelPlus_Next.ApiServer.Entities;
 using LabelPlus_Next.ApiServer.Models;
@@ -9,16 +10,14 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
-// JSON options compatible with client snake_case fields via attributes already set
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
 });
 
-// Bind configuration
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 
-// DbContext: prefer Postgres; fallback to InMemory if no connection string
 var cs = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(cs))
 {
@@ -30,12 +29,15 @@ else
     builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("labelplus"));
 }
 
-// Auth services
 builder.Services.AddSingleton<IJwtService, JwtService>();
 
 var app = builder.Build();
 
-// Auto-create and seed basic data
+// Ensure storage folders
+var storage = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
+Directory.CreateDirectory(storage.RootPath);
+Directory.CreateDirectory(storage.TempPath);
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -45,7 +47,7 @@ using (var scope = app.Services.CreateScope())
         db.Users.Add(new User
         {
             Username = "admin",
-            PasswordHash = HashPassword("admin123"),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
             BasePath = "/",
             Disabled = false,
             Permission = 0,
@@ -57,13 +59,15 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Helpers
 static string NormalizePath(string? p)
 {
     if (string.IsNullOrWhiteSpace(p)) return "/";
     p = p.Replace('\\', '/');
     if (!p.StartsWith('/')) p = "/" + p;
     while (p.Contains("//")) p = p.Replace("//", "/");
+    // prevent traversal
+    if (p.Contains("..")) p = "/" + string.Join('/', p.Split('/', StringSplitOptions.RemoveEmptyEntries).Where(s => s != ".."));
+    if (!p.StartsWith('/')) p = "/" + p;
     return p;
 }
 
@@ -84,16 +88,13 @@ static string GetName(string path)
 
 static string ToIso(DateTimeOffset ts) => ts.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ");
 
-// Simple password hashing
-static string HashPassword(string password)
+static string MapToPhysical(string path, StorageOptions opt)
 {
-    using var sha = System.Security.Cryptography.SHA256.Create();
-    var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
-    return Convert.ToHexString(bytes);
-}
-static bool VerifyPassword(string password, string hash)
-{
-    return string.Equals(HashPassword(password), hash, StringComparison.OrdinalIgnoreCase);
+    var rel = path.Trim('/').Replace('/', Path.DirectorySeparatorChar);
+    var full = Path.GetFullPath(Path.Combine(opt.RootPath, rel));
+    var root = Path.GetFullPath(opt.RootPath);
+    if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new UnauthorizedAccessException("invalid path");
+    return full;
 }
 
 static FsItem ToItem(FileEntry f) => new()
@@ -109,7 +110,6 @@ static FsItem ToItem(FileEntry f) => new()
     Type = f.Type
 };
 
-// Extract token text (raw or Bearer) for manual validation
 static string? GetTokenFromAuth(HttpRequest req)
 {
     var auth = req.Headers["Authorization"].ToString();
@@ -118,7 +118,6 @@ static string? GetTokenFromAuth(HttpRequest req)
     return auth.Trim();
 }
 
-// Routes
 var api = app.MapGroup("/api");
 
 api.MapPost("/auth/login", async (LoginRequest req, AppDbContext db, IJwtService jwt) =>
@@ -126,7 +125,6 @@ api.MapPost("/auth/login", async (LoginRequest req, AppDbContext db, IJwtService
     if (req is null || string.IsNullOrWhiteSpace(req.Username))
         return Results.Json(new ApiResponse<LoginData> { Code = 400, Message = "bad request" });
 
-    // SSO shortcut: username like sso:{id}
     if (req.Username.StartsWith("sso:", StringComparison.OrdinalIgnoreCase))
     {
         var sid = req.Username[4..];
@@ -136,7 +134,7 @@ api.MapPost("/auth/login", async (LoginRequest req, AppDbContext db, IJwtService
             user = new User
             {
                 Username = $"sso_{sid}",
-                PasswordHash = HashPassword(Guid.NewGuid().ToString("N")),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
                 BasePath = "/",
                 Disabled = false,
                 Permission = 0,
@@ -152,10 +150,37 @@ api.MapPost("/auth/login", async (LoginRequest req, AppDbContext db, IJwtService
     }
 
     var u = await db.Users.FirstOrDefaultAsync(x => x.Username == req.Username);
-    if (u is null || string.IsNullOrWhiteSpace(req.Password) || !VerifyPassword(req.Password, u.PasswordHash))
+    if (u is null || string.IsNullOrWhiteSpace(req.Password) || !BCrypt.Net.BCrypt.Verify(req.Password, u.PasswordHash))
         return Results.Json(new ApiResponse<LoginData> { Code = 401, Message = "unauthorized" });
 
     var token = jwt.IssueToken(u.Id, u.Username, u.SsoId);
+    return Results.Json(new ApiResponse<LoginData> { Code = 200, Data = new LoginData { Token = token }, Message = "ok" });
+});
+
+// SSO exchange (placeholder)
+api.MapPost("/auth/sso/exchange", async (Dictionary<string, string> req, AppDbContext db, IJwtService jwt) =>
+{
+    if (!req.TryGetValue("provider", out var provider) || !req.TryGetValue("code", out var code))
+        return Results.Json(new ApiResponse<LoginData> { Code = 400, Message = "bad request" });
+    var sid = $"{provider}:{code}";
+    var user = await db.Users.FirstOrDefaultAsync(u => u.SsoId == sid);
+    if (user is null)
+    {
+        user = new User
+        {
+            Username = $"sso_{provider}_{Guid.NewGuid():N}",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+            BasePath = "/",
+            Disabled = false,
+            Permission = 0,
+            Role = 0,
+            SsoId = sid,
+            Otp = false
+        };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+    }
+    var token = jwt.IssueToken(user.Id, user.Username, user.SsoId);
     return Results.Json(new ApiResponse<LoginData> { Code = 200, Data = new LoginData { Token = token }, Message = "ok" });
 });
 
@@ -169,7 +194,7 @@ api.MapPost("/auth/sso", async (Dictionary<string, string> req, AppDbContext db,
         user = new User
         {
             Username = $"sso_{sid}",
-            PasswordHash = HashPassword(Guid.NewGuid().ToString("N")),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
             BasePath = "/",
             Disabled = false,
             Permission = 0,
@@ -214,7 +239,6 @@ api.MapGet("/me", async (HttpRequest request, AppDbContext db, IJwtService jwt) 
     return Results.Json(new ApiResponse<MeData> { Code = 200, Data = me, Message = "ok" });
 });
 
-// File System APIs
 var fs = api.MapGroup("/fs");
 
 fs.MapPost("/list", async (FsListRequest req, HttpRequest http, AppDbContext db) =>
@@ -299,6 +323,15 @@ fs.MapPost("/mkdir", async (MkdirRequest req, HttpRequest http, AppDbContext db)
     if (path == "/") return Results.Json(new ApiResponse<object> { Code = 409, Message = "already exists" });
     var exists = await db.Files.AnyAsync(f => f.Path == path);
     if (exists) return Results.Json(new ApiResponse<object> { Code = 409, Message = "already exists" });
+
+    // persist to disk
+    try
+    {
+        var phys = MapToPhysical(path, app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
+        Directory.CreateDirectory(phys);
+    }
+    catch { }
+
     var entry = new FileEntry
     {
         Path = path,
@@ -324,6 +357,8 @@ fs.MapPost("/copy", async (CopyRequest req, HttpRequest http, AppDbContext db) =
     if (string.IsNullOrWhiteSpace(srcDir) || string.IsNullOrWhiteSpace(dstDir) || req.Names is null)
         return Results.Json(new ApiResponse<object> { Code = 400, Message = "bad request" });
 
+    var opt = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
+
     foreach (var name in req.Names)
     {
         var sPath = NormalizePath(srcDir + "/" + name);
@@ -332,28 +367,55 @@ fs.MapPost("/copy", async (CopyRequest req, HttpRequest http, AppDbContext db) =
         var dPath = NormalizePath(dstDir + "/" + name);
         var exists = await db.Files.AnyAsync(f => f.Path == dPath);
         if (exists) continue;
-        db.Files.Add(new FileEntry
+
+        if (src.IsDir)
         {
-            Path = dPath,
-            ParentPath = GetParent(dPath),
-            Name = GetName(dPath),
-            IsDir = src.IsDir,
-            Size = src.Size,
-            Created = DateTimeOffset.UtcNow,
-            Modified = DateTimeOffset.UtcNow,
-            Content = src.Content,
-            Provider = src.Provider,
-            Thumb = src.Thumb,
-            Hashinfo = src.Hashinfo,
-            Sign = src.Sign,
-            Type = src.Type
-        });
+            // create directory on disk & db
+            try { Directory.CreateDirectory(MapToPhysical(dPath, opt)); } catch { }
+            db.Files.Add(new FileEntry
+            {
+                Path = dPath,
+                ParentPath = GetParent(dPath),
+                Name = GetName(dPath),
+                IsDir = true,
+                Size = 0,
+                Created = DateTimeOffset.UtcNow,
+                Modified = DateTimeOffset.UtcNow
+            });
+        }
+        else
+        {
+            // file copy
+            try
+            {
+                var srcFile = MapToPhysical(sPath, opt);
+                var dstFile = MapToPhysical(dPath, opt);
+                Directory.CreateDirectory(Path.GetDirectoryName(dstFile)!);
+                File.Copy(srcFile, dstFile, overwrite: false);
+            }
+            catch { }
+            db.Files.Add(new FileEntry
+            {
+                Path = dPath,
+                ParentPath = GetParent(dPath),
+                Name = GetName(dPath),
+                IsDir = false,
+                Size = src.Size,
+                Created = DateTimeOffset.UtcNow,
+                Modified = DateTimeOffset.UtcNow,
+                Provider = src.Provider,
+                Thumb = src.Thumb,
+                Hashinfo = src.Hashinfo,
+                Sign = src.Sign,
+                Type = src.Type
+            });
+        }
     }
     await db.SaveChangesAsync();
     return Results.Json(new ApiResponse<object> { Code = 200, Message = "ok" });
 });
 
-// Upload
+// Upload with chunk support
 fs.MapMethods("/put", new[] { "PUT" }, async (HttpRequest http, AppDbContext db) =>
 {
     var token = GetTokenFromAuth(http);
@@ -362,35 +424,97 @@ fs.MapMethods("/put", new[] { "PUT" }, async (HttpRequest http, AppDbContext db)
     var pathHeader = http.Headers["File-Path"].ToString();
     var path = NormalizePath(Uri.UnescapeDataString(pathHeader ?? "/"));
 
-    await using var ms = new MemoryStream();
-    await http.Body.CopyToAsync(ms);
-    var bytes = ms.ToArray();
+    var opt = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
+    var phys = MapToPhysical(path, opt);
+    Directory.CreateDirectory(Path.GetDirectoryName(phys)!);
 
-    var now = DateTimeOffset.UtcNow;
-    var existing = await db.Files.FirstOrDefaultAsync(f => f.Path == path);
-    if (existing is null)
+    var uploadId = http.Headers["Upload-Id"].ToString();
+    var chunkIndexStr = http.Headers["Chunk-Index"].ToString();
+    var chunkTotalStr = http.Headers["Chunk-Total"].ToString();
+
+    if (!string.IsNullOrWhiteSpace(uploadId) && int.TryParse(chunkIndexStr, out var cidx) && int.TryParse(chunkTotalStr, out var ctot) && ctot > 0)
     {
-        var entry = new FileEntry
+        var tmpDir = Path.Combine(opt.TempPath, uploadId);
+        Directory.CreateDirectory(tmpDir);
+        var partFile = Path.Combine(tmpDir, $"part-{cidx:D08}.bin");
+        await using (var fsOut = new FileStream(partFile, FileMode.Create, FileAccess.Write, FileShare.None, 256 * 1024, useAsync: true))
         {
-            Path = path,
-            ParentPath = GetParent(path),
-            Name = GetName(path),
-            IsDir = false,
-            Size = bytes.LongLength,
-            Created = now,
-            Modified = now,
-            Content = bytes
-        };
-        db.Files.Add(entry);
+            await http.Body.CopyToAsync(fsOut);
+        }
+
+        var parts = Directory.GetFiles(tmpDir, "part-*.bin");
+        if (parts.Length >= ctot)
+        {
+            // combine
+            var ordered = parts.OrderBy(p => p).ToList();
+            await using (var fsFinal = new FileStream(phys, FileMode.Create, FileAccess.Write, FileShare.None, 256 * 1024, useAsync: true))
+            {
+                foreach (var pf in ordered)
+                {
+                    await using var src = new FileStream(pf, FileMode.Open, FileAccess.Read, FileShare.Read, 256 * 1024, useAsync: true);
+                    await src.CopyToAsync(fsFinal);
+                }
+            }
+            try { Directory.Delete(tmpDir, true); } catch { }
+
+            // update db
+            var now = DateTimeOffset.UtcNow;
+            var fi = new FileInfo(phys);
+            var existing = await db.Files.FirstOrDefaultAsync(f => f.Path == path);
+            if (existing is null)
+            {
+                db.Files.Add(new FileEntry
+                {
+                    Path = path,
+                    ParentPath = GetParent(path),
+                    Name = GetName(path),
+                    IsDir = false,
+                    Size = fi.Exists ? fi.Length : 0,
+                    Created = now,
+                    Modified = now
+                });
+            }
+            else
+            {
+                existing.IsDir = false;
+                existing.Size = fi.Exists ? fi.Length : 0;
+                existing.Modified = now;
+            }
+            await db.SaveChangesAsync();
+        }
     }
     else
     {
-        existing.IsDir = false;
-        existing.Size = bytes.LongLength;
-        existing.Modified = now;
-        existing.Content = bytes;
+        // normal upload
+        await using (var fsOut = new FileStream(phys, FileMode.Create, FileAccess.Write, FileShare.None, 256 * 1024, useAsync: true))
+        {
+            await http.Body.CopyToAsync(fsOut);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var fi = new FileInfo(phys);
+        var existing = await db.Files.FirstOrDefaultAsync(f => f.Path == path);
+        if (existing is null)
+        {
+            db.Files.Add(new FileEntry
+            {
+                Path = path,
+                ParentPath = GetParent(path),
+                Name = GetName(path),
+                IsDir = false,
+                Size = fi.Exists ? fi.Length : 0,
+                Created = now,
+                Modified = now
+            });
+        }
+        else
+        {
+            existing.IsDir = false;
+            existing.Size = fi.Exists ? fi.Length : 0;
+            existing.Modified = now;
+        }
+        await db.SaveChangesAsync();
     }
-    await db.SaveChangesAsync();
 
     var task = new FsTask
     {
@@ -404,7 +528,6 @@ fs.MapMethods("/put", new[] { "PUT" }, async (HttpRequest http, AppDbContext db)
     return Results.Json(new FsPutResponse { Code = 200, Data = new FsPutData { Task = task }, Message = "ok" });
 });
 
-// Raw download (manual token validation)
 fs.MapGet("/raw", async (string path, HttpContext ctx, AppDbContext db, IJwtService jwt) =>
 {
     var token = GetTokenFromAuth(ctx.Request);
@@ -412,6 +535,12 @@ fs.MapGet("/raw", async (string path, HttpContext ctx, AppDbContext db, IJwtServ
     if (jwt.ValidateToken(token) is null) return Results.Unauthorized();
 
     path = NormalizePath(path);
+    var opt = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
+    var phys = MapToPhysical(path, opt);
+    if (System.IO.File.Exists(phys))
+    {
+        return Results.File(phys, contentType: "application/octet-stream", fileDownloadName: Path.GetFileName(phys));
+    }
     var f = await db.Files.AsNoTracking().FirstOrDefaultAsync(x => x.Path == path && !x.IsDir);
     if (f is null || f.Content is null) return Results.NotFound();
     return Results.File(f.Content, contentType: "application/octet-stream", fileDownloadName: f.Name);
@@ -419,7 +548,6 @@ fs.MapGet("/raw", async (string path, HttpContext ctx, AppDbContext db, IJwtServ
 
 app.Run();
 
-// Keep serializer context
 [JsonSerializable(typeof(ApiResponse<LoginData>))]
 [JsonSerializable(typeof(ApiResponse<MeData>))]
 [JsonSerializable(typeof(FsListResponse))]
