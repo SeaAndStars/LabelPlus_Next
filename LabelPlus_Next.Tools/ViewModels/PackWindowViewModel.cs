@@ -649,9 +649,14 @@ public partial class PackWindowViewModel : ObservableObject
                 var dl = await fs.DownloadAsync(token, remoteManifestPath);
                 if (dl.Code == 200 && dl.Content is not null)
                 {
-                    json = Encoding.UTF8.GetString(dl.Content);
+                    var candidate = Encoding.UTF8.GetString(dl.Content);
                     Logger.Info("已通过 FileAPI 获取 manifest.json: {path}", remoteManifestPath);
-                    LogFetchedJson("FileAPI", remoteManifestPath, json);
+                    LogFetchedJson("FileAPI", remoteManifestPath, candidate);
+                    // 仅当内容看起来像 manifest 再采用，避免后续反序列化触发第一次机会异常
+                    if (LooksLikeManifestJson(candidate))
+                        json = candidate;
+                    else
+                        Logger.Warn("FileAPI 返回的 JSON 不像 manifest（可能是错误页/登录页），已忽略");
                 }
             }
             else

@@ -41,7 +41,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Include all files from publish\win-x64 recursively
-Source: "C:\Users\SeaStar\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\bin\Release\net9.0\win-x64\publish\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Users\SeaStar\source\repos\SeaAndStars\LabelPlus_Next\LabelPlus_Next.Desktop\bin\Release\net9.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Bundle .NET installer
 Source: "C:\Users\SeaStar\Downloads\dotnet-sdk-9.0.304-win-x64.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files

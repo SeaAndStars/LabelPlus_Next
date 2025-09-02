@@ -384,11 +384,58 @@ public sealed class FileSystemApi : IFileSystemApi
             var service = new DownloadService(cfg);
             await service.DownloadFileTaskAsync(url, localPath, cancellationToken);
             Logger.Info("DownloadToFile(ok via MT) -> {local}", localPath);
-            return new DownloadResult { Code = 200 };
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "DownloadToFile exception(MT)");
+            // 先不直接返回，转入回退逻辑
+        }
+
+        try
+        {
+            // 校验文件是否真实存在且非空
+            if (!File.Exists(localPath) || new FileInfo(localPath).Length == 0)
+            {
+                Logger.Warn("DownloadToFile verify fail or empty -> fallback HTTP client: {local}", localPath);
+                // 回退：直接以 HttpClient 下载
+                using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                req.Headers.TryAddWithoutValidation("Authorization", token);
+                req.Headers.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
+                req.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var code = (int)resp.StatusCode;
+                    var reason = resp.ReasonPhrase ?? "Request failed";
+                    Logger.Warn("Fallback HTTP get fail {code} {reason}", code, reason);
+                    return new DownloadResult { Code = code, Message = reason };
+                }
+                Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                await using (var fsLocal = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 256 * 1024, useAsync: true))
+                {
+                    await resp.Content.CopyToAsync(fsLocal, cancellationToken);
+                }
+            }
+
+            // 再次校验
+            if (!File.Exists(localPath))
+            {
+                Logger.Warn("DownloadToFile final verify: file not found {local}", localPath);
+                return new DownloadResult { Code = -1, Message = "file not created" };
+            }
+            var len = new FileInfo(localPath).Length;
+            if (len <= 0)
+            {
+                Logger.Warn("DownloadToFile final verify: empty file {local}", localPath);
+                return new DownloadResult { Code = -1, Message = "empty file" };
+            }
+
+            Logger.Info("DownloadToFile success size={size} -> {local}", len, localPath);
+            return new DownloadResult { Code = 200 };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "DownloadToFile fallback exception");
             return new DownloadResult { Code = -1, Message = ex.Message };
         }
     }

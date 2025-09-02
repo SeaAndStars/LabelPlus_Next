@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3DA99C4E-89E3-4049-9C22-0A7EC60D83D8}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Packages.props = Directory.Packages.props
+		compose.yaml = compose.yaml
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabelPlus_Next.Update", "LabelPlus_Next.Update\LabelPlus_Next.Update.csproj", "{E3709543-DEF2-4FEF-ABAE-DC496F3B82B5}"
@@ -17,6 +18,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabelPlus_Next.Tools", "LabelPlus_Next.Tools\LabelPlus_Next.Tools.csproj", "{9A44528D-50BE-4AF4-9347-063A677AD458}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabelPlus_Next.Test", "LabelPlus_Next.Test\LabelPlus_Next.Test.csproj", "{75C3BDFA-B147-48FD-BBB9-D80CF3F82D42}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LabelPlus_Next.ApiServer", "LabelPlus_Next.ApiServer\LabelPlus_Next.ApiServer.csproj", "{C5D5C57C-D47C-47A0-B60D-5B026E0538A9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +47,10 @@ Global
 		{75C3BDFA-B147-48FD-BBB9-D80CF3F82D42}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75C3BDFA-B147-48FD-BBB9-D80CF3F82D42}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75C3BDFA-B147-48FD-BBB9-D80CF3F82D42}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5D5C57C-D47C-47A0-B60D-5B026E0538A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5D5C57C-D47C-47A0-B60D-5B026E0538A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5D5C57C-D47C-47A0-B60D-5B026E0538A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5D5C57C-D47C-47A0-B60D-5B026E0538A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

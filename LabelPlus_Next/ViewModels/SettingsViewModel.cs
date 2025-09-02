@@ -380,6 +380,7 @@ public partial class SettingsViewModel : ViewModelBase
                     UpdateProgress = 0;
                     Status = UpdateTask;
                     ZipFile.ExtractToDirectory(zipPath, updateDir, true);
+                    try { CleanupForeignArchives(updateDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after updater extraction failed"); }
                     SafeDelete(zipPath);
                     UpdateTask = null;
                     IsProgressIndeterminate = false;
@@ -990,6 +991,28 @@ public partial class SettingsViewModel : ViewModelBase
         try
         {
             if (File.Exists(path)) File.Delete(path);
+        }
+        catch { }
+    }
+
+    private static void CleanupForeignArchives(string dir)
+    {
+        try
+        {
+            if (!Directory.Exists(dir)) return;
+            var rid = GetCurrentRid();
+            var rids = new[] { "win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64" };
+            var others = rids.Where(r => !string.Equals(r, rid, StringComparison.OrdinalIgnoreCase)).ToArray();
+            foreach (var file in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
+            {
+                var ext = Path.GetExtension(file);
+                if (!".zip".Equals(ext, StringComparison.OrdinalIgnoreCase) && !".7z".Equals(ext, StringComparison.OrdinalIgnoreCase)) continue;
+                var name = Path.GetFileName(file);
+                if (others.Any(r => name.Contains(r, StringComparison.OrdinalIgnoreCase)))
+                {
+                    try { File.Delete(file); Logger.Info("Cleanup removed foreign archive: {file}", file); } catch { }
+                }
+            }
         }
         catch { }
     }

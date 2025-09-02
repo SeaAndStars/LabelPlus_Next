@@ -119,6 +119,7 @@ public sealed class UpdaterService : IUpdaterService
                     }
                     Logger.Info("Updater zip downloaded and verified, extracting to {dir}", targetDir);
                     await ExtractZipSelectiveAsync(tmpZip, targetDir, relPath => relPath.Replace('\\', '/').StartsWith("update/", StringComparison.OrdinalIgnoreCase));
+                    try { CleanupForeignArchives(targetDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after self-update failed"); }
                     try { File.Delete(tmpZip); } catch { }
                     await _messages.ShowOverlayAsync($"更新程序已更新到 {updaterLatest}，请从主程序重新触发更新", "提示");
                     TryStartMainApp(targetDir);
@@ -151,6 +152,7 @@ public sealed class UpdaterService : IUpdaterService
                         await _messages.ShowAsync("客户端更新失败", "错误");
                         return;
                     }
+                    try { CleanupForeignArchives(targetDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after client update failed"); }
                     await _messages.ShowOverlayAsync("更新完成，正在重启主程序...", "提示");
                     TryStartMainApp(targetDir, selectedFile);
                 }
@@ -560,6 +562,7 @@ public sealed class UpdaterService : IUpdaterService
 
         Logger.Info("Extracting client zip to {dir}", appDir);
         await ExtractZipSelectiveAsync(tmpZip, appDir, relPath => relPath.Replace('\\', '/').StartsWith("update/", StringComparison.OrdinalIgnoreCase));
+    try { CleanupForeignArchives(appDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after extraction failed"); }
         try { File.Delete(tmpZip); } catch { }
     Status = DStatus.Completed;
     ProgressPercentage = 100;
@@ -736,6 +739,54 @@ public sealed class UpdaterService : IUpdaterService
 
     private static string AppendSlash(string url) => url.EndsWith('/') ? url : url + '/';
 
+    private static void CleanupForeignArchives(string appDir)
+    {
+        // Remove archive files that obviously target other platforms (e.g., linux-x64.7z on Windows)
+        try
+        {
+            var rid = GetRidForCleanup();
+            var rids = new[] { "win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64" };
+            var otherRids = rids.Where(r => !string.Equals(r, rid, StringComparison.OrdinalIgnoreCase)).ToArray();
+            static bool IsArchive(string path)
+            {
+                var ext = Path.GetExtension(path);
+                return ".zip".Equals(ext, StringComparison.OrdinalIgnoreCase) || ".7z".Equals(ext, StringComparison.OrdinalIgnoreCase);
+            }
+
+            void CleanOneDir(string dir)
+            {
+                try
+                {
+                    if (!Directory.Exists(dir)) return;
+                    foreach (var file in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
+                    {
+                        if (!IsArchive(file)) continue;
+                        var name = Path.GetFileName(file);
+                        if (otherRids.Any(r => name.Contains(r, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            try { File.Delete(file); Logger.Info("Cleanup removed foreign archive: {file}", file); } catch { }
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            CleanOneDir(appDir);
+            var updateDir = Path.Combine(appDir, "update");
+            CleanOneDir(updateDir);
+        }
+        catch { }
+    }
+
+    private static string GetRidForCleanup()
+    {
+        var arch = RuntimeInformation.ProcessArchitecture;
+        if (OperatingSystem.IsWindows()) return arch == Architecture.Arm64 ? "win-arm64" : "win-x64";
+        if (OperatingSystem.IsLinux()) return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+        if (OperatingSystem.IsMacOS()) return arch == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+        return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+    }
+
     private static string? ReadLocalVersion(string path)
     {
         try
@@ -801,6 +852,26 @@ public sealed class UpdaterService : IUpdaterService
             if (url.Contains("/OneDrive/Update/manifest.json", StringComparison.OrdinalIgnoreCase))
                 url = url.Replace("/OneDrive/Update/manifest.json", "/OneDrive2/Update/manifest.json", StringComparison.OrdinalIgnoreCase);
             var resolved = await ResolveRawUrlAsync(upd, url);
+            // 若仍是 BaseUrl 下的普通路径（既不是 /d/ 也不是 /dav/），优先尝试通过文件 API 解析 raw_url，避免一次返回 HTML 的无效尝试
+            try
+            {
+                var u = new Uri(resolved);
+                var baseHost = new Uri(AppendSlash(upd.BaseUrl!)).Host;
+                var isSameHost = string.Equals(u.Host, baseHost, StringComparison.OrdinalIgnoreCase);
+                var path = u.AbsolutePath ?? string.Empty;
+                var looksPlain = isSameHost && !path.Contains("/d/", StringComparison.OrdinalIgnoreCase) && !path.Contains("/dav/", StringComparison.OrdinalIgnoreCase);
+                if (looksPlain)
+                {
+                    var token = await ApiLoginAsync(upd);
+                    var apiPath = path;
+                    if (string.IsNullOrWhiteSpace(apiPath) && !string.IsNullOrWhiteSpace(candidate))
+                        apiPath = candidate.StartsWith('/') ? candidate : "/" + candidate;
+                    var raw = await ApiFsGetRawUrlAsync(upd, token, apiPath);
+                    if (!string.IsNullOrWhiteSpace(raw))
+                        resolved = raw!;
+                }
+            }
+            catch { }
             Logger.Info("Fetch manifest: url={url} => resolved={resolved}", url, resolved);
             var text = await DownloadStringWithAuthFallbackAsync(resolved, null);
             if (!string.IsNullOrEmpty(text))

@@ -25,6 +25,10 @@ public partial class TranslateView : UserControl
     private LabelItem? _lastCentered;
     private PicViewer? _picViewer;
 
+    // 拖拽相关
+    private const string DragDataFormat = "application/x-labelplus-labelitem";
+    private Control? _lastDropHintRow;
+
     public TranslateView() { InitializeComponent(); }
 
     private TranslateViewModel? Vm
@@ -47,6 +51,11 @@ public partial class TranslateView : UserControl
         {
             _labelsGrid.SelectionChanged += OnGridSelectionChanged;
             _labelsGrid.GotFocus += OnGridGotFocus;
+            // 拖拽排序事件
+            _labelsGrid.AddHandler(InputElement.PointerPressedEvent, OnGridPointerPressed, RoutingStrategies.Tunnel);
+            _labelsGrid.AddHandler(DragDrop.DragOverEvent, OnGridDragOver, RoutingStrategies.Bubble);
+            _labelsGrid.AddHandler(DragDrop.DropEvent, OnGridDrop, RoutingStrategies.Bubble);
+            _labelsGrid.AddHandler(DragDrop.DragLeaveEvent, OnGridDragLeave, RoutingStrategies.Bubble);
         }
         if (_picViewer is not null) _picViewer.AddLabelRequested += OnAddLabelRequested;
     }
@@ -271,13 +280,150 @@ public partial class TranslateView : UserControl
         if (_labelsGrid?.SelectedItem is { } item)
         {
             try { _labelsGrid.ScrollIntoView(item, null); }
-            catch { }
+            catch
+            {
+                // ignored
+            }
         }
     }
     private async void OnAddLabelRequested(object? sender, PicViewer.AddLabelRequestedEventArgs e)
     {
         if (Vm is null) return;
         await Vm.AddLabelAtAsync((float)e.XPercent, (float)e.YPercent, e.Category);
+    }
+
+    // 拖拽排序：在行上按下启动拖拽
+    private async void OnGridPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_labelsGrid is null) return;
+        var props = e.GetCurrentPoint(_labelsGrid).Properties;
+        if (!props.IsLeftButtonPressed) return;
+
+        if (e.Source is Visual v)
+        {
+            // 找到包含该项的可视容器（Control），其 DataContext 为 LabelItem
+            Control? container = v.FindAncestorOfType<Control>();
+            while (container is not null && container.DataContext is not LabelItem)
+            {
+                container = container.FindAncestorOfType<Control>();
+            }
+            if (container?.DataContext is LabelItem item)
+            {
+                var data = new DataObject();
+                data.Set(DragDataFormat, item);
+                await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+            }
+        }
+    }
+
+    // 工具：找到 DataGridRow 控件（无需引用其类型，按名称匹配）
+    private static Control? FindRowControl(Visual source)
+    {
+        Control? c = source.FindAncestorOfType<Control>();
+        while (c is not null)
+        {
+            if (c.GetType().Name == "DataGridRow") return c;
+            c = c.FindAncestorOfType<Control>();
+        }
+        return null;
+    }
+
+    private void ClearDropHint()
+    {
+        if (_lastDropHintRow is null) return;
+        _lastDropHintRow.Classes.Remove("drop-before");
+        _lastDropHintRow.Classes.Remove("drop-after");
+        _lastDropHintRow = null;
+    }
+
+    private void ApplyDropHint(Control row, bool after)
+    {
+        if (!ReferenceEquals(_lastDropHintRow, row))
+        {
+            ClearDropHint();
+            _lastDropHintRow = row;
+        }
+        row.Classes.Set("drop-before", !after);
+        row.Classes.Set("drop-after", after);
+    }
+
+    private void OnGridDragOver(object? sender, DragEventArgs e)
+    {
+        if (!e.Data.Contains(DragDataFormat)) return;
+        e.DragEffects = DragDropEffects.Move;
+        e.Handled = true;
+
+        if (_labelsGrid is null) return;
+        if (e.Source is Visual v)
+        {
+            var row = FindRowControl(v);
+            if (row is not null)
+            {
+                var pos = e.GetPosition(row);
+                var after = pos.Y > row.Bounds.Height / 2;
+                ApplyDropHint(row, after);
+            }
+            else
+            {
+                // 悬停在空白区域：清理行高亮
+                ClearDropHint();
+            }
+        }
+    }
+
+    private void OnGridDragLeave(object? sender, RoutedEventArgs e)
+    {
+        ClearDropHint();
+    }
+
+    private void OnGridDrop(object? sender, DragEventArgs e)
+    {
+        var vm = Vm;
+        if (vm is null || _labelsGrid is null) return;
+        if (!e.Data.Contains(DragDataFormat)) return;
+        if (e.Data.Get(DragDataFormat) is not LabelItem dragged) return;
+
+        var oldIndex = vm.CurrentLabels.IndexOf(dragged);
+        if (oldIndex < 0) return;
+
+        int newIndex;
+        bool after = false;
+        // 获取目标行：向上寻找 DataContext 为 LabelItem 的行控件
+        if (e.Source is Visual v)
+        {
+            var row = FindRowControl(v);
+            if (row is not null)
+            {
+                if (row.DataContext is LabelItem targetItem)
+                {
+                    newIndex = vm.CurrentLabels.IndexOf(targetItem);
+                    var pos = e.GetPosition(row);
+                    after = pos.Y > row.Bounds.Height / 2;
+                    if (after) newIndex++;
+                }
+                else
+                {
+                    newIndex = vm.CurrentLabels.Count;
+                }
+            }
+            else
+            {
+                newIndex = vm.CurrentLabels.Count;
+            }
+        }
+        else
+        {
+            newIndex = vm.CurrentLabels.Count;
+        }
+
+        ClearDropHint();
+
+        if (newIndex == oldIndex || newIndex == oldIndex + 1) { e.Handled = true; return; }
+
+        vm.MoveLabelWithinCurrentImage(oldIndex, newIndex);
+        _labelsGrid.SelectedItem = vm.SelectedLabel;
+        ScrollSelectedIntoView();
+        e.Handled = true;
     }
 
     // XAML 事件处理
@@ -321,7 +467,7 @@ public partial class TranslateView : UserControl
     private void NextImage_OnClick(object? sender, RoutedEventArgs e) { MoveImageSelection(1); }
     private async void FileSetting_OnClick(object? sender, RoutedEventArgs e)
     {
-        if (Vm is not TranslateViewModel vm) return;
+        if (Vm is not { } vm) return;
         var (groups, notes) = vm.GetFileSettings();
         var dlg = new FileSettings { DataContext = new FileSettingsViewModel { GroupList = groups, Notes = notes }, Width = 600, Height = 350 };
         if (TopLevel.GetTopLevel(this) is Window win)

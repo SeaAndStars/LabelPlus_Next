@@ -36,6 +36,9 @@ public partial class TranslateViewModel : ViewModelBase
     {
         _dialogs = dialogs;
     }
+    public WindowNotificationManager? NotificationManager { get; set; }
+    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
+
     
     // UI progress and status
     [ObservableProperty] private bool isBusy;
@@ -52,12 +55,306 @@ public partial class TranslateViewModel : ViewModelBase
     [ObservableProperty] private string? selectedImageFile;
     [ObservableProperty] private LabelItem? selectedLabel;
     [ObservableProperty] private string? selectedLang = "default";
-    public WindowNotificationManager? NotificationManager { get; set; }
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
+    
+    [RelayCommand] public async Task AddLabelCommand()
+    {
+        if (string.IsNullOrEmpty(SelectedImageFile)) return;
+        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "", Category = 1 };
+        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
+        UpdateCurrentLabels();
+        if (CurrentLabels.Count > 0)
+        {
+            SelectedLabel = CurrentLabels[^1];
+            CurrentText = SelectedLabel.Text;
+        }
+    }
+    [RelayCommand] public async Task RemoveLabelCommand()
+    {
+        if (!string.IsNullOrEmpty(SelectedImageFile))
+        {
+            // Keep selection near the deleted item instead of jumping to the last
+            var oldIndex = SelectedLabel is null ? -1 : CurrentLabels.IndexOf(SelectedLabel);
+            await LabelManager.Instance.RemoveSelectedAsync(LabelFileManager1, SelectedImageFile, CurrentLabels, SelectedLabel);
+            UpdateCurrentLabels();
+            if (CurrentLabels.Count > 0)
+            {
+                var newIndex = oldIndex >= 0 ? Math.Min(oldIndex, CurrentLabels.Count - 1) : 0;
+                SelectedLabel = CurrentLabels[newIndex];
+            }
+            else
+            {
+                SelectedLabel = null;
+            }
+            CurrentText = SelectedLabel?.Text ?? string.Empty;
+        }
+    }
+    [RelayCommand] public async Task UndoRemoveLabelCommand()
+    {
+        if (!string.IsNullOrEmpty(SelectedImageFile))
+        {
+            var restored = await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
+            UpdateCurrentLabels();
+            if (restored is not null)
+            {
+                SelectedLabel = restored;
+            }
+            else if (SelectedLabel is null && CurrentLabels.Count > 0)
+            {
+                SelectedLabel = CurrentLabels[^1];
+            }
+            CurrentText = SelectedLabel?.Text ?? string.Empty;
+        }
+    }
+    [RelayCommand] private async Task NewTranslationCommand()
+    {
+        if (_dialogs is null) return;
+        IsBusy = true; Progress = 5; ProgressText = "选择图片...";
+        try
+        {
+            var folder = await _dialogs.PickFolderAsync("选择翻译目录");
+            if (string.IsNullOrEmpty(folder))
+            {
+                Progress = 100; ProgressText = "已取消";
+                return;
+            }
+            var selected = await _dialogs.ChooseImagesAsync(folder);
+            if (selected == null || selected.Count == 0)
+            {
+                Progress = 100; ProgressText = "未选择图片";
+                return;
+            }
+
+            Progress = 25; ProgressText = "生成初始内容...";
+            var names = selected.Select(p => Path.GetFileName(p))
+                                .Where(n => !string.IsNullOrWhiteSpace(n))
+                                .Select(n => n!);
+            var content = TranslationFileUtils.BuildInitialContent(names);
+            var outPath = TranslationFileUtils.GetNonConflictPath(folder, "translation.txt");
+            Progress = 60; ProgressText = "写入文件...";
+            await File.WriteAllTextAsync(outPath, content, Encoding.UTF8);
+            Progress = 80; ProgressText = "加载到编辑器...";
+            await _dialogs.ShowMessageAsync($"创建完成:{Environment.NewLine}{outPath}{Environment.NewLine}共 {selected.Count} 个文件。");
+            OpenTranslationFilePath = outPath;
+            await LoadTranslationFile(outPath);
+            await NotifyAsync("提示", "新建翻译文件完成并已打开。", NotificationType.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "NewTranslationCommand failed");
+            await NotifyAsync("错误", $"新建翻译失败：{ex.Message}", NotificationType.Error);
+        }
+        finally
+        {
+            Progress = 100; ProgressText = "完成"; IsBusy = false;
+        }
+    }
+    [RelayCommand] private async Task OpenTranslationFileCommand()
+    {
+        if (_dialogs is null) return;
+        try
+        {
+            IsBusy = true; Progress = 10; ProgressText = "选择文件...";
+            var path = await _dialogs.OpenTranslationFileAsync();
+            if (string.IsNullOrEmpty(path)) return;
+            Progress = 40; ProgressText = "读取内容...";
+            OpenTranslationFilePath = path;
+            await LoadTranslationFile(path);
+            Progress = 100; ProgressText = "完成";
+            await NotifyAsync("提示", "打开成功。", NotificationType.Success);
+        }
+        catch (Exception ex)
+        {
+            await NotifyAsync("错误", $"打开失败：{ex.Message}", NotificationType.Error);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"打开失败：{ex.Message}"); }
+            Logger.Error(ex, "Open translation file failed.");
+        }
+        finally { IsBusy = false; }
+    }
+    [RelayCommand] private async Task SaveCurrentCommand()
+    {
+        if (_dialogs is null) return;
+        if (string.IsNullOrEmpty(OpenTranslationFilePath))
+        {
+            await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。");
+            return;
+        }
+        try
+        {
+            IsBusy = true; Progress = 10; ProgressText = "保存本地文件...";
+            await FileSave(OpenTranslationFilePath);
+            // Remote upload on manual save if collaboration, with conflict detection
+            try
+            {
+                if (Collab is not null)
+                {
+                    Progress = 35; ProgressText = "检查远端版本...";
+                    var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
+                    // fetch remote to compute current hash
+                    var remoteRes = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath);
+                    string? remoteHash = null;
+                    if (remoteRes.Code == 200 && remoteRes.Content is not null)
+                    {
+                        var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
+                        remoteHash = ComputeHash(remoteTxt);
+                    }
+
+                    Progress = 55; ProgressText = "计算哈希...";
+                    var localBytes = await File.ReadAllBytesAsync(OpenTranslationFilePath);
+                    var localTxt = Encoding.UTF8.GetString(localBytes);
+                    var localHash = ComputeHash(localTxt);
+
+                    if (!string.IsNullOrEmpty(Collab.LastRemoteHash) && !string.Equals(remoteHash, Collab.LastRemoteHash, StringComparison.Ordinal))
+                    {
+                        ProgressText = "检测到冲突，准备合并..."; Progress = 65;
+                        // conflict detected: open merge assistant
+                        var remoteTxt = remoteRes.Content is not null ? Encoding.UTF8.GetString(remoteRes.Content) : string.Empty;
+                        var fileName = Path.GetFileName(OpenTranslationFilePath);
+                        string? merged = null;
+                        try
+                        {
+                            var win = LabelPlus_Next.Views.MainWindow.Instance;
+                            if (win is not null)
+                            {
+                                var dlg = new LabelPlus_Next.Views.Windows.MergeConflictWindow();
+                                await NotifyAsync("保存冲突", "检测到远端更新，正在打开合并助手...", NotificationType.Warning);
+                                merged = await dlg.ShowAsync(win, remoteTxt, localTxt, fileName);
+                            }
+                        }
+                        catch { }
+                        if (merged is null)
+                        {
+                            // fallback: just backup and notify
+                            var dir = Path.GetDirectoryName(OpenTranslationFilePath)!;
+                            var conflictDir = Path.Combine(dir, "conflict");
+                            Directory.CreateDirectory(conflictDir);
+                            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                            var baseName = Path.GetFileNameWithoutExtension(OpenTranslationFilePath);
+                            var ext = Path.GetExtension(OpenTranslationFilePath);
+                            var remoteBackup = Path.Combine(conflictDir, $"{baseName}_remote_{ts}{ext}");
+                            var localBackup = Path.Combine(conflictDir, $"{baseName}_local_{ts}{ext}");
+                            if (remoteRes.Content is not null) await File.WriteAllBytesAsync(remoteBackup, remoteRes.Content);
+                            await File.WriteAllBytesAsync(localBackup, localBytes);
+                            var msg = $"检测到保存冲突：远端译文已更新。已备份两份：\n{remoteBackup}\n{localBackup}\n请手动合并后再上传。";
+                            await NotifyAsync("保存冲突", msg, NotificationType.Warning);
+                            if (_dialogs is not null) await _dialogs.ShowMessageAsync(msg);
+                            Logger.Warn("Save conflict: remote changed since last known hash.");
+                            return;
+                        }
+
+                        // user provided merged content -> upload
+                        Progress = 85; ProgressText = "上传合并结果到远端...";
+                        var mergedBytes = Encoding.UTF8.GetBytes(merged);
+                        await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, mergedBytes);
+                        Collab.LastRemoteHash = ComputeHash(merged);
+                        await File.WriteAllBytesAsync(OpenTranslationFilePath, mergedBytes);
+                        Logger.Info("Merged content uploaded and written locally.");
+                        await NotifyAsync("提示", "合并完成并已上传。", NotificationType.Success);
+                        return;
+                    }
+
+                    // no conflict -> upload and update last remote hash
+                    Progress = 80; ProgressText = "上传到远端...";
+                    await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, localBytes);
+                    Collab.LastRemoteHash = localHash;
+                    Logger.Info("Save uploaded to remote: {remote}", Collab.RemoteTranslatePath);
+                    await NotifyAsync("提示", "已上传到远端。", NotificationType.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, "Manual save remote upload failed.");
+                await NotifyAsync("错误", $"远端上传失败：{ex.Message}", NotificationType.Error);
+            }
+            var fileNameOnly = Path.GetFileName(OpenTranslationFilePath);
+            await NotifyAsync("提示", $"保存成功：{fileNameOnly}", NotificationType.Success);
+            Logger.Info("File saved: {file}", OpenTranslationFilePath);
+        }
+        catch (Exception ex)
+        {
+            await NotifyAsync("错误", $"保存失败：{ex.Message}", NotificationType.Error);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"保存失败：{ex.Message}"); }
+            Logger.Error(ex, "Save current file failed.");
+        }
+        finally { Progress = 100; ProgressText = "完成"; IsBusy = false; }
+    }
+    [RelayCommand] public async Task SaveAsCommand()
+    {
+        if (_dialogs is null) return;
+        var path = await _dialogs.SaveAsTranslationFileAsync();
+        if (string.IsNullOrEmpty(path)) return;
+        try
+        {
+            IsBusy = true; Progress = 10; ProgressText = "写入文件...";
+            await FileSave(path);
+            OpenTranslationFilePath = path;
+            Progress = 100; ProgressText = "完成";
+            var file = Path.GetFileName(path);
+            await NotifyAsync("提示", $"另存为成功：{file}", NotificationType.Success);
+            Logger.Info("File saved as: {file}", path);
+        }
+        catch (Exception ex)
+        {
+            await NotifyAsync("错误", $"另存为失败：{ex.Message}", NotificationType.Error);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"另存为失败：{ex.Message}"); }
+            Logger.Error(ex, "Save as file failed.");
+        }
+        finally { IsBusy = false; }
+    }
+    [RelayCommand] public async Task LoadTranslationFile(string path)
+    {
+        try
+        {
+            IsBusy = true; Progress = 15; ProgressText = "读取翻译文件...";
+            await LabelFileManager1.LoadAsync(path);
+            ImageFileNames.Clear();
+            foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
+            if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
+            UpdateCurrentLabels();
+            OpenTranslationFilePath = path;
+            StartAutoSave();
+            Logger.Info("Translation file loaded: {file}", path);
+            Progress = 100; ProgressText = "完成";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "LoadTranslationFile failed");
+            await NotifyAsync("错误", $"加载失败：{ex.Message}", NotificationType.Error);
+        }
+        finally { IsBusy = false; }
+    }
+
+    [RelayCommand] public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
+    [RelayCommand] private void OpenTranslationFolder()
+    {
+        try
+        {
+            var path = OpenTranslationFilePath;
+            if (string.IsNullOrWhiteSpace(path)) return;
+            var dir = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = dir,
+                UseShellExecute = true
+            };
+            System.Diagnostics.Process.Start(psi);
+            _ = NotifyAsync("提示", $"已打开：{dir}", NotificationType.Information);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "OpenTranslationFolder failed");
+        }
+    }
+
 
     public bool HasUnsavedChanges
     {
         get => LabelFileManager1.StoreManager.IsDirty;
+    }
+    public bool HasLabelsForFile(string? file)
+    {
+        if (string.IsNullOrWhiteSpace(file)) return false;
+        return LabelFileManager1.StoreManager.Store.TryGetValue(file, out var labels) && labels is { Count: > 0 };
     }
 
     private async Task NotifyAsync(string title, string message, NotificationType type = NotificationType.Information)
@@ -80,35 +377,14 @@ public partial class TranslateViewModel : ViewModelBase
         _autoSaveTimer ??= new Timer(async _ => await AutoSaveTickAsync(), null, _autoSaveInterval, _autoSaveInterval);
         Logger.Info("Auto-save started with interval {minutes} minutes.", _autoSaveInterval.TotalMinutes);
     }
-    public void StopAutoSave()
+    private void StopAutoSave()
     {
         _autoSaveTimer?.Dispose();
         _autoSaveTimer = null;
         Logger.Info("Auto-save stopped.");
     }
 
-    [RelayCommand]
-    private void OpenTranslationFolder()
-    {
-        try
-        {
-            var path = OpenTranslationFilePath;
-            if (string.IsNullOrWhiteSpace(path)) return;
-            var dir = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = dir,
-                UseShellExecute = true
-            };
-            System.Diagnostics.Process.Start(psi);
-            _ = NotifyAsync("提示", $"已打开：{dir}", NotificationType.Information);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "OpenTranslationFolder failed");
-        }
-    }
+
 
     private async Task<string> BuildSnapshotAsync()
     {
@@ -299,275 +575,7 @@ public partial class TranslateViewModel : ViewModelBase
             CurrentText = SelectedLabel.Text;
         }
     }
-    [RelayCommand] public async Task AddLabelCommand()
-    {
-        if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "", Category = 1 };
-        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
-        UpdateCurrentLabels();
-        if (CurrentLabels.Count > 0)
-        {
-            SelectedLabel = CurrentLabels[^1];
-            CurrentText = SelectedLabel.Text;
-        }
-    }
-    [RelayCommand] public async Task RemoveLabelCommand()
-    {
-        if (!string.IsNullOrEmpty(SelectedImageFile))
-        {
-            // Keep selection near the deleted item instead of jumping to the last
-            var oldIndex = SelectedLabel is null ? -1 : CurrentLabels.IndexOf(SelectedLabel);
-            await LabelManager.Instance.RemoveSelectedAsync(LabelFileManager1, SelectedImageFile, CurrentLabels, SelectedLabel);
-            UpdateCurrentLabels();
-            if (CurrentLabels.Count > 0)
-            {
-                var newIndex = oldIndex >= 0 ? Math.Min(oldIndex, CurrentLabels.Count - 1) : 0;
-                SelectedLabel = CurrentLabels[newIndex];
-            }
-            else
-            {
-                SelectedLabel = null;
-            }
-            CurrentText = SelectedLabel?.Text ?? string.Empty;
-        }
-    }
-    [RelayCommand] public async Task UndoRemoveLabelCommand()
-    {
-        if (!string.IsNullOrEmpty(SelectedImageFile))
-        {
-            var restored = await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile);
-            UpdateCurrentLabels();
-            if (restored is not null)
-            {
-                SelectedLabel = restored;
-            }
-            else if (SelectedLabel is null && CurrentLabels.Count > 0)
-            {
-                SelectedLabel = CurrentLabels[^1];
-            }
-            CurrentText = SelectedLabel?.Text ?? string.Empty;
-        }
-    }
-    [RelayCommand] public async Task NewTranslationCommand()
-    {
-        if (_dialogs is null) return;
-        IsBusy = true; Progress = 5; ProgressText = "选择图片...";
-        try
-        {
-            var folder = await _dialogs.PickFolderAsync("选择翻译目录");
-            if (string.IsNullOrEmpty(folder))
-            {
-                Progress = 100; ProgressText = "已取消";
-                return;
-            }
-            var selected = await _dialogs.ChooseImagesAsync(folder);
-            if (selected == null || selected.Count == 0)
-            {
-                Progress = 100; ProgressText = "未选择图片";
-                return;
-            }
 
-            Progress = 25; ProgressText = "生成初始内容...";
-            var names = selected.Select(p => Path.GetFileName(p))
-                                .Where(n => !string.IsNullOrWhiteSpace(n))
-                                .Select(n => n!);
-            var content = TranslationFileUtils.BuildInitialContent(names);
-            var outPath = TranslationFileUtils.GetNonConflictPath(folder, "translation.txt");
-            Progress = 60; ProgressText = "写入文件...";
-            await File.WriteAllTextAsync(outPath, content, Encoding.UTF8);
-            Progress = 80; ProgressText = "加载到编辑器...";
-            await _dialogs.ShowMessageAsync($"创建完成:{Environment.NewLine}{outPath}{Environment.NewLine}共 {selected.Count} 个文件。");
-            OpenTranslationFilePath = outPath;
-            await LoadTranslationFile(outPath);
-            await NotifyAsync("提示", "新建翻译文件完成并已打开。", NotificationType.Success);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "NewTranslationCommand failed");
-            await NotifyAsync("错误", $"新建翻译失败：{ex.Message}", NotificationType.Error);
-        }
-        finally
-        {
-            Progress = 100; ProgressText = "完成"; IsBusy = false;
-        }
-    }
-    [RelayCommand] public async Task OpenTranslationFileCommand()
-    {
-        if (_dialogs is null) return;
-        try
-        {
-            IsBusy = true; Progress = 10; ProgressText = "选择文件...";
-            var path = await _dialogs.OpenTranslationFileAsync();
-            if (string.IsNullOrEmpty(path)) return;
-            Progress = 40; ProgressText = "读取内容...";
-            OpenTranslationFilePath = path;
-            await LoadTranslationFile(path);
-            Progress = 100; ProgressText = "完成";
-            await NotifyAsync("提示", "打开成功。", NotificationType.Success);
-        }
-        catch (Exception ex)
-        {
-            await NotifyAsync("错误", $"打开失败：{ex.Message}", NotificationType.Error);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"打开失败：{ex.Message}"); }
-            Logger.Error(ex, "Open translation file failed.");
-        }
-        finally { IsBusy = false; }
-    }
-    [RelayCommand] public async Task SaveCurrentCommand()
-    {
-        if (_dialogs is null) return;
-        if (string.IsNullOrEmpty(OpenTranslationFilePath))
-        {
-            await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。");
-            return;
-        }
-        try
-        {
-            IsBusy = true; Progress = 10; ProgressText = "保存本地文件...";
-            await FileSave(OpenTranslationFilePath);
-            // Remote upload on manual save if collaboration, with conflict detection
-            try
-            {
-                if (Collab is not null)
-                {
-                    Progress = 35; ProgressText = "检查远端版本...";
-                    var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
-                    // fetch remote to compute current hash
-                    var remoteRes = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath);
-                    string? remoteHash = null;
-                    if (remoteRes.Code == 200 && remoteRes.Content is not null)
-                    {
-                        var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
-                        remoteHash = ComputeHash(remoteTxt);
-                    }
-
-                    Progress = 55; ProgressText = "计算哈希...";
-                    var localBytes = await File.ReadAllBytesAsync(OpenTranslationFilePath);
-                    var localTxt = Encoding.UTF8.GetString(localBytes);
-                    var localHash = ComputeHash(localTxt);
-
-                    if (!string.IsNullOrEmpty(Collab.LastRemoteHash) && !string.Equals(remoteHash, Collab.LastRemoteHash, StringComparison.Ordinal))
-                    {
-                        ProgressText = "检测到冲突，准备合并..."; Progress = 65;
-                        // conflict detected: open merge assistant
-                        var remoteTxt = remoteRes.Content is not null ? Encoding.UTF8.GetString(remoteRes.Content) : string.Empty;
-                        var fileName = Path.GetFileName(OpenTranslationFilePath);
-                        string? merged = null;
-                        try
-                        {
-                            var win = LabelPlus_Next.Views.MainWindow.Instance;
-                            if (win is not null)
-                            {
-                                var dlg = new LabelPlus_Next.Views.Windows.MergeConflictWindow();
-                                await NotifyAsync("保存冲突", "检测到远端更新，正在打开合并助手...", NotificationType.Warning);
-                                merged = await dlg.ShowAsync(win, remoteTxt, localTxt, fileName);
-                            }
-                        }
-                        catch { }
-                        if (merged is null)
-                        {
-                            // fallback: just backup and notify
-                            var dir = Path.GetDirectoryName(OpenTranslationFilePath)!;
-                            var conflictDir = Path.Combine(dir, "conflict");
-                            Directory.CreateDirectory(conflictDir);
-                            var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                            var baseName = Path.GetFileNameWithoutExtension(OpenTranslationFilePath);
-                            var ext = Path.GetExtension(OpenTranslationFilePath);
-                            var remoteBackup = Path.Combine(conflictDir, $"{baseName}_remote_{ts}{ext}");
-                            var localBackup = Path.Combine(conflictDir, $"{baseName}_local_{ts}{ext}");
-                            if (remoteRes.Content is not null) await File.WriteAllBytesAsync(remoteBackup, remoteRes.Content);
-                            await File.WriteAllBytesAsync(localBackup, localBytes);
-                            var msg = $"检测到保存冲突：远端译文已更新。已备份两份：\n{remoteBackup}\n{localBackup}\n请手动合并后再上传。";
-                            await NotifyAsync("保存冲突", msg, NotificationType.Warning);
-                            if (_dialogs is not null) await _dialogs.ShowMessageAsync(msg);
-                            Logger.Warn("Save conflict: remote changed since last known hash.");
-                            return;
-                        }
-
-                        // user provided merged content -> upload
-                        Progress = 85; ProgressText = "上传合并结果到远端...";
-                        var mergedBytes = Encoding.UTF8.GetBytes(merged);
-                        await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, mergedBytes);
-                        Collab.LastRemoteHash = ComputeHash(merged);
-                        await File.WriteAllBytesAsync(OpenTranslationFilePath, mergedBytes);
-                        Logger.Info("Merged content uploaded and written locally.");
-                        await NotifyAsync("提示", "合并完成并已上传。", NotificationType.Success);
-                        return;
-                    }
-
-                    // no conflict -> upload and update last remote hash
-                    Progress = 80; ProgressText = "上传到远端...";
-                    await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, localBytes);
-                    Collab.LastRemoteHash = localHash;
-                    Logger.Info("Save uploaded to remote: {remote}", Collab.RemoteTranslatePath);
-                    await NotifyAsync("提示", "已上传到远端。", NotificationType.Success);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "Manual save remote upload failed.");
-                await NotifyAsync("错误", $"远端上传���败：{ex.Message}", NotificationType.Error);
-            }
-            var fileNameOnly = Path.GetFileName(OpenTranslationFilePath);
-            await NotifyAsync("提示", $"保存成功：{fileNameOnly}", NotificationType.Success);
-            Logger.Info("File saved: {file}", OpenTranslationFilePath);
-        }
-        catch (Exception ex)
-        {
-            await NotifyAsync("错误", $"保存失败：{ex.Message}", NotificationType.Error);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"保存失败：{ex.Message}"); }
-            Logger.Error(ex, "Save current file failed.");
-        }
-        finally { Progress = 100; ProgressText = "完成"; IsBusy = false; }
-    }
-    [RelayCommand] public async Task SaveAsCommand()
-    {
-        if (_dialogs is null) return;
-        var path = await _dialogs.SaveAsTranslationFileAsync();
-        if (string.IsNullOrEmpty(path)) return;
-        try
-        {
-            IsBusy = true; Progress = 10; ProgressText = "写入文件...";
-            await FileSave(path);
-            OpenTranslationFilePath = path;
-            Progress = 100; ProgressText = "完成";
-            var file = Path.GetFileName(path);
-            await NotifyAsync("提示", $"另存为成功：{file}", NotificationType.Success);
-            Logger.Info("File saved as: {file}", path);
-        }
-        catch (Exception ex)
-        {
-            await NotifyAsync("错误", $"另存为失败：{ex.Message}", NotificationType.Error);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"另存为失败：{ex.Message}"); }
-            Logger.Error(ex, "Save as file failed.");
-        }
-        finally { IsBusy = false; }
-    }
-    [RelayCommand] public async Task LoadTranslationFile(string path)
-    {
-        try
-        {
-            IsBusy = true; Progress = 15; ProgressText = "读取翻译文件...";
-            await LabelFileManager1.LoadAsync(path);
-            ImageFileNames.Clear();
-            foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
-            if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
-            UpdateCurrentLabels();
-            OpenTranslationFilePath = path;
-            StartAutoSave();
-            Logger.Info("Translation file loaded: {file}", path);
-            Progress = 100; ProgressText = "完成";
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "LoadTranslationFile failed");
-            await NotifyAsync("错误", $"加载失败：{ex.Message}", NotificationType.Error);
-        }
-        finally { IsBusy = false; }
-    }
-
-    [RelayCommand]
-    public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path);
 
     partial void OnOpenTranslationFilePathChanged(string? value)
     {
@@ -632,9 +640,24 @@ public partial class TranslateViewModel : ViewModelBase
         }
     }
 
-    public bool HasLabelsForFile(string? file)
+    // 新增：拖拽排序时移动标签
+    public void MoveLabelWithinCurrentImage(int oldIndex, int newIndex)
     {
-        if (string.IsNullOrWhiteSpace(file)) return false;
-        return LabelFileManager1.StoreManager.Store.TryGetValue(file, out var labels) && labels is { Count: > 0 };
+        if (string.IsNullOrEmpty(SelectedImageFile)) return;
+        if (!LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var list)) return;
+        if (list.Count == 0) return;
+        if (oldIndex < 0 || oldIndex >= list.Count) return;
+        // 允许插入到末尾
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex > list.Count) newIndex = list.Count;
+
+        var moved = list[oldIndex];
+        LabelFileManager1.StoreManager.MoveLabel(SelectedImageFile, oldIndex, newIndex);
+        UpdateCurrentLabels();
+        // 保持选中项为移动的对象
+        SelectedLabel = moved;
+        CurrentText = moved?.Text ?? string.Empty;
     }
+
+
 }

@@ -159,6 +159,22 @@ public static class Publisher
         return null;
     }
 
+    private static bool LooksLikeManifest(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return false;
+            if (root.TryGetProperty("schema", out var schema)
+                && schema.ValueKind == JsonValueKind.String
+                && root.TryGetProperty("projects", out var proj)
+                && proj.ValueKind == JsonValueKind.Object) return true;
+        }
+        catch { }
+        return false;
+    }
+
     private static async Task<Manifest?> DownloadManifestAsync(PublishSettings s, FileSystemApi fs, string token)
     {
         try
@@ -171,21 +187,25 @@ public static class Publisher
                 // 直接 HTTP 获取 raw_url 内容
                 using var http = new HttpClient();
                 http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
-                json = await http.GetStringAsync(get.Data.RawUrl);
+                var text = await http.GetStringAsync(get.Data.RawUrl);
+                if (LooksLikeManifest(text)) json = text; // 只接受像 manifest 的内容
             }
             else if (!string.IsNullOrWhiteSpace(get.Data.Sign))
             {
                 var raw = s.BaseUrl.TrimEnd('/') + "/d/" + Uri.EscapeDataString(get.Data.Sign!);
                 using var http = new HttpClient();
                 http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
-                json = await http.GetStringAsync(raw + (raw.Contains('?') ? "&download=1" : "?download=1"));
+                var text = await http.GetStringAsync(raw + (raw.Contains('?') ? "&download=1" : "?download=1"));
+                if (LooksLikeManifest(text)) json = text;
             }
             else
             {
                 var dl = await fs.DownloadAsync(token, s.ManifestPath);
                 if (dl.Code != 200 || dl.Content is null) return null;
-                json = Encoding.UTF8.GetString(dl.Content);
+                var text = Encoding.UTF8.GetString(dl.Content);
+                if (LooksLikeManifest(text)) json = text;
             }
+            if (string.IsNullOrWhiteSpace(json)) return null;
             return JsonSerializer.Deserialize<Manifest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         }
         catch { return null; }

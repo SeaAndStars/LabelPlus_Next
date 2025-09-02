@@ -35,6 +35,16 @@
             <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
+        <!-- 拖拽插入位置高亮：为 DataGrid 行添加上/下边框提示 -->
+        <Style Selector="dataGrid|DataGrid dataGrid|DataGridRow.drop-before">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="BorderThickness" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="dataGrid|DataGrid dataGrid|DataGridRow.drop-after">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+        </Style>
+
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="* 2 *" RowDefinitions="Auto Auto *">
@@ -239,7 +249,8 @@
                     FontSize="14"
                     ItemsSource="{Binding CurrentLabels}"
                     SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
-                    SelectionMode="Single">
+                    SelectionMode="Single"
+                    DragDrop.AllowDrop="True">
                     <dataGrid:DataGrid.Columns>
                         <dataGrid:DataGridTextColumn
                             Binding="{Binding Index}"

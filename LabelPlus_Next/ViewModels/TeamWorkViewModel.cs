@@ -285,36 +285,47 @@ public partial class TeamWorkViewModel : ObservableObject
         src.Columns.Add(new TextColumn<NodeItem, string>("文件数", x => x.FileCountText));
         // 移除“查看文件”按钮列
 
-        // 操作列：非文件节点 -> 原三按钮；文件节点 -> 下载按钮
+        // 操作列：
+        // - 话数根节点(IsEpisodeRoot) -> 显示开始翻译/校对/嵌字
+        // - 文件子项(IsFile) 或 阶段节点(有Path且非根/非容器) -> 显示下载
+        // - 文件容器节点(仅标题“文件”) -> 不显示按钮
         src.Columns.Add(new TemplateColumn<NodeItem>("操作",
             new FuncDataTemplate<NodeItem>((node, _) =>
             {
-                if (node?.IsFile == true)
-                {
-                    var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                    var btnD = new Button { Content = "下载" };
-                    btnD.Command = DownloadFileCommand;
-                    btnD.CommandParameter = node;
-                    sp.Children.Add(btnD);
-                    return sp;
-                }
-                else
+                if (node is null) return null;
+
+                if (node.IsEpisodeRoot)
                 {
                     var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                     var btnT = new Button { Content = "开始翻译" };
                     btnT.Command = StartTranslateCommand;
-                    btnT.CommandParameter = node?.Episode;
+                    btnT.CommandParameter = node.Episode;
                     var btnP = new Button { Content = "开始校对" };
                     btnP.Command = StartProofCommand;
-                    btnP.CommandParameter = node?.Episode;
+                    btnP.CommandParameter = node.Episode;
                     var btnS = new Button { Content = "开始嵌字" };
                     btnS.Command = StartTypesetCommand;
-                    btnS.CommandParameter = node?.Episode;
+                    btnS.CommandParameter = node.Episode;
                     sp.Children.Add(btnT);
                     sp.Children.Add(btnP);
                     sp.Children.Add(btnS);
                     return sp;
                 }
+
+                // 文件容器不显示任何按钮
+                if (node.IsGroupContainer)
+                {
+                    return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                }
+
+                // 文件或阶段节点：显示下载（若无路径则禁用）
+                var canDownload = !string.IsNullOrWhiteSpace(node.Path) || node.IsFile;
+                var sp2 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                var btnD = new Button { Content = "下载", IsEnabled = canDownload };
+                btnD.Command = DownloadFileCommand;
+                btnD.CommandParameter = node;
+                sp2.Children.Add(btnD);
+                return sp2;
             }, true)));
         TreeSource = src;
     }
@@ -331,7 +342,8 @@ public partial class TeamWorkViewModel : ObservableObject
             Path = null,
             Owner = null,
             CreatedAt = null,
-            UpdatedAt = null
+            UpdatedAt = null,
+            IsEpisodeRoot = true
         };
         var stages = new List<NodeItem>
         {
@@ -345,7 +357,7 @@ public partial class TeamWorkViewModel : ObservableObject
         // 新增：文件容器 + 文件子项
         if (e.FilePaths is { Count: > 0 })
         {
-            var container = new NodeItem { Title = "文件", Episode = e };
+            var container = new NodeItem { Title = "文件", Episode = e, IsGroupContainer = true };
             foreach (var rp in e.FilePaths)
             {
                 if (string.IsNullOrWhiteSpace(rp)) continue;
@@ -405,9 +417,15 @@ public partial class TeamWorkViewModel : ObservableObject
     {
         try
         {
-            if (node is null || !node.IsFile || string.IsNullOrWhiteSpace(node.Path))
+            if (node is null)
             {
-                ShowNotify("下载", "无效的文件项", NotificationType.Warning);
+                ShowNotify("下载", "无效的项目", NotificationType.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(node.Path))
+            {
+                ShowNotify("下载", "该项没有可下载的路径", NotificationType.Information);
                 return;
             }
 
@@ -419,6 +437,19 @@ public partial class TeamWorkViewModel : ObservableObject
             }
             var (baseUrl, token) = login.Value;
             var fs = new FileSystemApi(baseUrl);
+
+            // 若为目录则直接提示暂不支持打包下载
+            var meta = await fs.GetAsync(token, node.Path);
+            if (meta.Code != 200 || meta.Data is null)
+            {
+                ShowNotify("下载失败", meta.Message ?? "未知错误", NotificationType.Error);
+                return;
+            }
+            if (meta.Data.IsDir)
+            {
+                ShowNotify("下载", "该路径是文件夹，暂不支持打包下载", NotificationType.Information);
+                return;
+            }
 
             // 目标路径：桌面/LabelPlus_Downloads/<项目名>/<话数显示名>/<文件名>
             var fileName = GetFileNameFromRemote(node.Path);
@@ -524,6 +555,10 @@ public partial class TeamWorkViewModel : ObservableObject
         public List<NodeItem> Children { get; } = new();
         // 新增：标记是否为文件子项
         public bool IsFile { get; set; } // 新增
+        // 新增：话数根节点标记（用于仅在根节点显示开始按钮）
+        public bool IsEpisodeRoot { get; set; } // 新增
+        // 新增：分组容器（例如“文件”）标记
+        public bool IsGroupContainer { get; set; } // 新增
         // 新增：为表达式树提供安全访问的文件数文本
         public string FileCountText => (Episode?.FilePaths != null) ? Episode.FilePaths.Count.ToString() : "0";
     }

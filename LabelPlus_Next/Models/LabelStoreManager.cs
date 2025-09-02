@@ -80,4 +80,26 @@ public class LabelStoreManager
         IsDirty = true;
         await Task.CompletedTask;
     }
+
+    // 新增：移动同一文件中的标签顺序
+    public void MoveLabel(string file, int oldIndex, int newIndex)
+    {
+        if (!Store.TryGetValue(file, out var list)) return;
+        if (list.Count == 0) return;
+        if (oldIndex < 0 || oldIndex >= list.Count) return;
+        // 允许插入到末尾
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex > list.Count) newIndex = list.Count;
+        if (oldIndex == newIndex || oldIndex == list.Count - 1 && newIndex == list.Count) return;
+
+        var item = list[oldIndex];
+        list.RemoveAt(oldIndex);
+        // 移除后，如果向后移动，目标索引需要减一
+        if (newIndex > oldIndex) newIndex--;
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex > list.Count) newIndex = list.Count;
+        list.Insert(newIndex, item);
+        Logger.Info("Reorder label in {file}: {oldIndex} -> {newIndex}", file, oldIndex, newIndex);
+        TouchDirty();
+    }
 }
