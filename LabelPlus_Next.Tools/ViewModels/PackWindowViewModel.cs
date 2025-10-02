@@ -740,12 +740,12 @@ public partial class PackWindowViewModel : ObservableObject
         }
 
         ManifestV1? manifest = null;
-    if (!string.IsNullOrWhiteSpace(json))
+        if (!string.IsNullOrWhiteSpace(json))
         {
             try
             {
-        json = StripUtf8Bom(json);
-        manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+                json = StripUtf8Bom(json);
+                manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
                 if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
                     manifest = null;
             }
