@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -491,7 +492,22 @@ public partial class UploadViewModel : ObservableObject
                 }
             }
         }
-        catch { }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Failed to parse existing episode json at {path}", projectJsonPath);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            Logger.Warn(ex, "Failed to decode existing episode bytes at {path}", projectJsonPath);
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "HTTP error when retrieving existing episode keys at {path}", projectJsonPath);
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "Timeout retrieving existing episode keys at {path}", projectJsonPath);
+        }
         return set;
     }
 
@@ -728,7 +744,7 @@ public partial class UploadViewModel : ObservableObject
             return $"{ep.RangeStart}-{ep.RangeEnd}";
         return ep.Number.ToString("00");
     }
-    
+
     private static string BuildEpisodeKey(EpisodeEntry ep, int useNum)
     {
         if (ep.IsSpecial)
@@ -1032,7 +1048,16 @@ public partial class UploadViewModel : ObservableObject
                         var txt = Encoding.UTF8.GetString(dl.Content).TrimStart('\uFEFF');
                         cn = JsonSerializer.Deserialize(txt, AppJsonContext.Default.ProjectCn) ?? new ProjectCn();
                     }
-                    catch { cn = new ProjectCn(); }
+                    catch (JsonException ex)
+                    {
+                        Logger.Warn(ex, "Project metadata JSON invalid at {path}", projectJsonPath);
+                        cn = new ProjectCn();
+                    }
+                    catch (DecoderFallbackException ex)
+                    {
+                        Logger.Warn(ex, "Project metadata decoding failed at {path}", projectJsonPath);
+                        cn = new ProjectCn();
+                    }
                 }
                 else cn = new ProjectCn();
             }
@@ -1168,7 +1193,14 @@ public partial class UploadViewModel : ObservableObject
                 if (_dialogs is not null) await _dialogs.ShowMessageAsync("上传完成");
                 else await MessageBox.ShowAsync("上传完成", "提示", MessageBoxIcon.Information);
             }
-            catch { }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn(ex, "Failed to display upload completion dialog");
+            }
+            catch (TaskCanceledException ex)
+            {
+                Logger.Warn(ex, "Upload completion dialog was canceled");
+            }
             return true;
         }
         catch (Exception ex)
@@ -1277,8 +1309,21 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(s)) return 0;
         var map = new Dictionary<char, int>
         {
-            ['零'] = 0, ['一'] = 1, ['二'] = 2, ['两'] = 2, ['三'] = 3, ['四'] = 4, ['五'] = 5, ['六'] = 6, ['七'] = 7, ['八'] = 8, ['九'] = 9,
-            ['十'] = 10, ['百'] = 100, ['千'] = 1000, ['〇'] = 0
+            ['零'] = 0,
+            ['一'] = 1,
+            ['二'] = 2,
+            ['两'] = 2,
+            ['三'] = 3,
+            ['四'] = 4,
+            ['五'] = 5,
+            ['六'] = 6,
+            ['七'] = 7,
+            ['八'] = 8,
+            ['九'] = 9,
+            ['十'] = 10,
+            ['百'] = 100,
+            ['千'] = 1000,
+            ['〇'] = 0
         };
         var total = 0; var section = 0; var number = 0;
         foreach (var ch in s)

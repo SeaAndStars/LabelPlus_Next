@@ -5,11 +5,14 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using NLog;
 
 namespace LabelPlus_Next.Tools.ViewModels;
 
 public partial class ServerSettingsViewModel : ObservableObject
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     private string? baseUrl;
     private string? apiBaseUrl;
     private string? username;
@@ -60,7 +63,23 @@ public partial class ServerSettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(Password));
             OnPropertyChanged(nameof(TargetPath));
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to load tool settings from {SettingsPath}", SettingsPath);
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Tool settings JSON is invalid at {SettingsPath}", SettingsPath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied loading tool settings from {SettingsPath}", SettingsPath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Unexpected error loading tool settings from {SettingsPath}", SettingsPath);
+            throw;
+        }
     }
 
     private async Task SaveAsync()

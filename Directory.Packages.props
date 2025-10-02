@@ -39,6 +39,7 @@
     <PackageVersion Include="Semi.Avalonia" Version="11.2.1.9" />
     <PackageVersion Include="Semi.Avalonia.DataGrid" Version="11.2.1.9" />
     <PackageVersion Include="Semi.Avalonia.TreeDataGrid" Version="11.0.10.4" />
+    <PackageVersion Include="System.Management" Version="9.0.9" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
     <PackageVersion Include="WebDav.Client" Version="2.9.0" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />

@@ -1,21 +1,30 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Security;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Controls.Models.TreeDataGrid;
+using Avalonia.Controls.Notifications;
+using Avalonia.Controls.Templates;
+using Avalonia.Layout;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services.Api;
 using NLog;
-using System.Collections.ObjectModel;
-using System.Text;
-using System.Text.Json;
-using Avalonia.Controls.Notifications;
 using Notification = Ursa.Controls.Notification;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
-using Avalonia.Controls.Models.TreeDataGrid;
-using Avalonia.Controls.Templates;
-using Avalonia.Controls;
-using Avalonia.Layout;
-using System.IO; // 新增
-using System.Linq; // 新增: for ToInt and other LINQ helpers
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -199,7 +208,16 @@ public partial class TeamWorkViewModel : ObservableObject
             var txt = Encoding.UTF8.GetString(TrimBom(dl.Content)).TrimStart('\uFEFF');
             ProjectCn cn;
             try { cn = JsonSerializer.Deserialize(txt, AppJsonContext.Default.ProjectCn) ?? new ProjectCn(); }
-            catch { cn = new ProjectCn(); }
+            catch (JsonException ex)
+            {
+                Logger.Warn(ex, "TeamWork: project metadata JSON invalid at {path}", projectJson);
+                cn = new ProjectCn();
+            }
+            catch (DecoderFallbackException ex)
+            {
+                Logger.Warn(ex, "TeamWork: failed to decode project metadata at {path}", projectJson);
+                cn = new ProjectCn();
+            }
             foreach (var kv in cn.Items)
             {
                 var key = kv.Key;
@@ -387,7 +405,10 @@ public partial class TeamWorkViewModel : ObservableObject
             var idx = p.LastIndexOf('/');
             return idx >= 0 ? p[(idx + 1)..] : p;
         }
-        catch { return remotePath; }
+        catch (ArgumentOutOfRangeException)
+        {
+            return remotePath;
+        }
     }
 
     // 新增：显示文件列表（用于兼容旧的命令绑定，当前 UI 未使用）
@@ -481,7 +502,18 @@ public partial class TeamWorkViewModel : ObservableObject
     {
         string baseDir;
         try { baseDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory); }
-        catch { baseDir = Path.GetTempPath(); }
+        catch (PlatformNotSupportedException)
+        {
+            baseDir = Path.GetTempPath();
+        }
+        catch (SecurityException)
+        {
+            baseDir = Path.GetTempPath();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            baseDir = Path.GetTempPath();
+        }
         return Path.Combine(baseDir, "LabelPlus_Downloads", SanitizeFileName(project), SanitizeFileName(episode));
     }
 
@@ -499,7 +531,10 @@ public partial class TeamWorkViewModel : ObservableObject
     private void ShowNotify(string title, string message, NotificationType type)
     {
         try { NotificationManager?.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]); }
-        catch { }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn(ex, "Failed to show notification {title}", title);
+        }
     }
 
     private static int ToInt(string key) => int.TryParse(new string((key ?? string.Empty).Where(char.IsDigit).ToArray()), out var n) ? n : 0;

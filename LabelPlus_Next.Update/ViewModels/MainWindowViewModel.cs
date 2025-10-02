@@ -75,8 +75,23 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (_waitPid is int pid && pid > 0)
             {
-                try { var proc = Process.GetProcessById(pid); proc.WaitForExit(); }
-                catch { }
+                try
+                {
+                    using var proc = Process.GetProcessById(pid);
+                    proc.WaitForExit();
+                }
+                catch (ArgumentException ex)
+                {
+                    Logger.Debug(ex, "Wait PID {pid} no longer exists, continuing", pid);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    Logger.Debug(ex, "Unable to wait for PID {pid}, process already exited", pid);
+                }
+                catch (SystemException ex)
+                {
+                    Logger.Warn(ex, "Unexpected failure waiting for PID {pid}", pid);
+                }
             }
             await _updater.RunUpdateAsync(_overrideAppDir);
             // After updater completes normally, the updater service will attempt to relaunch main app.
@@ -110,7 +125,18 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed reading Client.version.json at {clientVerPath}", clientVerPath);
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Client.version.json malformed at {clientVerPath}", clientVerPath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied reading Client.version.json at {clientVerPath}", clientVerPath);
+        }
 
         // Fallback search: *.Desktop*.exe in root
         try
@@ -128,7 +154,14 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (!Path.GetFileName(f).Contains("Update", StringComparison.OrdinalIgnoreCase)) return f;
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed enumerating executables under {appDir}", appDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied enumerating executables under {appDir}", appDir);
+        }
         return null;
     }
 
@@ -142,6 +175,6 @@ public partial class MainWindowViewModel : ViewModelBase
         Speed = _updater.Speed;
         Status = _updater.Status;
         TotalBytesToReceiveInMB = _updater.TotalBytesToReceiveInMB;
-    Version = _updater.LatestVersion;
+        Version = _updater.LatestVersion;
     }
 }

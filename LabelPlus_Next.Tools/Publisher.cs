@@ -10,12 +10,14 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Services.Api;
+using NLog;
 
 namespace LabelPlus_Next.Tools;
 
 public static class Publisher
 {
     private const string DefaultUserAgent = "pan.baidu.com";
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     public static async Task<int> RunAsync(string version, string artifactsDir, PublishSettings settings)
     {
@@ -49,20 +51,20 @@ public static class Publisher
         }
 
         // 2) Download current manifest (if exists), update projects
-    var manifest = await DownloadManifestAsync(settings, fs, token) ?? new Manifest();
+        var manifest = await DownloadManifestAsync(settings, fs, token) ?? new Manifest();
         manifest.GeneratedAt = DateTimeOffset.UtcNow;
 
-    // Separate Desktop and Update packages by name
-    var desktopFiles = uploaded.FindAll(f => !f.filename.Contains("update", StringComparison.OrdinalIgnoreCase));
-    var updateFiles = uploaded.FindAll(f => f.filename.Contains("update", StringComparison.OrdinalIgnoreCase));
+        // Separate Desktop and Update packages by name
+        var desktopFiles = uploaded.FindAll(f => !f.filename.Contains("update", StringComparison.OrdinalIgnoreCase));
+        var updateFiles = uploaded.FindAll(f => f.filename.Contains("update", StringComparison.OrdinalIgnoreCase));
 
-    UpdateProject(manifest, "LabelPlus_Next.Desktop", version, desktopFiles, defaultEntry: new EntryMeta
+        UpdateProject(manifest, "LabelPlus_Next.Desktop", version, desktopFiles, defaultEntry: new EntryMeta
         {
             Windows = "LabelPlus_Next.Desktop.exe",
             Linux = "LabelPlus_Next",
             Macos = "LabelPlus_Next.app"
         });
-    UpdateProject(manifest, "LabelPlus_Next.Update", version, updateFiles, defaultEntry: new EntryMeta
+        UpdateProject(manifest, "LabelPlus_Next.Update", version, updateFiles, defaultEntry: new EntryMeta
         {
             Windows = "LabelPlus_Next.Update.exe",
             Linux = "LabelPlus_Next.Update",
@@ -70,7 +72,7 @@ public static class Publisher
         });
 
         // 3) Upload manifest
-    await UploadManifestAsync(settings, manifest, fs, token);
+        await UploadManifestAsync(settings, manifest, fs, token);
         return 0;
     }
 
@@ -155,7 +157,23 @@ public static class Publisher
             var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("data", out var data) && data.TryGetProperty("token", out var token)) return token.GetString();
         }
-        catch { }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "登录 API 请求失败");
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "登录 API 请求超时");
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "登录响应 JSON 解析失败");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "登录 API 出现未预期异常");
+            throw;
+        }
         return null;
     }
 
@@ -171,7 +189,15 @@ public static class Publisher
                 && root.TryGetProperty("projects", out var proj)
                 && proj.ValueKind == JsonValueKind.Object) return true;
         }
-        catch { }
+        catch (JsonException ex)
+        {
+            Logger.Debug(ex, "Manifest JSON 格式检测失败");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "检测 manifest JSON 时发生未预期异常");
+            throw;
+        }
         return false;
     }
 
@@ -208,7 +234,31 @@ public static class Publisher
             if (string.IsNullOrWhiteSpace(json)) return null;
             return JsonSerializer.Deserialize<Manifest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         }
-        catch { return null; }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "下载 manifest 失败: 网络异常");
+            return null;
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "下载 manifest 超时");
+            return null;
+        }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "处理 manifest 时发生 IO 异常");
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "manifest JSON 解析失败");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "下载 manifest 时发生未预期异常");
+            throw;
+        }
     }
 
     private static async Task UploadManifestAsync(PublishSettings s, Manifest m, FileSystemApi fs, string token)
@@ -278,7 +328,28 @@ public static class Publisher
         foreach (var p in parts)
         {
             current = current == "/" ? "/" + p : current + "/" + p;
-            try { await fs.MkdirAsync(token, current); } catch { }
+            try { await fs.MkdirAsync(token, current); }
+            catch (HttpRequestException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 失败（网络异常）", current);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 超时", current);
+            }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} IO 异常", current);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 权限不足", current);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "创建远端目录 {current} 时发生未预期异常", current);
+                throw;
+            }
         }
     }
 }
@@ -295,6 +366,8 @@ public sealed class EntryMeta
 // helpers
 file static class PathInference
 {
+    private static readonly Logger Logger = LogManager.GetLogger("Publisher.PathInference");
+
     public static string? InferRidFromPath(string path)
     {
         var lower = path.Replace('\\', '/').ToLowerInvariant();
@@ -317,7 +390,19 @@ file static class PathInference
                 dir = dir.Parent;
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "向上查找项目名时 IO 异常: {start}", start);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "向上查找项目名时权限不足: {start}", start);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "向上查找项目名时发生未预期异常: {start}", start);
+            throw;
+        }
         return null;
     }
 }

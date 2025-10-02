@@ -454,7 +454,16 @@ public class MainWindowViewModel : ObservableObject
             var left = u.GetLeftPart(UriPartial.Path).TrimEnd('/');
             return left;
         }
-        catch { return url?.TrimEnd('/'); }
+        catch (UriFormatException ex)
+        {
+            Logger.Debug(ex, "Invalid URL format detected, returning trimmed string");
+            return url?.TrimEnd('/');
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Unexpected error normalizing URL");
+            throw;
+        }
     }
 
     private string ResolveToAbsolute(string possiblyRelative)
@@ -493,7 +502,16 @@ public class MainWindowViewModel : ObservableObject
             var rel = baseUri.MakeRelativeUri(absUri).ToString();
             return Uri.UnescapeDataString(rel);
         }
-        catch { return null; }
+        catch (UriFormatException ex)
+        {
+            Logger.Debug(ex, "Failed to compute relative URL, returning null");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Unexpected error computing relative URL");
+            throw;
+        }
     }
 
     private async Task LoadSettingsAsync()

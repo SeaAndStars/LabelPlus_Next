@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -7,6 +8,7 @@ using LabelPlus_Next.ApiServer.Entities;
 using LabelPlus_Next.ApiServer.Models;
 using LabelPlus_Next.ApiServer.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -18,11 +20,20 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Storage"));
 
+var startupDbFailures = new List<Exception>();
+
 var cs = builder.Configuration.GetConnectionString("Postgres");
 if (!string.IsNullOrWhiteSpace(cs))
 {
-    try { builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(cs)); }
-    catch { builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("labelplus")); }
+    try
+    {
+        builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(cs));
+    }
+    catch (Exception ex)
+    {
+        startupDbFailures.Add(ex);
+        builder.Services.AddDbContext<AppDbContext>(opt => opt.UseInMemoryDatabase("labelplus"));
+    }
 }
 else
 {
@@ -32,6 +43,12 @@ else
 builder.Services.AddSingleton<IJwtService, JwtService>();
 
 var app = builder.Build();
+var logger = app.Logger;
+
+foreach (var ex in startupDbFailures)
+{
+    logger.LogWarning(ex, "Failed to configure PostgreSQL. Falling back to in-memory database.");
+}
 
 // Ensure storage folders
 var storage = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
@@ -41,7 +58,15 @@ Directory.CreateDirectory(storage.TempPath);
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    try { db.Database.EnsureCreated(); } catch { }
+    try
+    {
+        db.Database.EnsureCreated();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to ensure database is created");
+        throw;
+    }
     if (!await db.Users.AnyAsync())
     {
         db.Users.Add(new User
@@ -330,7 +355,19 @@ fs.MapPost("/mkdir", async (MkdirRequest req, HttpRequest http, AppDbContext db)
         var phys = MapToPhysical(path, app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
         Directory.CreateDirectory(phys);
     }
-    catch { }
+    catch (IOException ex)
+    {
+        logger.LogWarning(ex, "Failed to create directory on disk for {Path}", path);
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        logger.LogWarning(ex, "Unauthorized to create directory on disk for {Path}", path);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unexpected error creating directory for {Path}", path);
+        throw;
+    }
 
     var entry = new FileEntry
     {
@@ -371,7 +408,20 @@ fs.MapPost("/copy", async (CopyRequest req, HttpRequest http, AppDbContext db) =
         if (src.IsDir)
         {
             // create directory on disk & db
-            try { Directory.CreateDirectory(MapToPhysical(dPath, opt)); } catch { }
+            try { Directory.CreateDirectory(MapToPhysical(dPath, opt)); }
+            catch (IOException ex)
+            {
+                logger.LogWarning(ex, "Failed to create destination directory {Path}", dPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                logger.LogWarning(ex, "Unauthorized creating destination directory {Path}", dPath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error creating destination directory {Path}", dPath);
+                throw;
+            }
             db.Files.Add(new FileEntry
             {
                 Path = dPath,
@@ -393,7 +443,19 @@ fs.MapPost("/copy", async (CopyRequest req, HttpRequest http, AppDbContext db) =
                 Directory.CreateDirectory(Path.GetDirectoryName(dstFile)!);
                 File.Copy(srcFile, dstFile, overwrite: false);
             }
-            catch { }
+            catch (IOException ex)
+            {
+                logger.LogWarning(ex, "File copy failed from {Source} to {Destination}", sPath, dPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                logger.LogWarning(ex, "Unauthorized copying file from {Source} to {Destination}", sPath, dPath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error copying file from {Source} to {Destination}", sPath, dPath);
+                throw;
+            }
             db.Files.Add(new FileEntry
             {
                 Path = dPath,
@@ -455,7 +517,20 @@ fs.MapMethods("/put", new[] { "PUT" }, async (HttpRequest http, AppDbContext db)
                     await src.CopyToAsync(fsFinal);
                 }
             }
-            try { Directory.Delete(tmpDir, true); } catch { }
+            try { Directory.Delete(tmpDir, true); }
+            catch (IOException ex)
+            {
+                logger.LogWarning(ex, "Failed to delete temporary upload directory {TmpDir}", tmpDir);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                logger.LogWarning(ex, "Unauthorized deleting temporary upload directory {TmpDir}", tmpDir);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error deleting temporary upload directory {TmpDir}", tmpDir);
+                throw;
+            }
 
             // update db
             var now = DateTimeOffset.UtcNow;

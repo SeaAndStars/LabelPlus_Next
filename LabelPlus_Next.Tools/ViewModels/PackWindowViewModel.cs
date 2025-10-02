@@ -27,6 +27,7 @@ public partial class PackWindowViewModel : ObservableObject
 {
     private const string ManifestSchema = "labelplus-manifest/v1";
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
 
     // Keep all project-version pairs detected from version files
     private readonly List<(string Project, string Version)> versionEntries = new();
@@ -239,7 +240,7 @@ public partial class PackWindowViewModel : ObservableObject
                 var remoteManifestPath = remoteBase + "manifest.json";
                 var mergedManifestJson = await BuildMergedManifestV1JsonAsync(fs, token, uploadSettings, manifestDownloadUrlFromProject, versionEntries, zipUrl, remoteManifestPath, fileEntry);
                 var manifestFile = Path.Combine(outDir, "manifest.json");
-                await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Encoding.UTF8);
+                await File.WriteAllTextAsync(manifestFile, mergedManifestJson, Utf8NoBom);
                 ManifestPath = manifestFile;
                 ManifestUrl = new Uri(pubBase, "manifest.json").ToString();
 
@@ -371,21 +372,47 @@ public partial class PackWindowViewModel : ObservableObject
                 {
                     var dl = await fs2.DownloadAsync(token2, remoteBase2 + "manifest.json");
                     if (dl.Code == 200 && dl.Content is not null)
-                        json = Encoding.UTF8.GetString(dl.Content);
+                        json = StripUtf8Bom(Encoding.UTF8.GetString(dl.Content));
                 }
             }
-            catch { }
+            catch (HttpRequestException ex)
+            {
+                Logger.Warn(ex, "网络异常，无法获取远端 manifest");
+            }
+            catch (TaskCanceledException ex)
+            {
+                Logger.Warn(ex, "获取远端 manifest 超时");
+            }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "读取远端 manifest 时发生 IO 错误");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "获取远端 manifest 时发生未预期异常");
+                throw;
+            }
 
             ManifestV1? manifest = null;
             if (!string.IsNullOrWhiteSpace(json))
             {
                 try
                 {
+                    json = StripUtf8Bom(json);
                     manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
                     if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
                         manifest = null;
                 }
-                catch { manifest = null; }
+                catch (JsonException ex)
+                {
+                    Logger.Warn(ex, "远端 manifest JSON 解析失败，忽略并重新生成");
+                    manifest = null;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "解析远端 manifest 时发生未预期异常");
+                    throw;
+                }
             }
             manifest ??= new ManifestV1();
 
@@ -398,7 +425,7 @@ public partial class PackWindowViewModel : ObservableObject
             }
 
             var manifestOut = Path.Combine(outDir, "manifest.json");
-            await File.WriteAllTextAsync(manifestOut, JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }), Encoding.UTF8);
+            await File.WriteAllTextAsync(manifestOut, JsonSerializer.Serialize(manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }), Utf8NoBom);
             ManifestPath = manifestOut;
             ManifestUrl = new Uri(pubRoot, "manifest.json").ToString();
 
@@ -475,6 +502,12 @@ public partial class PackWindowViewModel : ObservableObject
         var s = p.Replace('\\', '/').Trim('/');
         if (string.IsNullOrEmpty(s)) return string.Empty;
         return s + '/';
+    }
+
+    private static string StripUtf8Bom(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        return text[0] == '\uFEFF' ? text[1..] : text;
     }
 
     private static async Task<ToolsSettings?> LoadSettingsAsync(string settingsPath)
@@ -585,9 +618,14 @@ public partial class PackWindowViewModel : ObservableObject
                 }
             }
         }
-        catch
+        catch (JsonException ex)
         {
-            // ignore malformed; return empty prj
+            Logger.Warn(ex, "旧 manifest JSON 结构无效，将返回空项目列表");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "迁移旧 manifest 时发生未预期异常");
+            throw;
         }
         prj.Releases.Sort((x, y) =>
         {
@@ -624,7 +662,16 @@ public partial class PackWindowViewModel : ObservableObject
                 }
             }
         }
-        catch { return false; }
+        catch (JsonException ex)
+        {
+            Logger.Debug(ex, "检测 manifest JSON 格式失败");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "检查 manifest JSON 时发生未预期异常");
+            throw;
+        }
         return false;
     }
 
@@ -649,7 +696,7 @@ public partial class PackWindowViewModel : ObservableObject
                 var dl = await fs.DownloadAsync(token, remoteManifestPath);
                 if (dl.Code == 200 && dl.Content is not null)
                 {
-                    var candidate = Encoding.UTF8.GetString(dl.Content);
+                    var candidate = StripUtf8Bom(Encoding.UTF8.GetString(dl.Content));
                     Logger.Info("已通过 FileAPI 获取 manifest.json: {path}", remoteManifestPath);
                     LogFetchedJson("FileAPI", remoteManifestPath, candidate);
                     // 仅当内容看起来像 manifest 再采用，避免后续反序列化触发第一次机会异常
@@ -680,7 +727,7 @@ public partial class PackWindowViewModel : ObservableObject
                     var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{s.Username}:{s.Password}"));
                     http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", basic);
                 }
-                var httpJson = await http.GetStringAsync(downloadUrl);
+                var httpJson = StripUtf8Bom(await http.GetStringAsync(downloadUrl));
                 Logger.Info("已从下载地址获取 manifest.json: {url}", downloadUrl);
                 LogFetchedJson("HTTP", downloadUrl!, httpJson);
                 if (LooksLikeManifestJson(httpJson)) json = httpJson;
@@ -693,15 +740,25 @@ public partial class PackWindowViewModel : ObservableObject
         }
 
         ManifestV1? manifest = null;
-        if (!string.IsNullOrWhiteSpace(json))
+    if (!string.IsNullOrWhiteSpace(json))
         {
             try
             {
-                manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+        json = StripUtf8Bom(json);
+        manifest = JsonSerializer.Deserialize<ManifestV1>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
                 if (manifest is not null && !string.Equals(manifest.Schema, ManifestSchema, StringComparison.Ordinal))
                     manifest = null;
             }
-            catch { manifest = null; }
+            catch (JsonException ex)
+            {
+                Logger.Warn(ex, "通过下载地址获取的 manifest JSON 无法解析，忽略");
+                manifest = null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "处理下载 manifest JSON 时发生未预期异常");
+                throw;
+            }
         }
         manifest ??= MigrateOldToV1(entries[0].Project, json);
 
@@ -714,7 +771,7 @@ public partial class PackWindowViewModel : ObservableObject
 
     private static async Task EnsureRemoteDirAsync(FileSystemApi fs, string token, string baseDir)
     {
-    // baseDir like "/OneDrive2/Update/"
+        // baseDir like "/OneDrive2/Update/"
         if (string.IsNullOrWhiteSpace(baseDir)) return;
         var p = baseDir.Replace("\\", "/");
         if (!p.StartsWith('/')) p = "/" + p;
@@ -726,7 +783,27 @@ public partial class PackWindowViewModel : ObservableObject
         {
             current = current == "/" ? "/" + part : current + "/" + part;
             try { await fs.MkdirAsync(token, current); }
-            catch { }
+            catch (HttpRequestException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 时网络异常", current);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 超时", current);
+            }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 时 IO 错误", current);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Warn(ex, "创建远端目录 {current} 权限不足", current);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "创建远端目录 {current} 时发生未预期异常", current);
+                throw;
+            }
         }
     }
 
@@ -914,6 +991,25 @@ public partial class PackWindowViewModel : ObservableObject
                 return v.GetString();
             return null;
         }
-        catch { return null; }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "读取 {jsonPath} 失败，无法获取版本", jsonPath);
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "读取 {jsonPath} 权限不足", jsonPath);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "{jsonPath} JSON 格式无效，忽略版本信息", jsonPath);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "处理 {jsonPath} 时发生未预期异常", jsonPath);
+            throw;
+        }
     }
 }

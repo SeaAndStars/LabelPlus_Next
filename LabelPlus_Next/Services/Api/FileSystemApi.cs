@@ -193,7 +193,7 @@ public sealed class FileSystemApi : IFileSystemApi
             Logger.Warn(ex, "SafePut pre-backup failed for {file}", filePath);
         }
 
-    var res = await PutRawAsync(token, filePath, content, asTask, null, 0, 0, cancellationToken, null);
+        var res = await PutRawAsync(token, filePath, content, asTask, null, 0, 0, cancellationToken, null);
         Logger.Info("SafePut completed {file} -> code={code}", filePath, res.Code);
         return res;
     }
@@ -238,7 +238,7 @@ public sealed class FileSystemApi : IFileSystemApi
             Logger.Warn(ex, "SafePut+Progress pre-backup failed for {file}", filePath);
         }
 
-    var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken, null);
+        var res = await PutRawAsync(token, filePath, content, asTask, progress, completedHint, totalHint, cancellationToken, null);
         Logger.Info("SafePut+Progress completed {file} -> code={code}", filePath, res.Code);
         return res;
     }
@@ -261,7 +261,11 @@ public sealed class FileSystemApi : IFileSystemApi
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); } catch { }
+            try { await Task.Delay(delayMs, cancellationToken); }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -341,7 +345,18 @@ public sealed class FileSystemApi : IFileSystemApi
         }
         finally
         {
-            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            try
+            {
+                if (File.Exists(tmp)) File.Delete(tmp);
+            }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "Failed to delete temporary download file {file}", tmp);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Warn(ex, "Access denied when deleting temporary download file {file}", tmp);
+            }
         }
     }
 
@@ -361,7 +376,11 @@ public sealed class FileSystemApi : IFileSystemApi
             if (!retryable) break;
 
             var delayMs = Math.Min(1000, 100 * (1 << Math.Min(6, attempt)));
-            try { await Task.Delay(delayMs, cancellationToken); } catch { }
+            try { await Task.Delay(delayMs, cancellationToken); }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
         }
         if (meta.Code != 200 || meta.Data is null || meta.Data.IsDir)
         {
@@ -505,47 +524,47 @@ public sealed class FileSystemApi : IFileSystemApi
         switch (request.Mode)
         {
             case UploadMode.Single:
-            {
-                var res = await SafePutAsync(token, NormalizeRemotePath(request.RemotePath!), request.Content!, asTask, cancellationToken);
-                return new[] { res };
-            }
-            case UploadMode.Multiple:
-            {
-                var items = request.Items ?? Array.Empty<FileUploadItem>();
-                var norm = items.Select(i => new FileUploadItem { FilePath = NormalizeRemotePath(i.FilePath), Content = i.Content, LocalPath = i.LocalPath }).ToList();
-                return await PutManyAsync(token, norm, maxConcurrency, asTask, cancellationToken);
-            }
-            case UploadMode.Directory:
-            {
-                if (string.IsNullOrWhiteSpace(request.LocalDirectory)) return Array.Empty<FsPutResponse>();
-                var localDir = Path.GetFullPath(request.LocalDirectory!);
-                if (!Directory.Exists(localDir)) return Array.Empty<FsPutResponse>();
-                var remoteBase = NormalizeRemotePath(request.RemoteBasePath ?? "/");
-
-                var files = Directory.EnumerateFiles(localDir, "*", SearchOption.AllDirectories).ToList();
-                var relItems = new List<(string remotePath, string localPath)>();
-                foreach (var f in files)
                 {
-                    var rel = Path.GetRelativePath(localDir, f).Replace('\\', '/');
-                    var remotePath = CombinePath(remoteBase, rel);
-                    relItems.Add((remotePath, f));
+                    var res = await SafePutAsync(token, NormalizeRemotePath(request.RemotePath!), request.Content!, asTask, cancellationToken);
+                    return new[] { res };
                 }
-
-                var results = new FsPutResponse[relItems.Count];
-                using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
-                var tasks = relItems.Select(async (pair, idx) =>
+            case UploadMode.Multiple:
                 {
-                    await sem.WaitAsync(cancellationToken);
-                    try
+                    var items = request.Items ?? Array.Empty<FileUploadItem>();
+                    var norm = items.Select(i => new FileUploadItem { FilePath = NormalizeRemotePath(i.FilePath), Content = i.Content, LocalPath = i.LocalPath }).ToList();
+                    return await PutManyAsync(token, norm, maxConcurrency, asTask, cancellationToken);
+                }
+            case UploadMode.Directory:
+                {
+                    if (string.IsNullOrWhiteSpace(request.LocalDirectory)) return Array.Empty<FsPutResponse>();
+                    var localDir = Path.GetFullPath(request.LocalDirectory!);
+                    if (!Directory.Exists(localDir)) return Array.Empty<FsPutResponse>();
+                    var remoteBase = NormalizeRemotePath(request.RemoteBasePath ?? "/");
+
+                    var files = Directory.EnumerateFiles(localDir, "*", SearchOption.AllDirectories).ToList();
+                    var relItems = new List<(string remotePath, string localPath)>();
+                    foreach (var f in files)
                     {
-                        await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
-                        results[idx] = await SafePutAsync(token, pair.remotePath, /*localPath*/ pair.localPath, /*content*/ null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
+                        var rel = Path.GetRelativePath(localDir, f).Replace('\\', '/');
+                        var remotePath = CombinePath(remoteBase, rel);
+                        relItems.Add((remotePath, f));
                     }
-                    finally { sem.Release(); }
-                });
-                await Task.WhenAll(tasks);
-                return results;
-            }
+
+                    var results = new FsPutResponse[relItems.Count];
+                    using var sem = new SemaphoreSlim(Math.Max(1, maxConcurrency));
+                    var tasks = relItems.Select(async (pair, idx) =>
+                    {
+                        await sem.WaitAsync(cancellationToken);
+                        try
+                        {
+                            await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
+                            results[idx] = await SafePutAsync(token, pair.remotePath, /*localPath*/ pair.localPath, /*content*/ null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
+                        }
+                        finally { sem.Release(); }
+                    });
+                    await Task.WhenAll(tasks);
+                    return results;
+                }
             default:
                 return Array.Empty<FsPutResponse>();
         }

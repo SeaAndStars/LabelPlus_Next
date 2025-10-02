@@ -46,7 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string? selectedImageFile;
     [ObservableProperty] private LabelItem? selectedLabel;
 
-    [ObservableProperty]private string? selectedLang = "default";
+    [ObservableProperty] private string? selectedLang = "default";
 
     // Notification manager (injected from MainWindow)
     public WindowNotificationManager? NotificationManager { get; set; }
@@ -485,7 +485,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (File.Exists(imagePath))
             {
                 try { PicImageSource = new Bitmap(imagePath); }
-                catch { PicImageSource = null; }
+                catch (Exception ex)
+                {
+                    Logger.Warn(ex, "Failed to load image bitmap: {path}", imagePath);
+                    PicImageSource = null;
+                }
             }
             else { PicImageSource = null; }
         }

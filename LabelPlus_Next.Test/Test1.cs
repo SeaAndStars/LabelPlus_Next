@@ -448,7 +448,18 @@ public sealed class Test1
         finally
         {
             try { Directory.Delete(localRoot, true); }
-            catch { }
+            catch (IOException ex)
+            {
+                Console.WriteLine($"清理测试目录失败 (IO): {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"清理测试目录权限不足: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"清理测试目录发生异常: {ex}");
+            }
         }
     }
 

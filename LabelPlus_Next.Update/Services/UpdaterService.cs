@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -120,7 +122,9 @@ public sealed class UpdaterService : IUpdaterService
                     Logger.Info("Updater zip downloaded and verified, extracting to {dir}", targetDir);
                     await ExtractZipSelectiveAsync(tmpZip, targetDir, relPath => relPath.Replace('\\', '/').StartsWith("update/", StringComparison.OrdinalIgnoreCase));
                     try { CleanupForeignArchives(targetDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after self-update failed"); }
-                    try { File.Delete(tmpZip); } catch { }
+                    try { File.Delete(tmpZip); }
+                    catch (IOException ex) { Logger.Warn(ex, "Failed to delete temporary updater archive {file}", tmpZip); }
+                    catch (UnauthorizedAccessException ex) { Logger.Warn(ex, "Access denied when deleting temporary updater archive {file}", tmpZip); }
                     await _messages.ShowOverlayAsync($"更新程序已更新到 {updaterLatest}，请从主程序重新触发更新", "提示");
                     TryStartMainApp(targetDir);
                     return;
@@ -187,7 +191,14 @@ public sealed class UpdaterService : IUpdaterService
                 if (Directory.Exists(upd) && File.Exists(Path.Combine(upd, "settings.json"))) return upd;
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to probe override settings directory {dir}", overrideAppDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied when probing override settings directory {dir}", overrideAppDir);
+        }
         return runtimeBaseDir;
     }
 
@@ -237,7 +248,13 @@ public sealed class UpdaterService : IUpdaterService
             {
                 url += url.Contains('?') ? "&download=1" : "?download=1";
             }
-            var cfg = new DownloadConfiguration { ChunkCount = 8, ParallelDownload = true };
+            var cfg = new DownloadConfiguration
+            {
+                // 默认单线程串行下载，降低对远端服务器的压力，提升稳定性
+                ChunkCount = 1,
+                ParallelDownload = false,
+                RangeDownload = false
+            };
             cfg.RequestConfiguration ??= new RequestConfiguration();
             cfg.RequestConfiguration.Headers ??= new System.Net.WebHeaderCollection();
             cfg.RequestConfiguration.Headers["User-Agent"] = DefaultUserAgent;
@@ -247,19 +264,20 @@ public sealed class UpdaterService : IUpdaterService
                 var host = new Uri(url).Host.ToLowerInvariant();
                 if (host.Contains("baidupcs.com") || host.Contains("baidu.com"))
                 {
-            // 强制单流，禁用并发/分片，减少风控触发
-            cfg.ChunkCount = 1;
-            cfg.ParallelDownload = false;
+                    // 强制单流，禁用并发/分片，减少风控触发
+                    cfg.ChunkCount = 1;
+                    cfg.ParallelDownload = false;
                     cfg.RangeDownload = false;
-            Logger.Info("Enforce single-stream for host={host}", host);
+                    Logger.Info("Enforce single-stream for host={host}", host);
                     cfg.RequestConfiguration.Headers["Referer"] = "https://pan.baidu.com/disk/home";
                     cfg.RequestConfiguration.Headers["Origin"] = "https://pan.baidu.com";
                     cfg.RequestConfiguration.Headers["Accept"] = "*/*";
-                    // 某些节点对并发/分片敏感，必要时可降级为单流
-                    // 先保留并发，失败时由上层回退到 HttpClient 单流下载
                 }
             }
-            catch { }
+            catch (UriFormatException ex)
+            {
+                Logger.Warn(ex, "Invalid URL while configuring downloader headers: {url}", url);
+            }
             Logger.Info("Downloader config: ua={ua}, chunks={chunks}, parallel={pd}, range={range}", DefaultUserAgent, cfg.ChunkCount, cfg.ParallelDownload, cfg.RangeDownload);
             var service = new DownloadService(cfg);
             var completedWithoutError = false;
@@ -285,7 +303,10 @@ public sealed class UpdaterService : IUpdaterService
                     if (canceled) Logger.Warn("Downloader canceled: {url}", url);
                     completedWithoutError = err == null && !canceled;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Logger.Warn(ex, "Downloader completion handler threw for {url}", url);
+                }
             };
             await service.DownloadFileTaskAsync(url, outPath);
             // 校验下载是否成功（事件未报告错误且文件非空）
@@ -309,7 +330,22 @@ public sealed class UpdaterService : IUpdaterService
                     return false;
                 }
             }
-            catch { }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "Failed to inspect downloaded file {file}", outPath);
+                SafeDelete(outPath);
+                Status = DStatus.Error;
+                ProgressChanged?.Invoke();
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Warn(ex, "Access denied while inspecting downloaded file {file}", outPath);
+                SafeDelete(outPath);
+                Status = DStatus.Error;
+                ProgressChanged?.Invoke();
+                return false;
+            }
 
             Status = DStatus.Completed;
             ProgressChanged?.Invoke();
@@ -329,6 +365,13 @@ public sealed class UpdaterService : IUpdaterService
     {
         try
         {
+            Status = DStatus.Downloading;
+            BytesReceivedInMB = 0;
+            ProgressPercentage = 0;
+            Speed = 0;
+            Remaining = TimeSpan.Zero;
+            ProgressChanged?.Invoke();
+
             // AList 公链 /d/<sign> 需要 ?download=1
             if (!string.IsNullOrWhiteSpace(url) && url.Contains("/d/", StringComparison.OrdinalIgnoreCase) && !url.Contains("download=", StringComparison.OrdinalIgnoreCase))
             {
@@ -347,18 +390,53 @@ public sealed class UpdaterService : IUpdaterService
                     http.DefaultRequestHeaders.Accept.ParseAdd("*/*");
                 }
             }
-            catch { }
+            catch (UriFormatException ex)
+            {
+                Logger.Warn(ex, "Invalid URL while configuring HttpClient headers: {url}", url);
+            }
 
             Logger.Info("HttpClient fallback downloading: {url}", url);
             using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
             if (!resp.IsSuccessStatusCode)
             {
                 Logger.Warn("HttpClient fallback failed: {code} {url}", (int)resp.StatusCode, url);
+                Status = DStatus.Error;
+                ProgressChanged?.Invoke();
                 return false;
             }
-            await using (var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write, FileShare.Read))
+
+            var contentLength = resp.Content.Headers.ContentLength ?? 0L;
+            TotalBytesToReceiveInMB = contentLength > 0 ? contentLength / 1024d / 1024d : 0;
+
+            await using var responseStream = await resp.Content.ReadAsStreamAsync();
+            await using var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write, FileShare.Read);
+
+            var buffer = ArrayPool<byte>.Shared.Rent(128 * 1024);
+            try
             {
-                await resp.Content.CopyToAsync(fs);
+                var stopwatch = Stopwatch.StartNew();
+                long totalRead = 0;
+                while (true)
+                {
+                    var read = await responseStream.ReadAsync(buffer.AsMemory(0, buffer.Length));
+                    if (read == 0) break;
+                    await fs.WriteAsync(buffer.AsMemory(0, read));
+                    totalRead += read;
+
+                    BytesReceivedInMB = totalRead / 1024d / 1024d;
+                    var elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                    var bytesPerSecond = elapsedSeconds > 0 ? totalRead / elapsedSeconds : 0;
+                    Speed = bytesPerSecond / 1024d / 1024d;
+                    ProgressPercentage = contentLength > 0 ? Math.Min(100, totalRead * 100d / contentLength) : 0;
+                    Remaining = contentLength > 0 && bytesPerSecond > 0
+                        ? TimeSpan.FromSeconds(Math.Max(0, (contentLength - totalRead) / bytesPerSecond))
+                        : TimeSpan.Zero;
+                    ProgressChanged?.Invoke();
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
             }
             try
             {
@@ -367,17 +445,39 @@ public sealed class UpdaterService : IUpdaterService
                 {
                     Logger.Warn("HttpClient fallback wrote empty file -> {file}", outPath);
                     SafeDelete(outPath);
+                    Status = DStatus.Error;
+                    ProgressChanged?.Invoke();
                     return false;
                 }
             }
-            catch { }
+            catch (IOException ex)
+            {
+                Logger.Warn(ex, "Failed to inspect file downloaded via HttpClient {file}", outPath);
+                SafeDelete(outPath);
+                Status = DStatus.Error;
+                ProgressChanged?.Invoke();
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Warn(ex, "Access denied when inspecting file downloaded via HttpClient {file}", outPath);
+                SafeDelete(outPath);
+                Status = DStatus.Error;
+                ProgressChanged?.Invoke();
+                return false;
+            }
             Logger.Info("HttpClient fallback finished -> {file}", outPath);
+            Status = DStatus.Completed;
+            ProgressPercentage = 100;
+            ProgressChanged?.Invoke();
             return true;
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "DownloadWithHttpClientAsync failed");
             SafeDelete(outPath);
+            Status = DStatus.Error;
+            ProgressChanged?.Invoke();
             return false;
         }
     }
@@ -400,7 +500,7 @@ public sealed class UpdaterService : IUpdaterService
             }
             return false;
         }
-        catch
+        catch (UriFormatException)
         {
             var idx = url.IndexOf("/dav", StringComparison.OrdinalIgnoreCase);
             if (idx >= 0)
@@ -430,7 +530,26 @@ public sealed class UpdaterService : IUpdaterService
             var result = JsonSerializer.Deserialize<LoginResponse>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             return result?.Data?.Token;
         }
-        catch { return null; }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "API login HTTP error for {baseUrl}", upd.BaseUrl);
+            return null;
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "API login timeout for {baseUrl}", upd.BaseUrl);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "API login returned invalid JSON for {baseUrl}", upd.BaseUrl);
+            return null;
+        }
+        catch (UriFormatException ex)
+        {
+            Logger.Warn(ex, "API login encountered invalid base URL {baseUrl}", upd.BaseUrl);
+            return null;
+        }
     }
 
     private static async Task<string?> ApiFsGetRawUrlAsync(UpdateSettings upd, string? token, string davPath)
@@ -451,7 +570,26 @@ public sealed class UpdaterService : IUpdaterService
             if (!string.IsNullOrWhiteSpace(result.Data.Sign)) return AppendSlash(upd.BaseUrl!) + "d/" + Uri.EscapeDataString(result.Data.Sign);
             return null;
         }
-        catch { return null; }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "fs/get HTTP error for {path}", davPath);
+            return null;
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "fs/get timeout for {path}", davPath);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "fs/get returned invalid JSON for {path}", davPath);
+            return null;
+        }
+        catch (UriFormatException ex)
+        {
+            Logger.Warn(ex, "fs/get encountered invalid base URL {baseUrl}", upd.BaseUrl);
+            return null;
+        }
     }
 
     private static async Task<string> ResolveRawUrlAsync(UpdateSettings upd, string url)
@@ -489,15 +627,25 @@ public sealed class UpdaterService : IUpdaterService
                             if (!string.IsNullOrWhiteSpace(raw)) finalUrl = raw!;
                         }
                     }
-                    catch { }
+                    catch (UriFormatException ex)
+                    {
+                        Logger.Warn(ex, "Invalid final URL while resolving /d/ link: {url}", finalUrl);
+                    }
                 }
             }
             finalUrl = await ResolveRawUrlAsync(upd, finalUrl);
             Logger.Info("Attempt {i}/{n}: finalUrl={url}", i, attempts, finalUrl);
             bool ok;
             var isBaidu = false;
-            try { var host = new Uri(finalUrl).Host.ToLowerInvariant(); isBaidu = host.Contains("baidupcs.com") || host.Contains("baidu.com"); }
-            catch { }
+            try
+            {
+                var host = new Uri(finalUrl).Host.ToLowerInvariant();
+                isBaidu = host.Contains("baidupcs.com") || host.Contains("baidu.com");
+            }
+            catch (UriFormatException ex)
+            {
+                Logger.Warn(ex, "Invalid final URL when detecting host: {url}", finalUrl);
+            }
             if (isBaidu)
             {
                 Logger.Info("Direct HttpClient (baidupcs) for {url}", finalUrl);
@@ -540,16 +688,49 @@ public sealed class UpdaterService : IUpdaterService
 
     private static void SafeDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to delete file {file}", path);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied when deleting file {file}", path);
+        }
     }
 
     private static async Task<bool> EnsureFileReadyAsync(string path, int maxAttempts = 10, int delayMs = 100)
     {
         for (var i = 0; i < maxAttempts; i++)
         {
-            try { if (File.Exists(path)) { using var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read); return true; } }
-            catch { }
-            try { await Task.Delay(delayMs); } catch { }
+            try
+            {
+                if (File.Exists(path))
+                {
+                    using var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    return true;
+                }
+            }
+            catch (IOException ex)
+            {
+                Logger.Debug(ex, "File not ready yet: {file}", path);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Debug(ex, "Access denied while checking file readiness: {file}", path);
+            }
+
+            try
+            {
+                await Task.Delay(delayMs);
+            }
+            catch (TaskCanceledException)
+            {
+                return false;
+            }
         }
         return false;
     }
@@ -562,11 +743,13 @@ public sealed class UpdaterService : IUpdaterService
 
         Logger.Info("Extracting client zip to {dir}", appDir);
         await ExtractZipSelectiveAsync(tmpZip, appDir, relPath => relPath.Replace('\\', '/').StartsWith("update/", StringComparison.OrdinalIgnoreCase));
-    try { CleanupForeignArchives(appDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after extraction failed"); }
-        try { File.Delete(tmpZip); } catch { }
-    Status = DStatus.Completed;
-    ProgressPercentage = 100;
-    ProgressChanged?.Invoke();
+        try { CleanupForeignArchives(appDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after extraction failed"); }
+        try { File.Delete(tmpZip); }
+        catch (IOException ex) { Logger.Warn(ex, "Failed to delete temporary client archive {file}", tmpZip); }
+        catch (UnauthorizedAccessException ex) { Logger.Warn(ex, "Access denied when deleting temporary client archive {file}", tmpZip); }
+        Status = DStatus.Completed;
+        ProgressPercentage = 100;
+        ProgressChanged?.Invoke();
         return true;
     }
 
@@ -634,7 +817,18 @@ public sealed class UpdaterService : IUpdaterService
                         System.IO.File.SetUnixFileMode(entry, mode);
                     }
                 }
-                catch { }
+                catch (PlatformNotSupportedException ex)
+                {
+                    Logger.Debug(ex, "Unix file mode APIs are not supported on this platform for entry {entry}", entry);
+                }
+                catch (IOException ex)
+                {
+                    Logger.Warn(ex, "Failed to adjust Unix file mode for entry {entry}", entry);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Logger.Warn(ex, "Access denied when adjusting Unix file mode for entry {entry}", entry);
+                }
             }
 
             var psi = new ProcessStartInfo
@@ -645,7 +839,26 @@ public sealed class UpdaterService : IUpdaterService
             };
             Process.Start(psi);
         }
-        catch { }
+        catch (Win32Exception ex)
+        {
+            Logger.Warn(ex, "Failed to start main app process in {dir}", appDir);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Warn(ex, "Main app entry not found when starting process in {dir}", appDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied when starting main app process in {dir}", appDir);
+        }
+        catch (PlatformNotSupportedException ex)
+        {
+            Logger.Warn(ex, "Platform does not support starting main app in {dir}", appDir);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn(ex, "Invalid operation when starting main app in {dir}", appDir);
+        }
     }
 
     private static string? ResolveMainEntry(string appDir, ReleaseFile? meta)
@@ -689,7 +902,18 @@ public sealed class UpdaterService : IUpdaterService
                 }
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to read Client.version.json at {path}", clientVerPath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied reading Client.version.json at {path}", clientVerPath);
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Client.version.json contains invalid JSON at {path}", clientVerPath);
+        }
 
         try
         {
@@ -733,7 +957,14 @@ public sealed class UpdaterService : IUpdaterService
                 return unixCandidates.FirstOrDefault();
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to enumerate application directory {dir} when resolving main entry", appDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied enumerating application directory {dir}", appDir);
+        }
         return null;
     }
 
@@ -764,18 +995,44 @@ public sealed class UpdaterService : IUpdaterService
                         var name = Path.GetFileName(file);
                         if (otherRids.Any(r => name.Contains(r, StringComparison.OrdinalIgnoreCase)))
                         {
-                            try { File.Delete(file); Logger.Info("Cleanup removed foreign archive: {file}", file); } catch { }
+                            try
+                            {
+                                File.Delete(file);
+                                Logger.Info("Cleanup removed foreign archive: {file}", file);
+                            }
+                            catch (IOException ex)
+                            {
+                                Logger.Warn(ex, "Failed to delete foreign archive {file}", file);
+                            }
+                            catch (UnauthorizedAccessException ex)
+                            {
+                                Logger.Warn(ex, "Access denied when deleting foreign archive {file}", file);
+                            }
                         }
                     }
                 }
-                catch { }
+                catch (IOException ex)
+                {
+                    Logger.Warn(ex, "Failed to enumerate directory {dir} during cleanup", dir);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Logger.Warn(ex, "Access denied enumerating directory {dir} during cleanup", dir);
+                }
             }
 
             CleanOneDir(appDir);
             var updateDir = Path.Combine(appDir, "update");
             CleanOneDir(updateDir);
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "CleanupForeignArchives failed for {dir}", appDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied during CleanupForeignArchives for {dir}", appDir);
+        }
     }
 
     private static string GetRidForCleanup()
@@ -797,7 +1054,21 @@ public sealed class UpdaterService : IUpdaterService
             if (doc.RootElement.TryGetProperty("version", out var v)) return v.GetString();
             return null;
         }
-        catch { return null; }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to read local version file {path}", path);
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied reading local version file {path}", path);
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Local version file contained invalid JSON {path}", path);
+            return null;
+        }
     }
 
     private static bool IsGreater(string? remote, string? local)
@@ -838,7 +1109,22 @@ public sealed class UpdaterService : IUpdaterService
                 }
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to read manifest configuration from {dir}", appDir);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied while reading manifest configuration from {dir}", appDir);
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Client.version.json contains invalid manifest information in {dir}", appDir);
+        }
+        catch (UriFormatException ex)
+        {
+            Logger.Warn(ex, "Manifest URI in settings was invalid for base {baseUrl}", upd.BaseUrl);
+        }
         if (manifestUri is null)
         {
             Logger.Warn("Manifest URI not resolved from settings or Client.version.json");
@@ -871,7 +1157,10 @@ public sealed class UpdaterService : IUpdaterService
                         resolved = raw!;
                 }
             }
-            catch { }
+            catch (UriFormatException ex)
+            {
+                Logger.Warn(ex, "Resolved manifest URL was invalid: {url}", resolved);
+            }
             Logger.Info("Fetch manifest: url={url} => resolved={resolved}", url, resolved);
             var text = await DownloadStringWithAuthFallbackAsync(resolved, null);
             if (!string.IsNullOrEmpty(text))
@@ -934,7 +1223,18 @@ public sealed class UpdaterService : IUpdaterService
             var resp1 = await http.SendAsync(req1);
             if (resp1.IsSuccessStatusCode) return await resp1.Content.ReadAsStringAsync();
         }
-        catch { }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "Primary GET request failed for {url}", url);
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "Primary GET request timed out for {url}", url);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn(ex, "Primary GET request invalid operation for {url}", url);
+        }
 
         if (!string.IsNullOrWhiteSpace(token))
         {
@@ -945,7 +1245,18 @@ public sealed class UpdaterService : IUpdaterService
                 var resp2 = await http.SendAsync(req2);
                 if (resp2.IsSuccessStatusCode) return await resp2.Content.ReadAsStringAsync();
             }
-            catch { }
+            catch (HttpRequestException ex)
+            {
+                Logger.Warn(ex, "Authorized GET request failed for {url}", url);
+            }
+            catch (TaskCanceledException ex)
+            {
+                Logger.Warn(ex, "Authorized GET request timed out for {url}", url);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Warn(ex, "Authorized GET request invalid operation for {url}", url);
+            }
         }
         return null;
     }
@@ -953,7 +1264,8 @@ public sealed class UpdaterService : IUpdaterService
     private sealed class LoginResponse { public int Code { get; set; } public string? Message { get; set; } public LoginData? Data { get; set; } }
     private sealed class LoginData { public string? Token { get; set; } }
     private sealed class FsGetResponse { public int Code { get; set; } public string? Message { get; set; } public FsGetData? Data { get; set; } }
-    private sealed class FsGetData {
+    private sealed class FsGetData
+    {
         [JsonPropertyName("raw_url")] public string? RawUrl { get; set; }
         [JsonPropertyName("sign")] public string? Sign { get; set; }
         [JsonPropertyName("is_dir")] public bool IsDir { get; set; }

@@ -1,13 +1,17 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using Ursa.Controls;
+using NLog;
 
 namespace LabelPlus_Next.Views.Pages;
 
 public partial class AboutWindow : UrsaWindow
 {
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public AboutWindow()
     {
         InitializeComponent();
@@ -30,7 +34,23 @@ public partial class AboutWindow : UrsaWindow
                 }
             }
         }
-        catch { }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "读取 Client.version.json 失败");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "读取 Client.version.json 权限不足");
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Client.version.json 格式错误");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "解析版本信息时发生未预期异常");
+            throw;
+        }
 
         // Fallback: assembly version
         var ver = typeof(App).Assembly.GetName().Version?.ToString() ?? "";
@@ -44,7 +64,10 @@ public partial class AboutWindow : UrsaWindow
             var url = "https://github.com/SeaAndStars/LabelPlus_Next";
             Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "打开项目主页失败");
+        }
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
