@@ -15,7 +15,7 @@ namespace LabelPlus_Next.DeeplinkClients
     /// </summary>
     public static class DeeplinkAckHelper
     {
-    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static readonly HttpClient httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(10)
@@ -33,11 +33,11 @@ namespace LabelPlus_Next.DeeplinkClients
         /// <summary>
         /// 发送 ack（供 App 在接收到 deeplink 后调用）。
         /// </summary>
-    public static async Task<bool> SendAckWithRetryAsync(string callbackUrl, string key, bool allowLocalHttpFallback = false, string? authorizationHeader = null, bool isAckSecret = false)
+        public static async Task<bool> SendAckWithRetryAsync(string callbackUrl, string key, bool allowLocalHttpFallback = false, string? authorizationHeader = null, bool isAckSecret = false)
         {
             if (string.IsNullOrWhiteSpace(callbackUrl) || string.IsNullOrWhiteSpace(key)) return false;
             var payload = isAckSecret ? "{\"ackSecret\":\"" + JsonEscapeForSimple(key) + "\"}" : "{\"token\":\"" + JsonEscapeForSimple(key) + "\"}";
-            Logger.Info("Deeplink ack: preparing to POST to {url} payload={payloadShort}", callbackUrl, payload.Length > 200 ? payload.Substring(0,200) + "..." : payload);
+            Logger.Info("Deeplink ack: preparing to POST to {url} payload={payloadShort}", callbackUrl, payload.Length > 200 ? payload.Substring(0, 200) + "..." : payload);
             TimeSpan backoff = InitialBackoff;
             bool triedHttpFallback = false; // for https://localhost fallback
             for (int attempt = 0; attempt < MaxRetries; attempt++)
@@ -56,15 +56,15 @@ namespace LabelPlus_Next.DeeplinkClients
                     try { respBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false); } catch (Exception re) { Logger.Debug(re, "Read response body failed"); }
                     if (resp.IsSuccessStatusCode)
                     {
-                        Logger.Info("Deeplink ack succeeded to {url} status={status} body={bodyShort}", callbackUrl, status, respBody.Length > 200 ? respBody.Substring(0,200) + "..." : respBody);
+                        Logger.Info("Deeplink ack succeeded to {url} status={status} body={bodyShort}", callbackUrl, status, respBody.Length > 200 ? respBody.Substring(0, 200) + "..." : respBody);
                         return true;
                     }
                     if (status >= 400 && status < 500)
                     {
-                        Logger.Warn("Deeplink ack returned client error {status} to {url} body={bodyShort}", status, callbackUrl, respBody.Length > 200 ? respBody.Substring(0,200) + "..." : respBody);
+                        Logger.Warn("Deeplink ack returned client error {status} to {url} body={bodyShort}", status, callbackUrl, respBody.Length > 200 ? respBody.Substring(0, 200) + "..." : respBody);
                         return false;
                     }
-                    Logger.Warn("Deeplink ack returned non-success status {status} to {url} body={bodyShort}, will retry", status, callbackUrl, respBody.Length > 200 ? respBody.Substring(0,200) + "..." : respBody);
+                    Logger.Warn("Deeplink ack returned non-success status {status} to {url} body={bodyShort}, will retry", status, callbackUrl, respBody.Length > 200 ? respBody.Substring(0, 200) + "..." : respBody);
                 }
                 catch (HttpRequestException hre)
                 {
@@ -138,7 +138,7 @@ namespace LabelPlus_Next.DeeplinkClients
                 if (!string.IsNullOrEmpty(authorizationHeader)) line += ",\"auth\":\"" + JsonEscapeForSimple(authorizationHeader) + "\"";
                 line += "}";
                 await File.AppendAllTextAsync(QueueFile, line + Environment.NewLine).ConfigureAwait(false);
-                Logger.Info("Queued deeplink ack to local file {file} key={keyShort} isAckSecret={isAck}", QueueFile, key.Length > 8 ? key.Substring(0,8) + "..." : key, isAckSecret);
+                Logger.Info("Queued deeplink ack to local file {file} key={keyShort} isAckSecret={isAck}", QueueFile, key.Length > 8 ? key.Substring(0, 8) + "..." : key, isAckSecret);
             }
             catch { }
         }
@@ -162,14 +162,14 @@ namespace LabelPlus_Next.DeeplinkClients
                         var isAckSecretStr = ExtractJsonValue(line, "isAckSecret");
                         var isAckSecret = string.Equals(isAckSecretStr, "true", StringComparison.OrdinalIgnoreCase);
                         if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(url)) { remaining.Add(line); continue; }
-                        Logger.Info("Flushing queued ack to {url} key={keyShort} isAckSecret={isAck}", url, key.Length > 8 ? key.Substring(0,8) + "..." : key, isAckSecret);
+                        Logger.Info("Flushing queued ack to {url} key={keyShort} isAckSecret={isAck}", url, key.Length > 8 ? key.Substring(0, 8) + "..." : key, isAckSecret);
                         var ok = await SendAckWithRetryAsync(url, key, false, auth, isAckSecret).ConfigureAwait(false);
                         if (!ok) remaining.Add(line);
                     }
                     catch
                     {
                         remaining.Add(line);
-                        Logger.Warn("Failed to process queued ack line, left for later: {line}", line.Length > 200 ? line.Substring(0,200) + "..." : line);
+                        Logger.Warn("Failed to process queued ack line, left for later: {line}", line.Length > 200 ? line.Substring(0, 200) + "..." : line);
                     }
                 }
                 if (remaining.Count == 0)

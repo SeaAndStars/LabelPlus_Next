@@ -25,7 +25,7 @@ public class UpdateSettings
 
     // Optional dev callback server for deeplink testing e.g. https://localhost:5175/api/deeplink/ack
     [JsonPropertyName("deeplinkCallbackUrl")] public string? DeeplinkCallbackUrl { get; set; }
-    
+
     // Development switch: when true, client may fallback to http:// for localhost callback URLs on TLS failures
     [JsonPropertyName("allowLocalHttpFallback")] public bool AllowLocalHttpFallback { get; set; } = false;
     // Optional Authorization header to include when posting deeplink ack (e.g. "Bearer <token>")

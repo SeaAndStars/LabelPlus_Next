@@ -4,7 +4,7 @@
     "manifestPath": "/OneDrive2/Update/manifest.json",
     "username": "Upgrade",
     "password": "91f158c48d6ab9c5373c992eb07426cad91da2befd437101b1c90797d8c9daf1",
-    "deeplinkCallbackUrl": "https://localhost:5175/api/deeplink/ack"
-    ,"allowLocalHttpFallback": false
+    "deeplinkCallbackUrl": "https://localhost:5175/api/deeplink/ack",
+    "allowLocalHttpFallback": false
   }
 }
