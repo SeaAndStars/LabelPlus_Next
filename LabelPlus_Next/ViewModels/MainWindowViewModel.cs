@@ -51,6 +51,9 @@ public partial class MainWindowViewModel : ViewModelBase
     // Notification manager (injected from MainWindow)
     public WindowNotificationManager? NotificationManager { get; set; }
 
+    // Protocol activation URI (set by App on startup when opened via labelplus://...)
+    public string? InitialUri { get; set; }
+
     public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
 
     public bool HasUnsavedChanges
