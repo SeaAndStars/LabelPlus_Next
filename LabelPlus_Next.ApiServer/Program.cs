@@ -9,6 +9,7 @@ using LabelPlus_Next.ApiServer.Models;
 using LabelPlus_Next.ApiServer.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -83,6 +84,8 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
     }
 }
+
+
 
 static string NormalizePath(string? p)
 {
