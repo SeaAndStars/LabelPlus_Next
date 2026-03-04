@@ -16,6 +16,7 @@
         <ResourceDictionary>
             <!--  Provide a sensible default if the theme doesn't register this token at runtime  -->
             <Color x:Key="SemiColorText2">#FF202020</Color>
+            <Color x:Key="SemiColorOverlayBackground">#80000000</Color>
 
             <!--  Theme-specific brush for LabeledTextBox text/index  -->
             <ResourceDictionary.ThemeDictionaries>
@@ -36,9 +37,8 @@
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
         <StyleInclude Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml" />
 
-
-        <semi:SemiTheme Locale="zh-CN" />
-        <u-semi:SemiTheme Locale="zh-CN" />
+    <semi:SemiTheme Locale="zh-CN" />
+    <u-semi:SemiTheme Locale="zh-CN" />
 
         <!--  Keep TextBox global tweaks if any other TextBox is used elsewhere  -->
         <Style Selector="TextBox">

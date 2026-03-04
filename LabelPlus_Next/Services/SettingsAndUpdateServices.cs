@@ -15,6 +15,7 @@ public interface ISettingsService
 public class JsonSettingsService : ISettingsService
 {
     private readonly string _path;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public JsonSettingsService(string? path = null)
     {
@@ -23,17 +24,49 @@ public class JsonSettingsService : ISettingsService
 
     public async Task<AppSettings> LoadAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_path)) return new AppSettings();
-        await using var fs = File.OpenRead(_path);
-        var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.AppSettings, ct);
-        return s ?? new AppSettings();
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (!File.Exists(_path)) return new AppSettings();
+
+            var fi = new FileInfo(_path);
+            if (fi.Length == 0) return new AppSettings();
+
+            await using var fs = File.OpenRead(_path);
+            var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.AppSettings, ct);
+            return s ?? new AppSettings();
+        }
+        catch (JsonException)
+        {
+            return new AppSettings();
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken ct = default)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-        await using var fs = File.Create(_path);
-        await JsonSerializer.SerializeAsync(fs, settings, AppJsonContext.Default.AppSettings, ct);
+        await _gate.WaitAsync(ct);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            var tmpPath = _path + ".tmp";
+
+            await using (var fs = File.Create(tmpPath))
+            {
+                await JsonSerializer.SerializeAsync(fs, settings, AppJsonContext.Default.AppSettings, ct);
+                await fs.FlushAsync(ct);
+            }
+
+            File.Copy(tmpPath, _path, true);
+            File.Delete(tmpPath);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 }
 

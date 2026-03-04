@@ -951,8 +951,8 @@ public partial class PackWindowViewModel : ObservableObject
         // we really want LabelPlus_Next.Desktop or LabelPlus_Next.Update.
         var csproj = GetProjectPath(repoRoot, projectName);
         var projDir = Path.GetDirectoryName(csproj) ?? Path.Combine(repoRoot, projectName);
-        // Assume net9.0 and Release
-        return Path.Combine(projDir, "bin", "Release", "net9.0", rid, "publish");
+        // Assume net10.0 and Release
+        return Path.Combine(projDir, "bin", "Release", "net10.0", rid, "publish");
     }
 
     private static async Task PublishProjectAsync(string repoRoot, string projectName, string rid, bool selfContained, bool singleFile, bool trimmed)

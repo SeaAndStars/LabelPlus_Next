@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="clr-namespace:LabelPlus_Next.Views"
     xmlns:u="https://irihi.tech/ursa"
     Title="LabelPlus_Next"
     Width="1300"
@@ -15,66 +16,5 @@
     mc:Ignorable="d">
 
 
-    <Grid
-        x:Name="RootGrid"
-        Margin="0,25,0,0"
-        ColumnDefinitions="auto,*"
-        RowDefinitions="*">
-
-        <Grid Grid.Column="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-
-            <u:NavMenu
-                x:Name="NavMenuMain"
-                Grid.Row="0"
-                IsHorizontalCollapsed="False"
-                SelectionChanged="OnNavSelectionChanged">
-
-                <u:NavMenuItem
-                    Header="收起"
-                    Icon="◀"
-                    Tag="toggle" />
-                <u:NavMenuItem
-                    Header="翻译"
-                    Icon="📝"
-                    Tag="translate" />
-                <u:NavMenuItem
-                    Header="校对"
-                    Icon="✅"
-                    Tag="proof" />
-                <u:NavMenuItem
-                    Header="协作"
-                    Icon="🤝"
-                    Tag="teamwork" />
-                <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
-                <u:NavMenuItem
-                    Header="交付"
-                    Icon="📦"
-                    Tag="deliver" />
-            </u:NavMenu>
-
-
-            <u:NavMenu
-                x:Name="NavMenuFooter"
-                Grid.Row="1"
-                SelectionChanged="OnNavSelectionChanged">
-                <u:NavMenuItem
-                    Header="设置"
-                    Icon="⚙"
-                    Tag="settings" />
-            </u:NavMenu>
-        </Grid>
-
-
-        <Border
-            Grid.Column="1"
-            Margin="8"
-            BorderThickness="0">
-            <ContentControl x:Name="NavContent" />
-        </Border>
-    </Grid>
+    <views:MainView x:Name="MainViewHost" Margin="0,25,0,0" />
 </u:UrsaWindow>

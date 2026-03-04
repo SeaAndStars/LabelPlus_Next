@@ -1,0 +1,87 @@
+/**
+ * 全局 SCSS 混入（Mixins）
+ *
+ * 提供常用样式片段的复用，减少重复代码。
+ */
+
+@use 'variables' as *;
+
+/// 面板容器样式
+@mixin panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+}
+
+/// 主按钮样式
+@mixin btn-primary {
+  border: none;
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+  font-size: $font-size-md;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/// 普通按钮样式
+@mixin btn-default {
+  border: 1px solid var(--border-default);
+  border-radius: $radius-md;
+  padding: $spacing-sm $spacing-md;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: $font-size-md;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+/// 工具栏容器样式
+@mixin toolbar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  height: $toolbar-height;
+  padding: 0 $spacing-sm;
+}
+
+/// 分隔线（竖向）
+@mixin toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--divider);
+  margin: 0 $spacing-xs;
+}
+
+/// 文字省略（单行）
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/// 模态叠加层
+@mixin overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}

@@ -49,7 +49,6 @@ public partial class AboutWindow : UrsaWindow
         catch (Exception ex)
         {
             Logger.Error(ex, "解析版本信息时发生未预期异常");
-            throw;
         }
 
         // Fallback: assembly version

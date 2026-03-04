@@ -1,0 +1,17 @@
+/**
+ * 全局样式入口
+ *
+ * 引入重置样式和设计令牌，提供全局公共样式。
+ * 各组件使用 scoped 样式 + 设计令牌变量。
+ */
+
+@use 'styles/variables' as *;
+@use 'styles/reset';
+
+/* ========== 应用根容器 ========== */
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

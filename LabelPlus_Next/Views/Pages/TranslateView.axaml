@@ -47,8 +47,9 @@
 
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="* 2 *" RowDefinitions="Auto Auto *">
-        <!--  顶部主工具栏  -->
+    <Grid>
+        <Grid ColumnDefinitions="* 2 *" RowDefinitions="Auto Auto *">
+            <!--  顶部主工具栏  -->
         <u:ToolBar
             Grid.Row="0"
             Grid.Column="0"
@@ -109,7 +110,7 @@
             </StackPanel>
         </u:ToolBar>
 
-        <!--  分隔线  -->
+            <!--  分隔线  -->
         <Border
             Grid.Row="1"
             Grid.Column="0"
@@ -118,7 +119,7 @@
             Margin="0,0,0,16"
             Background="{DynamicResource AccentButtonBackground}" />
 
-        <!--  左侧模式工具栏  -->
+            <!--  左侧模式工具栏  -->
         <u:ToolBar
             Grid.Row="1"
             Grid.Column="0"
@@ -133,7 +134,7 @@
             <u:ToolBarSeparator />
         </u:ToolBar>
 
-        <!--  右上分类快捷  -->
+            <!--  右上分类快捷  -->
         <u:ToolBar
             Grid.Row="1"
             Grid.Column="2"
@@ -150,7 +151,7 @@
                 Foreground="Blue" />
         </u:ToolBar>
 
-        <!--  主内容：图片 + 标签  -->
+            <!--  主内容：图片 + 标签  -->
         <Grid
             Grid.Row="2"
             Grid.Column="0"
@@ -294,5 +295,66 @@
                     TextWrapping="Wrap" />
             </Grid>
         </Grid>
+
+        </Grid>
+
+        <Border
+            x:Name="BrowserOverlayBackdrop"
+            IsVisible="False"
+            Background="#80000000">
+            <Grid>
+                <Border
+                    x:Name="BrowserImageManagerPanel"
+                    IsVisible="False"
+                    Width="900"
+                    Height="560"
+                    Padding="16"
+                    Background="{DynamicResource BackgroundBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="2*,Auto,2*" RowDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="目录文件" FontSize="16" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="已包含" FontSize="16" />
+
+                        <ListBox x:Name="BrowserImageAvailableList" Grid.Row="1" Grid.Column="0" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="8">
+                            <Button Content=">" Click="BrowserImageSelectOne_OnClick" MinWidth="80" />
+                            <Button Content=">>" Click="BrowserImageSelectAll_OnClick" MinWidth="80" />
+                            <Button Content="&lt;" Click="BrowserImageUnselectOne_OnClick" MinWidth="80" />
+                            <Button Content="&lt;&lt;" Click="BrowserImageUnselectAll_OnClick" MinWidth="80" />
+                        </StackPanel>
+                        <ListBox x:Name="BrowserImageIncludedList" Grid.Row="1" Grid.Column="2" />
+
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                            <Button Content="取消" Click="BrowserImageCancel_OnClick" MinWidth="100" />
+                            <Button Content="确定" Click="BrowserImageOk_OnClick" MinWidth="100" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border
+                    x:Name="BrowserFileSettingsPanel"
+                    IsVisible="False"
+                    Width="760"
+                    Height="500"
+                    Padding="16"
+                    Background="{DynamicResource BackgroundBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="分组（每行一个）" FontSize="16" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="备注" FontSize="16" />
+
+                        <TextBox x:Name="BrowserGroupListTextBox" Grid.Row="1" Grid.Column="0" Margin="0,8,8,0" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                        <TextBox x:Name="BrowserNotesTextBox" Grid.Row="1" Grid.Column="1" Margin="8,8,0,0" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                            <Button Content="取消" Click="BrowserFileSettingsCancel_OnClick" MinWidth="100" />
+                            <Button Content="保存" Click="BrowserFileSettingsSave_OnClick" MinWidth="100" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

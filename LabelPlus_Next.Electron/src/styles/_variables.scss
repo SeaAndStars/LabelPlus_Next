@@ -1,0 +1,93 @@
+/**
+ * 设计令牌 — 颜色、间距、字体等全局变量
+ *
+ * 使用 CSS 自定义属性实现亮/暗主题切换，
+ * SCSS 变量仅用于不随主题变化的静态值。
+ */
+
+/* ========== 静态变量 ========== */
+
+/// 基础字体族
+$font-family-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+/// 基础行高
+$line-height-base: 1.5;
+
+/// 圆角
+$radius-sm: 4px;
+$radius-md: 6px;
+$radius-lg: 8px;
+
+/// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+
+/// 字号
+$font-size-sm: 13px;
+$font-size-md: 14px;
+$font-size-lg: 16px;
+$font-size-xl: 20px;
+
+/// 工具栏高度
+$toolbar-height: 40px;
+
+/// 侧边导航宽度
+$nav-width-expanded: 140px;
+$nav-width-collapsed: 48px;
+
+/// 分类颜色（固定）
+$category-inner-color: #e53e3e; // 框内 — 红色
+$category-outer-color: #3182ce; // 框外 — 蓝色
+
+/* ========== 亮色主题 CSS 自定义属性 ========== */
+:root,
+[data-theme='light'] {
+  /* 背景 */
+  --bg-primary: #f5f5f7;
+  --bg-panel: #ffffff;
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-hover: #f0f0f0;
+  --bg-active: #ddf4ff;
+
+  /* 前景/文字 */
+  --text-primary: #1f2328;
+  --text-secondary: #57606a;
+  --text-muted: #8b949e;
+
+  /* 边框 */
+  --border-default: #d0d7de;
+  --border-active: #0969da;
+
+  /* 强调色 */
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --accent-fg: #ffffff;
+
+  /* 分隔线 */
+  --divider: #d0d7de;
+}
+
+/* ========== 暗色主题 ========== */
+[data-theme='dark'] {
+  --bg-primary: #0d1117;
+  --bg-panel: #161b22;
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-hover: #21262d;
+  --bg-active: #1a3a5c;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+
+  --border-default: #30363d;
+  --border-active: #58a6ff;
+
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-fg: #0d1117;
+
+  --divider: #30363d;
+}
