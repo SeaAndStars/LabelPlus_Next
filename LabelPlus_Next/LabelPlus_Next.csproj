@@ -8,6 +8,7 @@
         <AssemblyName>LabelPlus_Next</AssemblyName>
         <ApplicationIcon>Assets\LabelPlus_Next_rounded_icon_transparent.ico</ApplicationIcon>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);CS0618</NoWarn>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
         <IsAotCompatible>True</IsAotCompatible>
