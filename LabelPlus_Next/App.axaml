@@ -17,6 +17,19 @@
             <!--  Provide a sensible default if the theme doesn't register this token at runtime  -->
             <Color x:Key="SemiColorText2">#FF202020</Color>
 
+            <Color x:Key="LpBgTop">#FF0F172A</Color>
+            <Color x:Key="LpBgBottom">#FF111827</Color>
+            <Color x:Key="LpSurface">#FF1F2937</Color>
+            <Color x:Key="LpCardBorder">#334155</Color>
+            <Color x:Key="LpPrimary">#38BDF8</Color>
+
+            <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Offset="0" Color="{DynamicResource LpBgTop}" />
+                <GradientStop Offset="1" Color="{DynamicResource LpBgBottom}" />
+            </LinearGradientBrush>
+            <SolidColorBrush x:Key="LpSurfaceBrush" Color="{DynamicResource LpSurface}" />
+            <SolidColorBrush x:Key="LpButtonBrush" Color="{DynamicResource LpPrimary}" Opacity="0.16" />
+
             <!--  Theme-specific brush for LabeledTextBox text/index  -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
@@ -41,6 +54,29 @@
         <u-semi:SemiTheme Locale="zh-CN" />
 
         <!--  Keep TextBox global tweaks if any other TextBox is used elsewhere  -->
+        <Style Selector="u|UrsaWindow">
+            <Setter Property="Background" Value="{DynamicResource LpAppBackground}" />
+        </Style>
+        <Style Selector="u|NavMenu">
+            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="u|NavMenuItem">
+            <Setter Property="Padding" Value="10,10" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="CornerRadius" Value="0" />
@@ -103,6 +139,9 @@
                                 ContentHeight="{Binding ContentHeight, RelativeSource={RelativeSource TemplatedParent}}"
                                 ContentWidth="{Binding ContentWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                 HighlightIndex="{Binding HighlightIndex, RelativeSource={RelativeSource TemplatedParent}}"
+                                LabelIndexFontScale="{Binding LabelIndexFontScale, RelativeSource={RelativeSource TemplatedParent}}"
+                                LabelTipFontScale="{Binding LabelTipFontScale, RelativeSource={RelativeSource TemplatedParent}}"
+                                LabelTipBackgroundOpacity="{Binding LabelTipBackgroundOpacity, RelativeSource={RelativeSource TemplatedParent}}"
                                 IsHitTestVisible="False"
                                 Labels="{Binding Labels, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Grid>

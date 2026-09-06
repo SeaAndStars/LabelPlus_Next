@@ -5,6 +5,29 @@ namespace LabelPlus_Next.Models;
 public class AppSettings
 {
     [JsonPropertyName("update")] public UpdateSettings Update { get; set; } = new();
+    [JsonPropertyName("labelOverlay")] public LabelOverlaySettings LabelOverlay { get; set; } = new();
+}
+
+public class LabelOverlaySettings
+{
+    public const double DefaultLabelIndexFontScale = 1.0;
+    public const double DefaultLabelTipFontScale = 1.0;
+    public const double DefaultLabelTipBackgroundOpacity = 0.7;
+
+    public const double MinLabelIndexFontScale = 0.5;
+    public const double MaxLabelIndexFontScale = 2.5;
+
+    public const double MinLabelTipFontScale = 0.5;
+    public const double MaxLabelTipFontScale = 2.5;
+
+    public const double MinLabelTipBackgroundOpacity = 0.0;
+    public const double MaxLabelTipBackgroundOpacity = 1.0;
+
+    [JsonPropertyName("labelIndexFontScale")] public double LabelIndexFontScale { get; set; } = DefaultLabelIndexFontScale;
+
+    [JsonPropertyName("labelTipFontScale")] public double LabelTipFontScale { get; set; } = DefaultLabelTipFontScale;
+
+    [JsonPropertyName("labelTipBackgroundOpacity")] public double LabelTipBackgroundOpacity { get; set; } = DefaultLabelTipBackgroundOpacity;
 }
 
 public class UpdateSettings

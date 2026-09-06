@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
+    xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
     Title="LabelPlus_Next"
     Width="1300"
     Height="800"
@@ -36,24 +37,24 @@
 
                 <u:NavMenuItem
                     Header="收起"
-                    Icon="◀"
+                    Icon="{SvgImage /Assets/Icons/chevron-left.svg}"
                     Tag="toggle" />
                 <u:NavMenuItem
                     Header="翻译"
-                    Icon="📝"
+                    Icon="{SvgImage /Assets/Icons/translate.svg}"
                     Tag="translate" />
                 <u:NavMenuItem
                     Header="校对"
-                    Icon="✅"
+                    Icon="{SvgImage /Assets/Icons/proof.svg}"
                     Tag="proof" />
                 <u:NavMenuItem
                     Header="协作"
-                    Icon="🤝"
+                    Icon="{SvgImage /Assets/Icons/teamwork.svg}"
                     Tag="teamwork" />
                 <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
                 <u:NavMenuItem
                     Header="交付"
-                    Icon="📦"
+                    Icon="{SvgImage /Assets/Icons/deliver.svg}"
                     Tag="deliver" />
             </u:NavMenu>
 
@@ -64,7 +65,7 @@
                 SelectionChanged="OnNavSelectionChanged">
                 <u:NavMenuItem
                     Header="设置"
-                    Icon="⚙"
+                    Icon="{SvgImage /Assets/Icons/settings.svg}"
                     Tag="settings" />
             </u:NavMenu>
         </Grid>

@@ -6,6 +6,7 @@ namespace LabelPlus_Next.Serialization;
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(AppSettings))]
 [JsonSerializable(typeof(UpdateSettings))]
+[JsonSerializable(typeof(LabelOverlaySettings))]
 [JsonSerializable(typeof(UpdateManifest))]
 [JsonSerializable(typeof(UpdateFile))]
 [JsonSerializable(typeof(ManifestV1))]

@@ -1,7 +1,8 @@
 ﻿<UserControl
     x:Class="LabelPlus_Next.Views.Pages.TranslateView"
     xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Avalonia.Svg.Skia"
     xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
@@ -223,19 +224,19 @@
                         HorizontalAlignment="Left"
                         Background="{DynamicResource MenuFlyoutItemBackground}"
                         Command="{Binding AddLabelCommand}"
-                        Icon="✚" />
+                        Icon="{SvgImage /Assets/Icons/translate.svg}" />
                     <u:ToolBarSeparator />
                     <u:IconButton
                         HorizontalAlignment="Left"
                         Background="{DynamicResource MenuFlyoutItemBackground}"
                         Command="{Binding RemoveLabelCommand}"
                         Foreground="Red"
-                        Icon="🗙" />
+                        Icon="{SvgImage /Assets/Icons/proof.svg}" />
                     <u:ToolBarSeparator />
                     <u:IconButton
                         Background="{DynamicResource MenuFlyoutItemBackground}"
                         Command="{Binding UndoRemoveLabelCommand}"
-                        Icon="↺" />
+                        Icon="{SvgImage /Assets/Icons/chevron-left.svg}" />
                     <u:ToolBarSeparator />
                     <Button Click="FileSetting_OnClick"
                             Content="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />

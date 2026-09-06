@@ -34,6 +34,15 @@ public class LabelOverlay : Control
 
     public static readonly StyledProperty<int> HighlightIndexProperty =
         AvaloniaProperty.Register<LabelOverlay, int>(nameof(HighlightIndex), -1);
+
+    public static readonly StyledProperty<double> LabelIndexFontScaleProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelIndexFontScale), 1.0);
+
+    public static readonly StyledProperty<double> LabelTipFontScaleProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelTipFontScale), 1.0);
+
+    public static readonly StyledProperty<double> LabelTipBackgroundOpacityProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelTipBackgroundOpacity), 0.7);
     private readonly List<INotifyPropertyChanged> _itemSubscriptions = new();
 
     private INotifyCollectionChanged? _labelsCollectionChanged;
@@ -67,6 +76,24 @@ public class LabelOverlay : Control
         set => SetValue(HighlightIndexProperty, value);
     }
 
+    public double LabelIndexFontScale
+    {
+        get => GetValue(LabelIndexFontScaleProperty);
+        set => SetValue(LabelIndexFontScaleProperty, value);
+    }
+
+    public double LabelTipFontScale
+    {
+        get => GetValue(LabelTipFontScaleProperty);
+        set => SetValue(LabelTipFontScaleProperty, value);
+    }
+
+    public double LabelTipBackgroundOpacity
+    {
+        get => GetValue(LabelTipBackgroundOpacityProperty);
+        set => SetValue(LabelTipBackgroundOpacityProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -78,7 +105,8 @@ public class LabelOverlay : Control
             return;
         }
         if (change.Property == ImageWidthProperty || change.Property == ImageHeightProperty || change.Property == HighlightIndexProperty
-            || change.Property == ContentWidthProperty || change.Property == ContentHeightProperty || change.Property == ContentOffsetXProperty || change.Property == ContentOffsetYProperty)
+            || change.Property == ContentWidthProperty || change.Property == ContentHeightProperty || change.Property == ContentOffsetXProperty || change.Property == ContentOffsetYProperty
+            || change.Property == LabelIndexFontScaleProperty || change.Property == LabelTipFontScaleProperty || change.Property == LabelTipBackgroundOpacityProperty)
         {
             InvalidateVisual();
         }
@@ -186,7 +214,8 @@ public class LabelOverlay : Control
             // Index number centered inside rect
             var head = i.ToString();
             var boldTf = new Typeface(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.Bold);
-            var indexFontSize = side / 1.15; // bigger index text
+            var indexScale = Math.Clamp(LabelIndexFontScale, 0.5, 2.5);
+            var indexFontSize = side / 1.15 * indexScale;
             var layout = new TextLayout(head, boldTf, indexFontSize, brush, TextAlignment.Left, TextWrapping.NoWrap, TextTrimming.None);
             double textW = 0, textH = 0;
             foreach (var r in layout.HitTestTextRange(0, head.Length))
@@ -204,7 +233,8 @@ public class LabelOverlay : Control
             if (i - 1 == HighlightIndex && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
             {
                 var maxTipWidth = Math.Min(cw * 0.6, 480);
-                var tipFontSize = side / 2.2;
+                var tipScale = Math.Clamp(LabelTipFontScale, 0.5, 2.5);
+                var tipFontSize = side / 2.2 * tipScale;
                 var tipLayout = new TextLayout(
                     tip,
                     Typeface.Default,
@@ -242,7 +272,8 @@ public class LabelOverlay : Control
                 if (tipY + bgH > ch)
                     tipY = Math.Max(0, rect.Y - bgH - 4);
 
-                var bg = new SolidColorBrush(Colors.Black, 0.7);
+                var tipOpacity = Math.Clamp(LabelTipBackgroundOpacity, 0.0, 1.0);
+                var bg = new SolidColorBrush(Colors.Black, tipOpacity);
                 var bgRect = new Rect(tipX, tipY, bgW, bgH);
                 context.FillRectangle(bg, bgRect);
                 tipLayout.Draw(context, new Point(tipX + padW, tipY + padH));
