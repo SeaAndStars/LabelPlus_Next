@@ -17,7 +17,7 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        ConfigureHeadlessWayland();
+        ConfigureWaylandCompatibility();
         try
         {
             // If args contains a labelplus:// URI and a running instance is present, forward it and exit
@@ -64,20 +64,20 @@ internal sealed class Program
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args ?? Array.Empty<string>());
     }
 
-    private static void ConfigureHeadlessWayland()
+    private static void ConfigureWaylandCompatibility()
     {
-        if (!OperatingSystem.IsLinux() ||
-            string.Equals(Environment.GetEnvironmentVariable("LABELPLUS_DISABLE_HEADLESS_WAYLAND"), "1", StringComparison.Ordinal))
+        if (!OperatingSystem.IsLinux())
             return;
 
         const string runtimeDirectory = "/run/labelplus-wayland";
-        const string displayName = "wayland-labelplus";
         if (!Directory.Exists(runtimeDirectory)) return;
 
         Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", runtimeDirectory);
         Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "wayland");
-        Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", displayName);
-        Environment.SetEnvironmentVariable("DISPLAY", null);
+        Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", "wayland-labelplus");
+        // Avalonia 11 uses X11 on Linux; Weston provides the XWayland bridge.
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY")))
+            Environment.SetEnvironmentVariable("DISPLAY", ":0");
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
