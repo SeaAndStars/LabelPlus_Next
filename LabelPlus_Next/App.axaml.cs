@@ -21,9 +21,6 @@ using UrsaWindowNotificationManager = Ursa.Controls.WindowNotificationManager;
 using UrsaNotification = Ursa.Controls.Notification;
 using System.Text;
 using System.Threading.Tasks;
-#if DEBUG
-using LabelPlus_Next.Debug;
-#endif
 using System.Diagnostics; // added for opening file explorer
 using System.Runtime.InteropServices; // for MiniDump & runtime info
 using System.IO;
@@ -82,10 +79,6 @@ public class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         ConfigureLogging();
-#if DEBUG
-        DebugExceptionTracer.Initialize();
-#endif
-
         if (Services is null)
         {
             var sc = new ServiceCollection();
