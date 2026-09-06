@@ -72,8 +72,7 @@ internal sealed class Program
 
         const string runtimeDirectory = "/run/labelplus-wayland";
         const string displayName = "wayland-labelplus";
-        var socketPath = Path.Combine(runtimeDirectory, displayName);
-        if (!File.Exists(socketPath)) return;
+        if (!Directory.Exists(runtimeDirectory)) return;
 
         Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", runtimeDirectory);
         Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "wayland");
