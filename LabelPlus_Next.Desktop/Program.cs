@@ -17,6 +17,7 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        ConfigureHeadlessWayland();
         try
         {
             // If args contains a labelplus:// URI and a running instance is present, forward it and exit
@@ -61,6 +62,23 @@ internal sealed class Program
         catch { }
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args ?? Array.Empty<string>());
+    }
+
+    private static void ConfigureHeadlessWayland()
+    {
+        if (!OperatingSystem.IsLinux() ||
+            string.Equals(Environment.GetEnvironmentVariable("LABELPLUS_DISABLE_HEADLESS_WAYLAND"), "1", StringComparison.Ordinal))
+            return;
+
+        const string runtimeDirectory = "/run/labelplus-wayland";
+        const string displayName = "wayland-labelplus";
+        var socketPath = Path.Combine(runtimeDirectory, displayName);
+        if (!File.Exists(socketPath)) return;
+
+        Environment.SetEnvironmentVariable("XDG_RUNTIME_DIR", runtimeDirectory);
+        Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "wayland");
+        Environment.SetEnvironmentVariable("WAYLAND_DISPLAY", displayName);
+        Environment.SetEnvironmentVariable("DISPLAY", null);
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
