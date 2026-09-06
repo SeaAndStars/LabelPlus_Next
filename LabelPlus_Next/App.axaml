@@ -5,6 +5,7 @@
     xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:local="using:LabelPlus_Next"
     xmlns:semi="https://irihi.tech/semi"
+    xmlns:u="https://irihi.tech/ursa"
     xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
     RequestedThemeVariant="Default">
     <Application.DataTemplates>
