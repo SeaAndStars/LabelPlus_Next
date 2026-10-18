@@ -2,13 +2,20 @@
     x:Class="LabelPlus_Next.Views.Windows.CustomServerWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     Title="自定义更新服务器"
     Width="560"
-    Height="540"
-    x:DataType="vm:SettingsViewModel">
-    <Grid Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+    Height="574"
+    x:DataType="vm:SettingsViewModel"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="自定义更新服务器" />
+
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="2">
             <TextBlock Classes="lp-page-title" Text="自定义更新服务器" />
             <TextBlock Classes="lp-subtle" Text="配置 HTTP 更新源，保存后立即用于下一次更新检查。" />
@@ -40,5 +47,6 @@
             <Button Click="OnVerifyClick" Content="验证 HTTP" MinWidth="96" />
             <Button Classes="lp-primary" Command="{Binding SaveCommand}" Content="保存到 settings.json" MinWidth="140" />
         </StackPanel>
+    </Grid>
     </Grid>
 </u:UrsaWindow>

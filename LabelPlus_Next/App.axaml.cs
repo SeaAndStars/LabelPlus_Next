@@ -800,7 +800,21 @@ public class App : Application
         var btnExit = new Button { Content = "退出", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Width = 120 };
         btnExit.Click += (_, __) => { try { LogManager.Flush(TimeSpan.FromSeconds(2)); LogManager.Shutdown(); } catch (Exception flushEx) { GLogger.Warn(flushEx, "Flush on exit button failed"); } ExitAction(1); };
         panel.Children.Add(btnExit);
-        var win = new UrsaWindow { Title = "发生错误", Width = 780, Height = 520, CanResize = true, Content = panel };
+        var crashRoot = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        crashRoot.Children.Add(new CustomControls.ChromeTitleBar { Title = "发生错误" });
+        Grid.SetRow(panel, 1);
+        crashRoot.Children.Add(panel);
+        var win = new UrsaWindow
+        {
+            Title = "发生错误",
+            Width = 780,
+            Height = 554,
+            CanResize = true,
+            WindowDecorations = WindowDecorations.BorderOnly,
+            ExtendClientAreaToDecorationsHint = false,
+            IsTitleBarVisible = false,
+            Content = crashRoot
+        };
         win.Closed += (_, __) => { try { LogManager.Flush(TimeSpan.FromSeconds(2)); LogManager.Shutdown(); } catch (Exception flushEx) { GLogger.Warn(flushEx, "Flush on crash window close failed"); } ExitAction(1); };
         try { lifetime?.MainWindow?.Hide(); } catch (Exception hideEx) { GLogger.Warn(hideEx, "Hide main window failed"); }
         if (lifetime?.MainWindow is not null)

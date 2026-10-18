@@ -2,17 +2,24 @@
     x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:lang1="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     Title="导出图片"
     Width="400"
-    Height="360"
-    d:DesignHeight="360"
+    Height="394"
+    d:DesignHeight="394"
     d:DesignWidth="400"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
     mc:Ignorable="d">
-    <Grid Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="导出图片" />
+
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="2">
             <TextBlock Classes="lp-page-title" Text="导出图片" />
             <TextBlock Classes="lp-subtle" Text="将当前译文渲染到图片后导出。" />
@@ -72,5 +79,6 @@
                     MinWidth="96" />
             </StackPanel>
         </StackPanel>
+    </Grid>
     </Grid>
 </u:UrsaWindow>

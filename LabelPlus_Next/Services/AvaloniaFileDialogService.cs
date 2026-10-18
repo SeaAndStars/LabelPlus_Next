@@ -149,7 +149,7 @@ public class AvaloniaFileDialogService : IFileDialogService
         var tcs = new TaskCompletionSource<IReadOnlyList<string>?>();
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var dlg = new ImageManager { DataContext = vm, Width = 650, Height = 500, CanResize = true, Host = null };
+            var dlg = new ImageManager { DataContext = vm, CanResize = true, Host = null };
             bool? result = null;
             try
             {

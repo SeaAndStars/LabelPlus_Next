@@ -542,7 +542,7 @@ public partial class TranslateView : UserControl
     {
         if (Vm is not { } vm) return;
         var (groups, notes) = vm.GetFileSettings();
-        var dlg = new FileSettings { DataContext = new FileSettingsViewModel { GroupList = groups, Notes = notes }, Width = 600, Height = 350 };
+        var dlg = new FileSettings { DataContext = new FileSettingsViewModel { GroupList = groups, Notes = notes ?? string.Empty }, Width = 640, Height = 494 };
         if (TopLevel.GetTopLevel(this) is Window win)
         {
             var result = await dlg.ShowDialog<bool?>(win);

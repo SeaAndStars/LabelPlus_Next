@@ -2,20 +2,27 @@
     x:Class="LabelPlus_Next.Views.Windows.MergeConflictWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     Title="保存冲突合并"
     Width="1320"
-    Height="760"
+    Height="794"
     x:DataType="vm:MergeConflictViewModel"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
     mc:Ignorable="d">
     <Design.DataContext>
         <vm:MergeConflictViewModel />
     </Design.DataContext>
 
-    <Grid Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="保存冲突合并" />
+
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
         <!--  Header  -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <StackPanel Spacing="2">
@@ -164,5 +171,6 @@
                 </Grid>
             </Border>
         </Grid>
+    </Grid>
     </Grid>
 </u:UrsaWindow>

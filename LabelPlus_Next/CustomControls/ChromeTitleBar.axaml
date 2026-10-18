@@ -3,6 +3,32 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     x:CompileBindings="False">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ChromeTitleBarBackground" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="ChromeTitleBarBorder" Color="#FFE5E6EB" />
+                    <SolidColorBrush x:Key="ChromeTitleBarForeground" Color="#FF1D2129" />
+                    <SolidColorBrush x:Key="ChromeTitleBarSubtle" Color="#FF4E5969" />
+                    <SolidColorBrush x:Key="ChromeTitleBarHover" Color="#0F1D2129" />
+                    <SolidColorBrush x:Key="ChromeTitleBarActive" Color="#FF0064FA" />
+                    <SolidColorBrush x:Key="ChromeTitleBarActiveSoft" Color="#140064FA" />
+                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFF53F3F" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ChromeTitleBarBackground" Color="#FF232324" />
+                    <SolidColorBrush x:Key="ChromeTitleBarBorder" Color="#FF3E3E40" />
+                    <SolidColorBrush x:Key="ChromeTitleBarForeground" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="ChromeTitleBarSubtle" Color="#FFC9CDD4" />
+                    <SolidColorBrush x:Key="ChromeTitleBarHover" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="ChromeTitleBarActive" Color="#FF3C7EFF" />
+                    <SolidColorBrush x:Key="ChromeTitleBarActiveSoft" Color="#243C7EFF" />
+                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFF76965" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Button.caption">
             <Setter Property="Width" Value="46" />
@@ -12,33 +38,33 @@
             <Setter Property="CornerRadius" Value="0" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="Foreground" Value="{DynamicResource ChromeTitleBarSubtle}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="RenderTransform" Value="none" />
         </Style>
         <Style Selector="Button.caption:pointerover">
-            <Setter Property="Background" Value="{DynamicResource LpHoverBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource LpPrimaryBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource ChromeTitleBarActive}" />
         </Style>
         <Style Selector="Button.caption:pressed">
-            <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarActiveSoft}" />
             <Setter Property="RenderTransform" Value="none" />
         </Style>
         <Style Selector="Button.caption.close:pointerover">
-            <Setter Property="Background" Value="{DynamicResource LpDangerBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarDanger}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
         <Style Selector="Button.caption.close:pressed">
-            <Setter Property="Background" Value="{DynamicResource LpDangerBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarDanger}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
     </UserControl.Styles>
 
     <Border
         Height="34"
-        Background="{DynamicResource LpSurfaceBrush}"
-        BorderBrush="{DynamicResource LpCardBorderBrush}"
+        Background="{DynamicResource ChromeTitleBarBackground}"
+        BorderBrush="{DynamicResource ChromeTitleBarBorder}"
         BorderThickness="0,0,0,1">
         <Grid ColumnDefinitions="*,Auto">
             <Border
@@ -60,7 +86,7 @@
                         VerticalAlignment="Center"
                         FontSize="12"
                         FontWeight="SemiBold"
-                        Foreground="{DynamicResource LabeledTextBrush}"
+                        Foreground="{DynamicResource ChromeTitleBarForeground}"
                         Text="{Binding Title}" />
                 </StackPanel>
             </Border>
