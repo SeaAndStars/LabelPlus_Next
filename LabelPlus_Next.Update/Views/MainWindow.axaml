@@ -2,20 +2,24 @@
     x:Class="LabelPlus_Next.Update.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.Update.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="using:LabelPlus_Next.Update.ViewModels"
     Title="LabelPlus Next 更新"
     Width="640"
-    Height="420"
+    Height="454"
     MinWidth="520"
-    MinHeight="380"
-    d:DesignHeight="420"
+    MinHeight="414"
+    d:DesignHeight="454"
     d:DesignWidth="640"
     x:DataType="vm:MainWindowViewModel"
     Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     WindowStartupLocation="CenterScreen"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
     mc:Ignorable="d">
 
     <Design.DataContext>
@@ -62,7 +66,10 @@
         </Style>
     </u:UrsaWindow.Styles>
 
-    <Grid Margin="24">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="LabelPlus Next 更新" />
+
+        <Grid Grid.Row="1" Margin="24">
         <Border
             Classes="card"
             Padding="28"
@@ -119,5 +126,6 @@
                 </StackPanel>
             </StackPanel>
         </Border>
+    </Grid>
     </Grid>
 </u:UrsaWindow>
