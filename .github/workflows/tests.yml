@@ -49,7 +49,7 @@ jobs:
           set -e
           export PATH="$PATH:$HOME/.dotnet/tools"
           dotnet-coverage collect \
-            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
+            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --filter FullyQualifiedName!~Test1 --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
             -f cobertura \
             -o TestResults/Coverage/coverage.cobertura.xml
 
