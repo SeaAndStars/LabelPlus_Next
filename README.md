@@ -136,14 +136,14 @@ dotnet publish LabelPlus_Next.Desktop -c Release -r win-x64 --self-contained
 
 ```bash
 # 仅本地测试（推荐）
-dotnet test LabelPlus_Next.Test --filter "FullyQualifiedName!~Test1"
+dotnet test LabelPlus_Next.Test --filter "FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests"
 
 # 全局异常处理测试仅在 Release 下有意义
-dotnet test LabelPlus_Next.Test -c Release --filter "FullyQualifiedName!~Test1"
+dotnet test LabelPlus_Next.Test -c Release --filter "FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests"
 ```
 
 > [!WARNING]
-> `Test1` 中的集成测试会用 `LabelPlus_Next.Test/test.json` 的账号**真实访问并写入**远程存储，请只在自己的测试服务器上运行。
+> `Test1` 与 `AuthApiTests` 中的集成测试会用 `LabelPlus_Next.Test/test.json` 的账号**真实访问并写入**远程存储，请只在自己的测试服务器上运行；CI 默认已跳过这两组测试。
 
 </details>
 
