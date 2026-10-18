@@ -37,6 +37,18 @@
                     <SolidColorBrush x:Key="LpHoverBrush" Color="#0F1D2129" />
                     <SolidColorBrush x:Key="LpDangerBrush" Color="#FFF53F3F" />
                     <SolidColorBrush x:Key="LpSuccessBrush" Color="#FF00B42A" />
+                    <SolidColorBrush x:Key="LpInnerSoftBrush" Color="#FFFFF7E8" />
+                    <SolidColorBrush x:Key="LpInnerSoftHoverBrush" Color="#FFFFEFD6" />
+                    <SolidColorBrush x:Key="LpInnerSoftBorderBrush" Color="#FFFFD8A8" />
+                    <SolidColorBrush x:Key="LpInnerTextBrush" Color="#FF9A4D00" />
+                    <SolidColorBrush x:Key="LpInnerDotBrush" Color="#FFFF7D00" />
+                    <SolidColorBrush x:Key="LpOuterSoftBrush" Color="#FFEAF3FF" />
+                    <SolidColorBrush x:Key="LpOuterSoftHoverBrush" Color="#FFDCEBFF" />
+                    <SolidColorBrush x:Key="LpOuterSoftBorderBrush" Color="#FFBBD7FF" />
+                    <SolidColorBrush x:Key="LpOuterTextBrush" Color="#FF0057D9" />
+                    <SolidColorBrush x:Key="LpOuterDotBrush" Color="#FF0064FA" />
+                    <SolidColorBrush x:Key="LpKeycapBrush" Color="#14000000" />
+                    <SolidColorBrush x:Key="LpDangerSoftBrush" Color="#14F53F3F" />
                     <BoxShadows x:Key="LpCardShadow">0 1 2 0 #0A1D2129, 0 4 12 -2 #0F1D2129</BoxShadows>
                     <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Offset="0" Color="#FFF7F8FA" />
@@ -63,6 +75,18 @@
                     <SolidColorBrush x:Key="LpHoverBrush" Color="#14FFFFFF" />
                     <SolidColorBrush x:Key="LpDangerBrush" Color="#FFF76965" />
                     <SolidColorBrush x:Key="LpSuccessBrush" Color="#FF23C343" />
+                    <SolidColorBrush x:Key="LpInnerSoftBrush" Color="#FF3A2A16" />
+                    <SolidColorBrush x:Key="LpInnerSoftHoverBrush" Color="#FF46331C" />
+                    <SolidColorBrush x:Key="LpInnerSoftBorderBrush" Color="#FF5C4424" />
+                    <SolidColorBrush x:Key="LpInnerTextBrush" Color="#FFFFB65C" />
+                    <SolidColorBrush x:Key="LpInnerDotBrush" Color="#FFFF9F3D" />
+                    <SolidColorBrush x:Key="LpOuterSoftBrush" Color="#FF16263F" />
+                    <SolidColorBrush x:Key="LpOuterSoftHoverBrush" Color="#FF1B3150" />
+                    <SolidColorBrush x:Key="LpOuterSoftBorderBrush" Color="#FF27466F" />
+                    <SolidColorBrush x:Key="LpOuterTextBrush" Color="#FF7FB2FF" />
+                    <SolidColorBrush x:Key="LpOuterDotBrush" Color="#FF3C7EFF" />
+                    <SolidColorBrush x:Key="LpKeycapBrush" Color="#1FFFFFFF" />
+                    <SolidColorBrush x:Key="LpDangerSoftBrush" Color="#24F76965" />
                     <BoxShadows x:Key="LpCardShadow">0 1 2 0 #66000000, 0 8 20 -6 #99000000</BoxShadows>
                     <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Offset="0" Color="#FF17171A" />
@@ -301,6 +325,103 @@
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <!--  Category legend chips (框内 / 框外)  -->
+        <Style Selector="Button.lp-cat-chip">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.inner">
+            <Setter Property="Background" Value="{DynamicResource LpInnerSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpInnerSoftBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpInnerTextBrush}" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.inner:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpInnerSoftHoverBrush}" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.outer">
+            <Setter Property="Background" Value="{DynamicResource LpOuterSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpOuterSoftBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpOuterTextBrush}" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.outer:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpOuterSoftHoverBrush}" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.active">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.inner.active">
+            <Setter Property="BorderBrush" Value="{DynamicResource LpInnerDotBrush}" />
+        </Style>
+        <Style Selector="Button.lp-cat-chip.outer.active">
+            <Setter Property="BorderBrush" Value="{DynamicResource LpOuterDotBrush}" />
+        </Style>
+
+        <!--  Small keycap inside category chips  -->
+        <Style Selector="Border.lp-keycap">
+            <Setter Property="Height" Value="15" />
+            <Setter Property="MinWidth" Value="15" />
+            <Setter Property="Padding" Value="3,0" />
+            <Setter Property="Background" Value="{DynamicResource LpKeycapBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.lp-keycap TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
+
+        <!--  Compact action cluster in the label pane header  -->
+        <Style Selector="Border.lp-icon-group">
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="Background" Value="{DynamicResource LpSegmentBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.lp-icon-btn">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.lp-icon-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.lp-icon-btn.danger">
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+        </Style>
+        <Style Selector="Button.lp-icon-btn.danger:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpDangerSoftBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpDangerBrush}" />
+        </Style>
+        <Style Selector="Button.lp-add">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpPrimaryBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+        </Style>
+        <Style Selector="Button.lp-add:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpPrimaryBrush}" />
+            <Setter Property="Foreground" Value="White" />
         </Style>
 
         <!--  Smooth transfer progress everywhere (uploads, downloads, updates)  -->
