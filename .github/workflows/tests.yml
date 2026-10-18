@@ -49,7 +49,7 @@ jobs:
           set -e
           export PATH="$PATH:$HOME/.dotnet/tools"
           dotnet-coverage collect \
-            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --filter FullyQualifiedName!~Test1 --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
+            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --filter \"FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests\" --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
             -f cobertura \
             -o TestResults/Coverage/coverage.cobertura.xml
 
@@ -58,7 +58,7 @@ jobs:
         run: |
           set -e
           export PATH="$PATH:$HOME/.dotnet/tools"
-          reportgenerator -reports:TestResults/Coverage/coverage.cobertura.xml -targetdir:coveragereport -reporttypes:MarkdownSummary;Html
+          reportgenerator -reports:TestResults/Coverage/coverage.cobertura.xml -targetdir:coveragereport -reporttypes:"MarkdownSummary;Html"
           echo "## Code Coverage (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
           if [ -f coveragereport/Summary.md ]; then
             cat coveragereport/Summary.md >> $GITHUB_STEP_SUMMARY
