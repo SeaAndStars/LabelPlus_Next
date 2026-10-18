@@ -630,4 +630,13 @@ public class PicViewer : TemplatedControl
         if (item is null) return;
         CenterOnPercent(item.XPercent, item.YPercent);
     }
+
+    /// <summary>Zoom in by one step (matches the mouse-wheel step).</summary>
+    public void ZoomIn() => Scale = Math.Min(Scale * 1.1, 8.0);
+
+    /// <summary>Zoom out by one step, never below the viewer's minimum scale.</summary>
+    public void ZoomOut() => Scale = Math.Max(Scale / 1.1, _sourceMinScale);
+
+    /// <summary>Reset to the default fit scale.</summary>
+    public void ResetZoom() => Scale = 1.0;
 }

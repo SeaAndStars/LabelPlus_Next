@@ -140,24 +140,37 @@
                     </Border>
 
                     <Grid Grid.Row="2" Classes="lp-pane-footer" ColumnDefinitions="Auto,*,Auto">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconSearch}" Foreground="{DynamicResource LpSubtleText}" />
-                            <ComboBox Width="96" SelectedItem="{Binding ElementName=Pic, Path=Scale, Mode=TwoWay}" ToolTip.Tip="缩放">
-                                <ComboBox.Items>
-                                    <x:Double>0.25</x:Double>
-                                    <x:Double>0.5</x:Double>
-                                    <x:Double>1.0</x:Double>
-                                    <x:Double>1.5</x:Double>
-                                    <x:Double>2.0</x:Double>
-                                    <x:Double>3.0</x:Double>
-                                </ComboBox.Items>
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding StringFormat={}{0:P0}}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
+                        <Border Classes="lp-zoom-box">
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="0">
+                                <PathIcon
+                                    Width="13"
+                                    Height="13"
+                                    Margin="7,0,3,0"
+                                    Data="{StaticResource SemiIconSearch}"
+                                    Foreground="{DynamicResource LpSubtleText}" />
+                                <Button
+                                    Classes="lp-icon-btn"
+                                    Click="ZoomOut_OnClick"
+                                    Content="−"
+                                    FontSize="14"
+                                    ToolTip.Tip="缩小" />
+                                <Button
+                                    Classes="lp-zoom-value"
+                                    Click="ZoomReset_OnClick"
+                                    ToolTip.Tip="重置为 100%">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding #Pic.Scale, StringFormat={}{0:P0}}" />
+                                </Button>
+                                <Button
+                                    Classes="lp-icon-btn"
+                                    Click="ZoomIn_OnClick"
+                                    Content="+"
+                                    FontSize="14"
+                                    ToolTip.Tip="放大" />
+                            </StackPanel>
+                        </Border>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronLeft}"
                                           Click="PrevImage_OnClick" ToolTip.Tip="上一张" />

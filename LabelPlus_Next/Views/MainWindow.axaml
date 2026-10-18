@@ -5,8 +5,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
     Title="LabelPlus_Next"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
     Width="1300"
     Height="800"
     d:DesignHeight="800"
@@ -16,10 +20,14 @@
     mc:Ignorable="d">
 
 
-    <Grid
-        x:Name="RootGrid"
-        ColumnDefinitions="auto,*"
-        RowDefinitions="*">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="LabelPlus Next" />
+
+        <Grid
+            Grid.Row="1"
+            x:Name="RootGrid"
+            ColumnDefinitions="auto,*"
+            RowDefinitions="*">
 
         <!--  侧边栏  -->
         <Border
@@ -109,5 +117,6 @@
             BorderThickness="0">
             <ContentControl x:Name="NavContent" />
         </Border>
+    </Grid>
     </Grid>
 </u:UrsaWindow>

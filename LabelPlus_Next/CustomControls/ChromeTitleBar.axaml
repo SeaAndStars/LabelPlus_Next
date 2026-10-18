@@ -1,0 +1,120 @@
+<UserControl
+    x:Class="LabelPlus_Next.CustomControls.ChromeTitleBar"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Button.caption">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
+        <Style Selector="Button.caption:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpHoverBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource LpPrimaryBrush}" />
+        </Style>
+        <Style Selector="Button.caption:pressed">
+            <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+            <Setter Property="RenderTransform" Value="none" />
+        </Style>
+        <Style Selector="Button.caption.close:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpDangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.caption.close:pressed">
+            <Setter Property="Background" Value="{DynamicResource LpDangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border
+        Height="34"
+        Background="{DynamicResource LpSurfaceBrush}"
+        BorderBrush="{DynamicResource LpCardBorderBrush}"
+        BorderThickness="0,0,0,1">
+        <Grid ColumnDefinitions="*,Auto">
+            <Border
+                x:Name="DragArea"
+                Background="Transparent"
+                PointerPressed="OnDragAreaPointerPressed">
+                <StackPanel
+                    Margin="12,0"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Image
+                        Width="16"
+                        Height="16"
+                        RenderOptions.BitmapInterpolationMode="HighQuality"
+                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                    <TextBlock
+                        x:Name="TitleText"
+                        VerticalAlignment="Center"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        Foreground="{DynamicResource LabeledTextBrush}"
+                        Text="{Binding Title}" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Top"
+                Orientation="Horizontal">
+                <Button
+                    Classes="caption"
+                    Click="OnMinimizeClick"
+                    ToolTip.Tip="最小化">
+                    <Path
+                        Width="10"
+                        Height="10"
+                        Data="M0,5 L10,5"
+                        IsHitTestVisible="False"
+                        Stroke="{Binding $parent[Button].Foreground}"
+                        StrokeThickness="1.1" />
+                </Button>
+
+                <Button
+                    x:Name="MaximizeButton"
+                    Classes="caption"
+                    Click="OnMaximizeClick"
+                    ToolTip.Tip="最大化">
+                    <Panel Width="10" Height="10" IsHitTestVisible="False">
+                        <Path
+                            x:Name="MaximizeGlyph"
+                            Data="M0.5,0.5 H9.5 V9.5 H0.5 Z"
+                            Stroke="{Binding $parent[Button].Foreground}"
+                            StrokeThickness="1.1" />
+                        <Path
+                            x:Name="RestoreGlyph"
+                            Data="M0.5,3.5 H6.5 V9.5 H0.5 Z M3.5,3.5 V0.5 H9.5 V6.5 H6.5"
+                            IsVisible="False"
+                            Stroke="{Binding $parent[Button].Foreground}"
+                            StrokeThickness="1.1" />
+                    </Panel>
+                </Button>
+
+                <Button
+                    Classes="caption close"
+                    Click="OnCloseClick"
+                    ToolTip.Tip="关闭">
+                    <Path
+                        Width="10"
+                        Height="10"
+                        Data="M0.5,0.5 L9.5,9.5 M9.5,0.5 L0.5,9.5"
+                        IsHitTestVisible="False"
+                        Stroke="{Binding $parent[Button].Foreground}"
+                        StrokeThickness="1.1" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

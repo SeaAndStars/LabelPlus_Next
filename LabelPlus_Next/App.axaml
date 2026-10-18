@@ -428,6 +428,28 @@
             <Setter Property="Foreground" Value="White" />
         </Style>
 
+        <!--  Zoom stepper: always shows the current scale as a percentage  -->
+        <Style Selector="Border.lp-zoom-box">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="2" />
+            <Setter Property="Background" Value="{DynamicResource LpSegmentBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.lp-zoom-value">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="44" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource LabeledTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.lp-zoom-value:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
+        </Style>
+
         <!--  Smooth transfer progress everywhere (uploads, downloads, updates)  -->
         <Style Selector="ProgressBar">
             <Setter Property="CornerRadius" Value="4" />

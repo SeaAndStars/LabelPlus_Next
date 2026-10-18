@@ -31,6 +31,10 @@ public partial class TranslateView : UserControl
     private static readonly DataFormat<LabelItem> DragDataFormat =
         DataFormat.CreateInProcessFormat<LabelItem>("application/x-labelplus-labelitem");
     private Control? _lastDropHintRow;
+    private LabelItem? _dragCandidate;
+    private PointerPressedEventArgs? _dragStartArgs;
+    private Point _dragStartPosition;
+    private const double DragThreshold = 4;
 
     public TranslateView() { InitializeComponent(); }
 
@@ -59,6 +63,8 @@ public partial class TranslateView : UserControl
             _labelsGrid.GotFocus += OnGridGotFocus;
             // 拖拽排序事件
             _labelsGrid.AddHandler(InputElement.PointerPressedEvent, OnGridPointerPressed, RoutingStrategies.Tunnel);
+            _labelsGrid.AddHandler(InputElement.PointerMovedEvent, OnGridPointerMoved, RoutingStrategies.Tunnel);
+            _labelsGrid.AddHandler(InputElement.PointerReleasedEvent, OnGridPointerReleased, RoutingStrategies.Tunnel);
             _labelsGrid.AddHandler(DragDrop.DragOverEvent, OnGridDragOver, RoutingStrategies.Bubble);
             _labelsGrid.AddHandler(DragDrop.DropEvent, OnGridDrop, RoutingStrategies.Bubble);
             _labelsGrid.AddHandler(DragDrop.DragLeaveEvent, OnGridDragLeave, RoutingStrategies.Bubble);
@@ -315,9 +321,11 @@ public partial class TranslateView : UserControl
         await Vm.AddLabelAtAsync((float)e.XPercent, (float)e.YPercent, e.Category);
     }
 
-    // 拖拽排序：在行上按下启动拖拽
-    private async void OnGridPointerPressed(object? sender, PointerPressedEventArgs e)
+    // 拖拽排序：按下时只记录候选项，移动超过阈值后才真正启动拖拽，
+    // 避免普通点选标签时误触发拖动并改变顺序。
+    private void OnGridPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        ClearDragCandidate();
         if (_labelsGrid is null) return;
         var props = e.GetCurrentPoint(_labelsGrid).Properties;
         if (!props.IsLeftButtonPressed) return;
@@ -332,13 +340,46 @@ public partial class TranslateView : UserControl
             }
             if (container?.DataContext is LabelItem item)
             {
-                var data = new DataTransfer();
-                var dragItem = new DataTransferItem();
-                dragItem.Set(DragDataFormat, item);
-                data.Add(dragItem);
-                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
+                _dragCandidate = item;
+                _dragStartArgs = e;
+                _dragStartPosition = e.GetPosition(_labelsGrid);
             }
         }
+    }
+
+    private async void OnGridPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_labelsGrid is null || _dragCandidate is null || _dragStartArgs is null) return;
+        if (!e.GetCurrentPoint(_labelsGrid).Properties.IsLeftButtonPressed)
+        {
+            ClearDragCandidate();
+            return;
+        }
+
+        var position = e.GetPosition(_labelsGrid);
+        if (Math.Abs(position.X - _dragStartPosition.X) < DragThreshold &&
+            Math.Abs(position.Y - _dragStartPosition.Y) < DragThreshold)
+        {
+            return;
+        }
+
+        var item = _dragCandidate;
+        var startArgs = _dragStartArgs;
+        ClearDragCandidate();
+
+        var data = new DataTransfer();
+        var dragItem = new DataTransferItem();
+        dragItem.Set(DragDataFormat, item);
+        data.Add(dragItem);
+        await DragDrop.DoDragDropAsync(startArgs, data, DragDropEffects.Move);
+    }
+
+    private void OnGridPointerReleased(object? sender, PointerReleasedEventArgs e) => ClearDragCandidate();
+
+    private void ClearDragCandidate()
+    {
+        _dragCandidate = null;
+        _dragStartArgs = null;
     }
 
     // 工具：找到 DataGridRow 控件（无需引用其类型，按名称匹配）
@@ -494,6 +535,9 @@ public partial class TranslateView : UserControl
     private void CategoryOuter_OnClick(object? sender, RoutedEventArgs e) { Vm?.SetSelectedCategory(2); }
     private void PrevImage_OnClick(object? sender, RoutedEventArgs e) { MoveImageSelection(-1); }
     private void NextImage_OnClick(object? sender, RoutedEventArgs e) { MoveImageSelection(1); }
+    private void ZoomIn_OnClick(object? sender, RoutedEventArgs e) => _picViewer?.ZoomIn();
+    private void ZoomOut_OnClick(object? sender, RoutedEventArgs e) => _picViewer?.ZoomOut();
+    private void ZoomReset_OnClick(object? sender, RoutedEventArgs e) => _picViewer?.ResetZoom();
     private async void FileSetting_OnClick(object? sender, RoutedEventArgs e)
     {
         if (Vm is not { } vm) return;
