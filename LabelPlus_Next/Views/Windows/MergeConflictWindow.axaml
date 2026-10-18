@@ -8,6 +8,7 @@
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     Title="保存冲突合并"
+    WindowStartupLocation="CenterOwner"
     Width="1320"
     Height="794"
     x:DataType="vm:MergeConflictViewModel"

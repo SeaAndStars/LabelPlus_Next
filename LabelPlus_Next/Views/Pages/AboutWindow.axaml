@@ -5,6 +5,7 @@
     xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:u="https://irihi.tech/ursa"
     Title="关于 LabelPlus Next"
+    WindowStartupLocation="CenterOwner"
     Width="520"
     Height="654"
     UseLayoutRounding="True"

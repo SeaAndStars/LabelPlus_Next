@@ -6,6 +6,7 @@
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     Title="自定义更新服务器"
+    WindowStartupLocation="CenterOwner"
     Width="560"
     Height="574"
     x:DataType="vm:SettingsViewModel"

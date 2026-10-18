@@ -9,6 +9,7 @@
     xmlns:u="https://irihi.tech/ursa"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
     Title="文件设置"
+    WindowStartupLocation="CenterOwner"
     Width="640"
     Height="494"
     d:DesignHeight="494"
