@@ -11,9 +11,10 @@ public class CategoryToColorConverter : IValueConverter
         var category = value as string;
         return category switch
         {
-            "框内" => Brushes.Red,
-            "框外" => Brushes.Blue,
-            _ => Brushes.Black
+            // Same hues as the overlay markers, readable on both light and dark themes
+            "框内" => Brushes.OrangeRed,
+            "框外" => Brushes.DodgerBlue,
+            _ => Avalonia.AvaloniaProperty.UnsetValue
         };
     }
 

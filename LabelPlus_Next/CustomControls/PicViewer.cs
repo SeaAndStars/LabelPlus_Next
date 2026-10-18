@@ -297,14 +297,19 @@ public class PicViewer : TemplatedControl
         e.Handled = true;
     }
 
+    private static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
+
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
 
         // Crosshair in Label mode or when holding Ctrl in Browse mode
+        // Reuse a single cursor instance: allocating a native cursor on every move event is wasteful
         if (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0)
-            Cursor = new Cursor(StandardCursorType.Cross);
-        else if (!_panning)
+        {
+            if (!ReferenceEquals(Cursor, CrossCursor)) Cursor = CrossCursor;
+        }
+        else if (!_panning && Cursor is not null)
             Cursor = null;
 
         // If we have a pending left press in label mode, start panning only when movement exceeds threshold
@@ -589,9 +594,10 @@ public class PicViewer : TemplatedControl
                 var pScreen = m.Value.Transform(pLocal);
                 var dx = centerX - pScreen.X;
                 var dy = centerY - pScreen.Y;
-                // Adjust pan by the delta so that the point moves to the center
-                TranslateX += dx;
-                TranslateY += dy;
+                // Adjust pan by the delta so that the point moves to the center, but never
+                // pull the image away from the viewport when it already fits (Avalonia 12
+                // keeps the content centered via layout offsets).
+                ApplyCenteringDelta(dx, dy);
                 return;
             }
         }
@@ -602,8 +608,21 @@ public class PicViewer : TemplatedControl
 
         // Fallback: assume transforms order is Translate then Scale (pre-scale translate)
         var s = Math.Max(Scale, 0.0001);
-        TranslateX = centerX / s - targetX;
-        TranslateY = centerY / s - targetY;
+        var fallbackX = centerX / s - targetX;
+        var fallbackY = centerY / s - targetY;
+        ApplyCenteringDelta(fallbackX - TranslateX, fallbackY - TranslateY);
+    }
+
+    private void ApplyCenteringDelta(double dx, double dy)
+    {
+        // When the scaled content is smaller than the viewport it must stay centered,
+        // otherwise centering on a label near an edge introduces a large blank band.
+        var scaledWidth = ContentWidth * Math.Max(Scale, 0.0001);
+        var scaledHeight = ContentHeight * Math.Max(Scale, 0.0001);
+        var maxX = Math.Max(0d, (scaledWidth - Bounds.Width) / 2d);
+        var maxY = Math.Max(0d, (scaledHeight - Bounds.Height) / 2d);
+        TranslateX = Math.Clamp(TranslateX + dx, -maxX, maxX);
+        TranslateY = Math.Clamp(TranslateY + dy, -maxY, maxY);
     }
 
     public void CenterOnLabel(LabelItem? item)

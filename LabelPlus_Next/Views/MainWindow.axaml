@@ -1,4 +1,4 @@
-﻿<u:UrsaWindow
+<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -18,62 +18,94 @@
 
     <Grid
         x:Name="RootGrid"
-        Margin="0,25,0,0"
         ColumnDefinitions="auto,*"
         RowDefinitions="*">
 
-        <Grid Grid.Column="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <!--  侧边栏  -->
+        <Border
+            Grid.Column="0"
+            Background="{DynamicResource LpSurfaceBrush}"
+            BorderBrush="{DynamicResource LpCardBorderBrush}"
+            BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <StackPanel
+                    x:Name="Brand"
+                    Margin="18,18,18,10"
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <Image
+                        Width="30"
+                        Height="30"
+                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                    <StackPanel x:Name="BrandText" VerticalAlignment="Center">
+                        <TextBlock FontSize="15" FontWeight="Bold" Text="LabelPlus Next" />
+                        <TextBlock Classes="lp-subtle" FontSize="11" Text="漫画翻译工作台" />
+                    </StackPanel>
+                </StackPanel>
 
+                <u:NavMenu
+                    x:Name="NavMenuMain"
+                    Grid.Row="1"
+                    IsHorizontalCollapsed="False"
+                    SelectionChanged="OnNavSelectionChanged">
 
-            <u:NavMenu
-                x:Name="NavMenuMain"
-                Grid.Row="0"
-                IsHorizontalCollapsed="False"
-                SelectionChanged="OnNavSelectionChanged">
+                    <u:NavMenuItem
+                        Header="收起"
+                        Tag="toggle">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconChevronLeft}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                    <u:NavMenuItem
+                        Header="翻译"
+                        Tag="translate">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconLanguage}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                    <u:NavMenuItem
+                        Header="校对"
+                        Tag="proof">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconTickCircle}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                    <u:NavMenuItem
+                        Header="协作"
+                        Tag="teamwork">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconUserGroup}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                    <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
+                    <u:NavMenuItem
+                        Header="交付"
+                        Tag="deliver">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconSend}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                </u:NavMenu>
 
-                <u:NavMenuItem
-                    Header="收起"
-                    Icon="{SvgImage /Assets/Icons/chevron-left.svg}"
-                    Tag="toggle" />
-                <u:NavMenuItem
-                    Header="翻译"
-                    Icon="{SvgImage /Assets/Icons/translate.svg}"
-                    Tag="translate" />
-                <u:NavMenuItem
-                    Header="校对"
-                    Icon="{SvgImage /Assets/Icons/proof.svg}"
-                    Tag="proof" />
-                <u:NavMenuItem
-                    Header="协作"
-                    Icon="{SvgImage /Assets/Icons/teamwork.svg}"
-                    Tag="teamwork" />
-                <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
-                <u:NavMenuItem
-                    Header="交付"
-                    Icon="{SvgImage /Assets/Icons/deliver.svg}"
-                    Tag="deliver" />
-            </u:NavMenu>
-
-
-            <u:NavMenu
-                x:Name="NavMenuFooter"
-                Grid.Row="1"
-                SelectionChanged="OnNavSelectionChanged">
-                <u:NavMenuItem
-                    Header="设置"
-                    Icon="{SvgImage /Assets/Icons/settings.svg}"
-                    Tag="settings" />
-            </u:NavMenu>
-        </Grid>
-
+                <u:NavMenu
+                    x:Name="NavMenuFooter"
+                    Grid.Row="2"
+                    Margin="0,0,0,10"
+                    SelectionChanged="OnNavSelectionChanged">
+                    <u:NavMenuItem
+                        Header="设置"
+                        Tag="settings">
+                        <u:NavMenuItem.Icon>
+                            <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconSetting}" />
+                        </u:NavMenuItem.Icon>
+                    </u:NavMenuItem>
+                </u:NavMenu>
+            </Grid>
+        </Border>
 
         <Border
             Grid.Column="1"
-            Margin="8"
+            Margin="14"
             BorderThickness="0">
             <ContentControl x:Name="NavContent" />
         </Border>

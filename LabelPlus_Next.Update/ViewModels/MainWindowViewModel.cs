@@ -1,179 +1,139 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using LabelPlus_Next.Update.Models;
 using LabelPlus_Next.Update.Services;
 using NLog;
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.IO.Compression;
-using System.Linq;
-using System.Net.Http;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 
 namespace LabelPlus_Next.Update.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    private static readonly TimeSpan WaitPidTimeout = TimeSpan.FromSeconds(30);
 
     private readonly IUpdaterService _updater;
     private readonly IMessageService _messages;
 
     private string? _overrideAppDir;
     private int? _waitPid;
+    private CancellationTokenSource? _cts;
+
     [ObservableProperty] private double bytesReceivedInMB;
     [ObservableProperty] private double progressPercentage;
     [ObservableProperty] private TimeSpan remaining;
     [ObservableProperty] private double speed; // MB/s
 
     [ObservableProperty] private DownloadStatus status = DownloadStatus.Idle;
+    [ObservableProperty] private string? statusText = "准备更新...";
     [ObservableProperty] private double totalBytesToReceiveInMB;
     [ObservableProperty] private string? version;
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(StopCommand), nameof(StartCommand), nameof(RestartCommand))]
+    private bool isRunning;
 
     public MainWindowViewModel(IUpdaterService updater, IMessageService messages)
     {
         _updater = updater;
         _messages = messages;
         _updater.ProgressChanged += OnServiceProgressChanged;
-        StartCommand = new AsyncRelayCommand(StartAsync);
-        StopCommand = new RelayCommand(() => { /* no-op */ });
-        RestartCommand = new AsyncRelayCommand(StartAsync);
+        StartCommand = new AsyncRelayCommand(StartAsync, () => !IsRunning);
+        StopCommand = new RelayCommand(() => _cts?.Cancel(), () => IsRunning);
+        RestartCommand = new AsyncRelayCommand(StartAsync, () => !IsRunning);
     }
 
     public IRelayCommand StartCommand { get; }
     public IRelayCommand StopCommand { get; }
     public IRelayCommand RestartCommand { get; }
 
+    public bool IsIndeterminate => Status is DownloadStatus.Checking or DownloadStatus.Idle;
+
+    partial void OnStatusChanged(DownloadStatus value) => OnPropertyChanged(nameof(IsIndeterminate));
+
     public void OverrideAppDir(string dir) => _overrideAppDir = dir;
     public void SetWaitPid(int pid) => _waitPid = pid;
 
     public Task RunUpdateAsyncPublic() => StartAsync();
 
-    private static string GetCurrentRid()
-    {
-        var arch = RuntimeInformation.ProcessArchitecture;
-        if (OperatingSystem.IsWindows())
-            return arch == Architecture.Arm64 ? "win-arm64" : "win-x64";
-        if (OperatingSystem.IsLinux())
-            return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
-        if (OperatingSystem.IsMacOS())
-            return arch == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
-        return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
-    }
     private async Task StartAsync()
     {
+        if (IsRunning) return;
+        IsRunning = true;
+        using var cts = new CancellationTokenSource();
+        _cts = cts;
+        var completed = false;
         try
         {
-            if (_waitPid is int pid && pid > 0)
-            {
-                try
-                {
-                    using var proc = Process.GetProcessById(pid);
-                    proc.WaitForExit();
-                }
-                catch (ArgumentException ex)
-                {
-                    Logger.Debug(ex, "Wait PID {pid} no longer exists, continuing", pid);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    Logger.Debug(ex, "Unable to wait for PID {pid}, process already exited", pid);
-                }
-                catch (SystemException ex)
-                {
-                    Logger.Warn(ex, "Unexpected failure waiting for PID {pid}", pid);
-                }
-            }
-            await _updater.RunUpdateAsync(_overrideAppDir);
-            // After updater completes normally, the updater service will attempt to relaunch main app.
-            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+            await WaitForCallerExitAsync(cts.Token);
+            await _updater.RunUpdateAsync(_overrideAppDir, cts.Token);
+            completed = _updater.Status is not (DownloadStatus.Error or DownloadStatus.Paused);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "已取消";
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "StartAsync failed");
             await _messages.ShowAsync($"更新失败: {ex.Message}", "错误");
         }
+        finally
+        {
+            _cts = null;
+            IsRunning = false;
+        }
+        // 成功或已是最新时，更新服务已重启主程序，退出更新器；失败时留在窗口以便重试
+        if (completed)
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }
 
-    private static string? ResolveMainExe(string appDir)
+    private async Task WaitForCallerExitAsync(CancellationToken ct)
     {
-        // Prefer using Client.version.json's project field
-        var clientVerPath = Path.Combine(appDir, "Client.version.json");
+        if (_waitPid is not int pid || pid <= 0) return;
         try
         {
-            if (File.Exists(clientVerPath))
-            {
-                using var fs = File.OpenRead(clientVerPath);
-                using var doc = JsonDocument.Parse(fs);
-                if (doc.RootElement.TryGetProperty("project", out var p) && p.ValueKind == JsonValueKind.String)
-                {
-                    var proj = p.GetString();
-                    if (!string.IsNullOrWhiteSpace(proj))
-                    {
-                        var exe = Path.Combine(appDir, proj + ".exe");
-                        if (File.Exists(exe)) return exe;
-                    }
-                }
-            }
+            using var proc = Process.GetProcessById(pid);
+            StatusText = "等待主程序退出...";
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(WaitPidTimeout);
+            await proc.WaitForExitAsync(timeout.Token);
         }
-        catch (IOException ex)
+        catch (ArgumentException)
         {
-            Logger.Warn(ex, "Failed reading Client.version.json at {clientVerPath}", clientVerPath);
+            // 进程已退出
         }
-        catch (JsonException ex)
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            Logger.Warn(ex, "Client.version.json malformed at {clientVerPath}", clientVerPath);
+            Logger.Warn("PID {pid} did not exit within {timeout}, continuing", pid, WaitPidTimeout);
         }
-        catch (UnauthorizedAccessException ex)
+        catch (InvalidOperationException ex)
         {
-            Logger.Warn(ex, "Access denied reading Client.version.json at {clientVerPath}", clientVerPath);
+            Logger.Debug(ex, "Unable to wait for PID {pid}", pid);
         }
-
-        // Fallback search: *.Desktop*.exe in root
-        try
+        finally
         {
-            var candidates = Directory.GetFiles(appDir, "*.exe", SearchOption.TopDirectoryOnly);
-            foreach (var f in candidates)
-            {
-                var name = Path.GetFileName(f);
-                if (name.Contains(".Desktop", StringComparison.OrdinalIgnoreCase) && !name.Contains("Update", StringComparison.OrdinalIgnoreCase))
-                    return f;
-            }
-            // fallback to any exe except updater
-            foreach (var f in candidates)
-            {
-                if (!Path.GetFileName(f).Contains("Update", StringComparison.OrdinalIgnoreCase)) return f;
-            }
+            _waitPid = null; // 重试时无需再次等待
         }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "Failed enumerating executables under {appDir}", appDir);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "Access denied enumerating executables under {appDir}", appDir);
-        }
-        return null;
     }
-
 
     private void OnServiceProgressChanged()
     {
-        // Pull values from service and update observable properties
+        // 服务在后台线程报告进度，这里统一切回 UI 线程
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(OnServiceProgressChanged);
+            return;
+        }
         BytesReceivedInMB = _updater.BytesReceivedInMB;
         ProgressPercentage = _updater.ProgressPercentage;
         Remaining = _updater.Remaining;
         Speed = _updater.Speed;
         Status = _updater.Status;
+        StatusText = _updater.StatusText;
         TotalBytesToReceiveInMB = _updater.TotalBytesToReceiveInMB;
         Version = _updater.LatestVersion;
     }

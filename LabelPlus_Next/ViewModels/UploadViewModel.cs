@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -10,8 +10,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Models.TreeDataGrid;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
@@ -1211,54 +1211,47 @@ public partial class UploadViewModel : ObservableObject
         }
     }
 
-    public sealed class MetaNode
-    {
-        public bool IsFile { get; init; }
-        public string? Name { get; set; }
-        public int Number { get; set; }
-        public bool IsVolume { get; set; }
-        public bool IsSpecial { get; set; }
-        public bool Include { get; set; }
-        public string Status { get; set; } = "立项";
-        public int LocalFileCount { get; init; }
-        public string EpisodeDisplay { get; init; } = string.Empty;
-        public string LocalFileCountDisplay { get; init; } = string.Empty;
-        public List<MetaNode> Children { get; } = new();
-        public EpisodeEntry? Ref { get; init; }
-        public string? Display { get; set; }
-        public int? RangeStart { get; set; }
-        public int? RangeEnd { get; set; }
-        public string? RangeDisplay { get; set; }
-        public string? Owner { get; set; }
-        public string? Tags { get; set; }
-        public string? Notes { get; set; }
-    }
 
-    private HierarchicalTreeDataGridSource<MetaNode>? _metaTreeSource;
-    public HierarchicalTreeDataGridSource<MetaNode>? MetaTreeSource
-    {
-        get => _metaTreeSource;
-        private set => SetProperty(ref _metaTreeSource, value);
-    }
     private List<MetaNode> _metaRoots = new();
+    public ObservableCollection<MetaNode> MetaRows { get; } = new();
 
     private void BuildMetaTree()
     {
         _metaRoots = PendingEpisodes.Select(ep => CreateMetaRoot(ep)).ToList();
-        var src = new HierarchicalTreeDataGridSource<MetaNode>(_metaRoots);
-        src.Columns.Add(new CheckBoxColumn<MetaNode>("包含", x => x.Include, (x, v) => x.Include = v));
-        src.Columns.Add(new HierarchicalExpanderColumn<MetaNode>(
-            new TextColumn<MetaNode, string>("名称", x => x.Name ?? string.Empty, (x, v) => x.Name = v ?? x.Name),
-            x => x.Children,
-            x => x.Children.Count > 0));
-        src.Columns.Add(new TextColumn<MetaNode, string>("状态", x => x.Status ?? string.Empty, (x, v) => x.Status = v ?? x.Status));
-        src.Columns.Add(new TextColumn<MetaNode, string>("显示名", x => x.Display ?? string.Empty, (x, v) => x.Display = v));
-        src.Columns.Add(new TextColumn<MetaNode, string>("负责人", x => x.Owner ?? string.Empty, (x, v) => x.Owner = v));
-        src.Columns.Add(new TextColumn<MetaNode, string>("范围", x => x.RangeDisplay ?? string.Empty, (x, v) => x.RangeDisplay = v));
-        src.Columns.Add(new TextColumn<MetaNode, string>("标签", x => x.Tags ?? string.Empty, (x, v) => x.Tags = v));
-        src.Columns.Add(new TextColumn<MetaNode, string>("备注", x => x.Notes ?? string.Empty, (x, v) => x.Notes = v));
-        src.Columns.Add(new TextColumn<MetaNode, string>("文件数", x => x.LocalFileCountDisplay));
-        MetaTreeSource = src;
+        foreach (var root in _metaRoots)
+        {
+            root.IsExpanded = true;
+            WireMetaCommands(root);
+        }
+        RebuildMetaRows();
+    }
+
+    private void WireMetaCommands(MetaNode node)
+    {
+        node.ToggleCommand = ToggleMetaNodeCommand;
+        foreach (var child in node.Children) WireMetaCommands(child);
+    }
+
+    private void RebuildMetaRows()
+    {
+        MetaRows.Clear();
+        foreach (var root in _metaRoots) AddMetaRow(root, 0);
+    }
+
+    private void AddMetaRow(MetaNode node, int depth)
+    {
+        node.Depth = depth;
+        MetaRows.Add(node);
+        if (!node.IsExpanded) return;
+        foreach (var child in node.Children) AddMetaRow(child, depth + 1);
+    }
+
+    [RelayCommand]
+    private void ToggleMetaNode(MetaNode? node)
+    {
+        if (node is null || node.Children.Count == 0) return;
+        node.IsExpanded = !node.IsExpanded;
+        RebuildMetaRows();
     }
 
     private MetaNode CreateMetaRoot(EpisodeEntry ep)

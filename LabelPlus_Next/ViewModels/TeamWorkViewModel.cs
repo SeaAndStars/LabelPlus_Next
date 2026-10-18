@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -12,11 +12,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Models.TreeDataGrid;
 using Avalonia.Controls.Notifications;
-using Avalonia.Controls.Templates;
-using Avalonia.Layout;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
@@ -37,7 +35,6 @@ public partial class TeamWorkViewModel : ObservableObject
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private double progress;
     [ObservableProperty] private string? progressText;
-    [ObservableProperty] private HierarchicalTreeDataGridSource<NodeItem>? treeSource;
     public WindowNotificationManager? NotificationManager { get; set; }
 
     public ObservableCollection<string> Suggestions { get; } = new();
@@ -178,7 +175,8 @@ public partial class TeamWorkViewModel : ObservableObject
     {
         Logger.Info("TeamWork LoadProject: name={name}", name);
         Episodes.Clear();
-        TreeSource = null;
+        TreeRows.Clear();
+        _treeRoots.Clear();
         if (string.IsNullOrWhiteSpace(name)) return;
         try
         {
@@ -285,67 +283,54 @@ public partial class TeamWorkViewModel : ObservableObject
         }
     }
 
+    private readonly List<NodeItem> _treeRoots = new();
+    public ObservableCollection<NodeItem> TreeRows { get; } = new();
+    public bool IsTreeEmpty => TreeRows.Count == 0;
+
     private void BuildTreeSource(List<EpisodeItem> episodes)
     {
-        var roots = episodes.Select(CreateNode).ToList();
-        var src = new HierarchicalTreeDataGridSource<NodeItem>(roots);
-        // columns
-        src.Columns.Add(new HierarchicalExpanderColumn<NodeItem>(
-            new TextColumn<NodeItem, string>("话数/阶段", x => x.Title ?? string.Empty),
-            x => x.Children,
-            x => x.Children.Count > 0));
-        src.Columns.Add(new TextColumn<NodeItem, string>("状态", x => x.Status ?? string.Empty));
-        src.Columns.Add(new TextColumn<NodeItem, string>("路径", x => x.Path ?? string.Empty));
-        src.Columns.Add(new TextColumn<NodeItem, string>("负责人", x => x.Owner ?? string.Empty));
-        src.Columns.Add(new TextColumn<NodeItem, string>("创建时间", x => x.CreatedAt ?? string.Empty));
-        src.Columns.Add(new TextColumn<NodeItem, string>("更新时间", x => x.UpdatedAt ?? string.Empty));
-        // 文件数（对话数根节点有效）
-        src.Columns.Add(new TextColumn<NodeItem, string>("文件数", x => x.FileCountText));
-        // 移除“查看文件”按钮列
+        _treeRoots.Clear();
+        foreach (var episode in episodes)
+        {
+            var node = CreateNode(episode);
+            node.IsExpanded = true;
+            WireTreeCommands(node);
+            _treeRoots.Add(node);
+        }
+        RebuildTreeRows();
+    }
 
-        // 操作列：
-        // - 话数根节点(IsEpisodeRoot) -> 显示开始翻译/校对/嵌字
-        // - 文件子项(IsFile) 或 阶段节点(有Path且非根/非容器) -> 显示下载
-        // - 文件容器节点(仅标题“文件”) -> 不显示按钮
-        src.Columns.Add(new TemplateColumn<NodeItem>("操作",
-            new FuncDataTemplate<NodeItem>((node, _) =>
-            {
-                if (node is null) return null;
+    private void WireTreeCommands(NodeItem node)
+    {
+        node.ToggleCommand = ToggleTreeNodeCommand;
+        node.TranslateCommand = StartTranslateCommand;
+        node.ProofCommand = StartProofCommand;
+        node.TypesetCommand = StartTypesetCommand;
+        node.DownloadCommand = DownloadFileCommand;
+        foreach (var child in node.Children) WireTreeCommands(child);
+    }
 
-                if (node.IsEpisodeRoot)
-                {
-                    var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                    var btnT = new Button { Content = "开始翻译" };
-                    btnT.Command = StartTranslateCommand;
-                    btnT.CommandParameter = node.Episode;
-                    var btnP = new Button { Content = "开始校对" };
-                    btnP.Command = StartProofCommand;
-                    btnP.CommandParameter = node.Episode;
-                    var btnS = new Button { Content = "开始嵌字" };
-                    btnS.Command = StartTypesetCommand;
-                    btnS.CommandParameter = node.Episode;
-                    sp.Children.Add(btnT);
-                    sp.Children.Add(btnP);
-                    sp.Children.Add(btnS);
-                    return sp;
-                }
+    private void RebuildTreeRows()
+    {
+        TreeRows.Clear();
+        foreach (var root in _treeRoots) AddTreeRow(root, 0);
+        OnPropertyChanged(nameof(IsTreeEmpty));
+    }
 
-                // 文件容器不显示任何按钮
-                if (node.IsGroupContainer)
-                {
-                    return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                }
+    private void AddTreeRow(NodeItem node, int depth)
+    {
+        node.Depth = depth;
+        TreeRows.Add(node);
+        if (!node.IsExpanded) return;
+        foreach (var child in node.Children) AddTreeRow(child, depth + 1);
+    }
 
-                // 文件或阶段节点：显示下载（若无路径则禁用）
-                var canDownload = !string.IsNullOrWhiteSpace(node.Path) || node.IsFile;
-                var sp2 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                var btnD = new Button { Content = "下载", IsEnabled = canDownload };
-                btnD.Command = DownloadFileCommand;
-                btnD.CommandParameter = node;
-                sp2.Children.Add(btnD);
-                return sp2;
-            }, true)));
-        TreeSource = src;
+    [RelayCommand]
+    private void ToggleTreeNode(NodeItem? node)
+    {
+        if (node is null || node.Children.Count == 0) return;
+        node.IsExpanded = !node.IsExpanded;
+        RebuildTreeRows();
     }
 
     private static string Fmt(DateTimeOffset? t) => t.HasValue ? t.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
@@ -577,10 +562,11 @@ public partial class TeamWorkViewModel : ObservableObject
         public string PublishInfo => $"负责人: {PublishOwner ?? "-"}  创建: {FormatTime(PublishCreatedAt)}  更新: {FormatTime(PublishUpdatedAt)}";
         private static string FormatTime(DateTimeOffset? t) => t.HasValue ? t.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
     }
+}
 
-    public class NodeItem
+public class NodeItem : ObservableObject
     {
-        public EpisodeItem Episode { get; set; } = null!;
+        public TeamWorkViewModel.EpisodeItem Episode { get; set; } = null!;
         public string? Title { get; set; }
         public string? Status { get; set; }
         public string? Path { get; set; }
@@ -596,5 +582,34 @@ public partial class TeamWorkViewModel : ObservableObject
         public bool IsGroupContainer { get; set; } // 新增
         // 新增：为表达式树提供安全访问的文件数文本
         public string FileCountText => (Episode?.FilePaths != null) ? Episode.FilePaths.Count.ToString() : "0";
+
+        private int _depth;
+        public int Depth
+        {
+            get => _depth;
+            set
+            {
+                if (SetProperty(ref _depth, value)) OnPropertyChanged(nameof(IndentMargin));
+            }
+        }
+
+        public Thickness IndentMargin => new(Depth * 18, 0, 0, 0);
+
+        private bool _isExpanded;
+        public bool IsExpanded
+        {
+            get => _isExpanded;
+            set
+            {
+                if (SetProperty(ref _isExpanded, value)) OnPropertyChanged(nameof(ChevronGlyph));
+            }
+        }
+
+        public bool HasChildren => Children.Count > 0;
+        public string ChevronGlyph => IsExpanded ? "⌄" : "›";
+        public System.Windows.Input.ICommand? ToggleCommand { get; set; }
+        public System.Windows.Input.ICommand? TranslateCommand { get; set; }
+        public System.Windows.Input.ICommand? ProofCommand { get; set; }
+        public System.Windows.Input.ICommand? TypesetCommand { get; set; }
+        public System.Windows.Input.ICommand? DownloadCommand { get; set; }
     }
-}

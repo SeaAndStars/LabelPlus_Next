@@ -6,6 +6,7 @@ public enum DownloadStatus
     Checking,
     Downloading,
     Paused,
+    Installing,
     Completed,
     Error
 }

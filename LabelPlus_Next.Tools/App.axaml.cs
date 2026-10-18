@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Tools.ViewModels;
 using LabelPlus_Next.Tools.Views;
@@ -41,7 +40,7 @@ public class App : Application
             RegisterGlobalExceptionHandlers(desktop);
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            DisableAvaloniaDataAnnotationValidation();
+            // Avalonia 12 disables data-annotations validation by default.
             desktop.MainWindow = new MainWindow
             {
                 DataContext = new MainWindowViewModel()
@@ -150,19 +149,6 @@ public class App : Application
         {
             GLogger.Warn(zex, "打包日志失败");
             return (null, "打包日志失败: " + zex.Message);
-        }
-    }
-
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        // Get an array of plugins to remove
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-
-        // remove each entry found
-        foreach (var plugin in dataValidationPluginsToRemove)
-        {
-            BindingPlugins.DataValidators.Remove(plugin);
         }
     }
 

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
-using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views;
@@ -103,7 +102,8 @@ public class App : Application
 #else
             GLogger.Info("[DEBUG] Global exception handlers not registered (debug build). Exceptions will bubble to debugger.");
 #endif
-            DisableAvaloniaDataAnnotationValidation();
+            // Avalonia 12 no longer enables data-annotations validation implicitly, so no plugin
+            // removal is required here.
             // Start IPC server early so forwarded activations from secondary processes can be received quickly
             _ = Task.Run(async () => await StartIpcServerAsync().ConfigureAwait(false));
             // Best-effort: try register labelplus scheme for current user in background
@@ -767,13 +767,6 @@ public class App : Application
         catch (IOException ioEx) { GLogger.Error(ioEx, "ConfigureLogging IO failure"); throw; }
         catch (UnauthorizedAccessException uaEx) { GLogger.Error(uaEx, "ConfigureLogging unauthorized"); throw; }
         catch (Exception ex) { GLogger.Error(ex, "ConfigureLogging unexpected failure"); throw; }
-    }
-
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Accessing Avalonia BindingPlugins.DataValidators only to remove DataAnnotationsValidationPlugin; safe for trimming.")]
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        var dataValidationPluginsToRemove = BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-        foreach (var plugin in dataValidationPluginsToRemove) BindingPlugins.DataValidators.Remove(plugin);
     }
 
     // Add definition for ShowCrashWindow when not DEBUG to satisfy calls with zipPath parameter

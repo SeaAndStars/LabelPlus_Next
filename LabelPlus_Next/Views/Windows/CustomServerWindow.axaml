@@ -1,32 +1,44 @@
-﻿<u:UrsaWindow
+<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Windows.CustomServerWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     Title="自定义更新服务器"
-    Width="520"
-    Height="420"
+    Width="560"
+    Height="540"
     x:DataType="vm:SettingsViewModel">
-
-    <StackPanel Margin="16" Spacing="8">
-        <TextBlock FontWeight="SemiBold" Text="HTTP 更新配置" />
-        <TextBlock Text="Base Url" />
-        <TextBox Text="{Binding BaseUrl}" />
-        <TextBlock Text="Manifest 路径" />
-        <TextBox Text="{Binding ManifestPath}" />
-        <TextBlock Text="用户名 (可选)" />
-        <TextBox Text="{Binding Username}" />
-        <TextBlock Text="密码 (可选)" />
-        <TextBox Text="{Binding Password}" />
-
-        <StackPanel
-            Margin="0,8,0,0"
-            Orientation="Horizontal"
-            Spacing="8">
-            <Button Command="{Binding SaveCommand}" Content="保存到 settings.json" />
-            <Button Click="OnVerifyClick" Content="验证 HTTP" />
+    <Grid Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <StackPanel Spacing="2">
+            <TextBlock Classes="lp-page-title" Text="自定义更新服务器" />
+            <TextBlock Classes="lp-subtle" Text="配置 HTTP 更新源，保存后立即用于下一次更新检查。" />
         </StackPanel>
-        <TextBlock Text="{Binding Status}" />
-    </StackPanel>
+
+        <Border Grid.Row="1" Classes="lp-card">
+            <StackPanel Spacing="12">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="lp-label" Text="Base Url" />
+                    <TextBox Text="{Binding BaseUrl}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="lp-label" Text="Manifest 路径" />
+                    <TextBox Text="{Binding ManifestPath}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="lp-label" Text="用户名（可选）" />
+                    <TextBox Text="{Binding Username}" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="lp-label" Text="密码（可选）" />
+                    <TextBox Text="{Binding Password}" PasswordChar="•" />
+                </StackPanel>
+                <TextBlock Classes="lp-subtle" Text="{Binding Status}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+            <Button Click="OnVerifyClick" Content="验证 HTTP" MinWidth="96" />
+            <Button Classes="lp-primary" Command="{Binding SaveCommand}" Content="保存到 settings.json" MinWidth="140" />
+        </StackPanel>
+    </Grid>
 </u:UrsaWindow>

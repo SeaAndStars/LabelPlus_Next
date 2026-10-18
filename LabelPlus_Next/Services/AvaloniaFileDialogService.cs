@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Antelcat.I18N.Avalonia;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using LabelPlus_Next.Lang;

@@ -6,7 +6,7 @@
     xmlns:local="using:LabelPlus_Next"
     xmlns:semi="https://irihi.tech/semi"
     xmlns:u="https://irihi.tech/ursa"
-    xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+    xmlns:u-semi="clr-namespace:Ursa.Themes.Semi;assembly=Ursa.Themes.Semi"
     RequestedThemeVariant="Default">
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -15,88 +15,315 @@
     <!--  Fallback resources and theme-aware brushes  -->
     <Application.Resources>
         <ResourceDictionary>
-            <!--  Provide a sensible default if the theme doesn't register this token at runtime  -->
-            <Color x:Key="SemiColorText2">#FF202020</Color>
-
-            <Color x:Key="LpBgTop">#FF0F172A</Color>
-            <Color x:Key="LpBgBottom">#FF111827</Color>
-            <Color x:Key="LpSurface">#FF1F2937</Color>
-            <Color x:Key="LpCardBorder">#334155</Color>
-            <Color x:Key="LpPrimary">#38BDF8</Color>
-
-            <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Offset="0" Color="{DynamicResource LpBgTop}" />
-                <GradientStop Offset="1" Color="{DynamicResource LpBgBottom}" />
-            </LinearGradientBrush>
-            <SolidColorBrush x:Key="LpSurfaceBrush" Color="{DynamicResource LpSurface}" />
-            <SolidColorBrush x:Key="LpButtonBrush" Color="{DynamicResource LpPrimary}" Opacity="0.16" />
-
             <!--  Theme-specific brush for LabeledTextBox text/index  -->
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="LabeledTextBrush">Black</SolidColorBrush>
+                    <!--  Semi Design light palette (https://semi.design)  -->
+                    <SolidColorBrush x:Key="LabeledTextBrush" Color="#FF1D2129" />
+                    <Color x:Key="LpBgTop">#FFF7F8FA</Color>
+                    <Color x:Key="LpBgBottom">#FFF2F3F5</Color>
+                    <Color x:Key="LpSurface">#FFFFFFFF</Color>
+                    <Color x:Key="LpCardBorder">#FFE5E6EB</Color>
+                    <Color x:Key="LpPrimary">#FF0064FA</Color>
+                    <Color x:Key="LpShadow">#0F1D2129</Color>
+                    <SolidColorBrush x:Key="LpSurfaceBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="LpCardBorderBrush" Color="#FFE5E6EB" />
+                    <SolidColorBrush x:Key="LpButtonBrush" Color="#FF0064FA" Opacity="0.08" />
+                    <SolidColorBrush x:Key="LpPrimaryBrush" Color="#FF0064FA" />
+                    <SolidColorBrush x:Key="LpSubtleText" Color="#FF86909C" />
+                    <SolidColorBrush x:Key="LpCanvasBrush" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="LpSegmentBrush" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="LpTagBrush" Color="#FFF2F3F5" />
+                    <SolidColorBrush x:Key="LpHoverBrush" Color="#0F1D2129" />
+                    <SolidColorBrush x:Key="LpDangerBrush" Color="#FFF53F3F" />
+                    <SolidColorBrush x:Key="LpSuccessBrush" Color="#FF00B42A" />
+                    <BoxShadows x:Key="LpCardShadow">0 1 2 0 #0A1D2129, 0 4 12 -2 #0F1D2129</BoxShadows>
+                    <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FFF7F8FA" />
+                        <GradientStop Offset="1" Color="#FFF2F3F5" />
+                    </LinearGradientBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="LabeledTextBrush">White</SolidColorBrush>
+                    <!--  Semi Design dark palette  -->
+                    <SolidColorBrush x:Key="LabeledTextBrush" Color="#FFF2F3F5" />
+                    <Color x:Key="LpBgTop">#FF17171A</Color>
+                    <Color x:Key="LpBgBottom">#FF1D1D20</Color>
+                    <Color x:Key="LpSurface">#FF232324</Color>
+                    <Color x:Key="LpCardBorder">#FF3E3E40</Color>
+                    <Color x:Key="LpPrimary">#FF3C7EFF</Color>
+                    <Color x:Key="LpShadow">#66000000</Color>
+                    <SolidColorBrush x:Key="LpSurfaceBrush" Color="#FF232324" />
+                    <SolidColorBrush x:Key="LpCardBorderBrush" Color="#FF3E3E40" />
+                    <SolidColorBrush x:Key="LpButtonBrush" Color="#FF3C7EFF" Opacity="0.16" />
+                    <SolidColorBrush x:Key="LpPrimaryBrush" Color="#FF3C7EFF" />
+                    <SolidColorBrush x:Key="LpSubtleText" Color="#FF86909C" />
+                    <SolidColorBrush x:Key="LpCanvasBrush" Color="#FF17171A" />
+                    <SolidColorBrush x:Key="LpSegmentBrush" Color="#FF1D1D20" />
+                    <SolidColorBrush x:Key="LpTagBrush" Color="#FF2E2E30" />
+                    <SolidColorBrush x:Key="LpHoverBrush" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="LpDangerBrush" Color="#FFF76965" />
+                    <SolidColorBrush x:Key="LpSuccessBrush" Color="#FF23C343" />
+                    <BoxShadows x:Key="LpCardShadow">0 1 2 0 #66000000, 0 8 20 -6 #99000000</BoxShadows>
+                    <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0" Color="#FF17171A" />
+                        <GradientStop Offset="1" Color="#FF1D1D20" />
+                    </LinearGradientBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
-
-
-        <FluentTheme />
-        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
-        <StyleInclude Source="avares://Avalonia.Controls.TreeDataGrid/Themes/Fluent.axaml" />
-
-
+        <!--  Avalonia 12 + Semi Design: a single Semi theme owns every control.  -->
         <semi:SemiTheme Locale="zh-CN" />
-        <u-semi:SemiTheme Locale="zh-CN" />
+        <semi:DataGridSemiTheme />
+        <u-semi:UrsaSemiTheme Locale="zh-CN" />
 
-        <!--  Keep TextBox global tweaks if any other TextBox is used elsewhere  -->
         <Style Selector="u|UrsaWindow">
             <Setter Property="Background" Value="{DynamicResource LpAppBackground}" />
         </Style>
         <Style Selector="u|NavMenu">
-            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorder}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
         <Style Selector="u|NavMenuItem">
             <Setter Property="Padding" Value="10,10" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Margin" Value="8,2" />
+            <Setter Property="FontSize" Value="13" />
         </Style>
-        <Style Selector="Button">
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorder}" />
+
+        <!--  Cards: the base surface for every page section  -->
+        <Style Selector="Border.lp-card">
+            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BoxShadow" Value="{DynamicResource LpCardShadow}" />
+        </Style>
+        <Style Selector="TextBlock.lp-page-title">
+            <Setter Property="FontSize" Value="22" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.lp-section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.lp-subtle">
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.lp-label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.lp-tag">
+            <Setter Property="Background" Value="{DynamicResource LpTagBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="999" />
+        </Style>
+        <Style Selector="Border.lp-tag TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+        </Style>
+        <Style Selector="Border.lp-empty">
+            <Setter Property="Background" Value="{DynamicResource LpCanvasBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="24" />
+        </Style>
+
+        <!--  App bar and split panes (translate workspace)  -->
+        <Style Selector="Border.lp-bar">
+            <Setter Property="Padding" Value="6" />
+        </Style>
+        <Style Selector="Border.lp-pane">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector=":is(Panel).lp-pane-header">
+            <Setter Property="Margin" Value="14,10" />
+            <Setter Property="MinHeight" Value="32" />
+        </Style>
+        <Style Selector=":is(Panel).lp-pane-footer">
+            <Setter Property="Margin" Value="10,8" />
+        </Style>
+        <Style Selector="TextBlock.lp-pane-title">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.lp-canvas">
+            <Setter Property="Background" Value="{DynamicResource LpCanvasBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,1" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.lp-segment">
+            <Setter Property="Background" Value="{DynamicResource LpSegmentBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="3" />
+        </Style>
+        <Style Selector="Border.lp-segment RadioButton">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="GridSplitter.lp-splitter">
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="GridSplitter.lp-splitter:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="GridLinesVisibility" Value="None" />
+            <Setter Property="RowHeight" Value="40" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridCell">
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridColumnHeader">
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridCell:selected">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridCell:current">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridCell:selected:current">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <!--  Semi draws a rectangle around the current cell; keep selection on the row only.  -->
+        <Style Selector="DataGrid.lp-grid DataGridCell /template/ Rectangle#CurrencyVisual">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridCell /template/ Panel#FocusVisual">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!--  Clean table: remove the extra vertical/horizontal separators of the Semi DataGrid.  -->
+        <Style Selector="DataGrid.lp-grid DataGridCell /template/ Rectangle#PART_RightGridLine">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridRow /template/ Rectangle#PART_BottomGridLine">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="DataGrid.lp-grid DataGridColumnHeader /template/ Rectangle#VerticalSeparator">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button:pointerover">
             <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
         </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.97)" />
+        </Style>
+
+        <!--  Toolbar-style buttons: no border until hovered  -->
+        <Style Selector="Button.lp-flat">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.lp-flat:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpHoverBrush}" />
+        </Style>
+        <Style Selector="Button.lp-primary">
+            <Setter Property="Background" Value="{DynamicResource LpPrimaryBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.lp-primary:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpPrimaryBrush}" />
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+        <Style Selector="Button.lp-danger">
+            <Setter Property="Background" Value="{DynamicResource LpDangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.lp-danger:pointerover">
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+        <Style Selector="Button.lp-tree-toggle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="20" />
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
+        </Style>
+        <Style Selector="Button.lp-tree-toggle:pointerover">
+            <Setter Property="Background" Value="{DynamicResource LpHoverBrush}" />
+        </Style>
+        <Style Selector="Button.lp-chip">
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <!--  Smooth transfer progress everywhere (uploads, downloads, updates)  -->
+        <Style Selector="ProgressBar">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Value" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+
         <Style Selector="TextBox">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,6" />
         </Style>
-        <!--  Remove hover/focus background and border effects for TextBox root border  -->
-        <Style Selector="TextBox /template/ Border#PART_RootBorder">
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Background" Value="Transparent" />
+        <Style Selector="ComboBox">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="CornerRadius" Value="8" />
         </Style>
-        <Style Selector="TextBox:pointerover /template/ Border#PART_RootBorder">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox:focus /template/ Border#PART_RootBorder">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
+        <Style Selector="CheckBox">
+            <Setter Property="MinHeight" Value="24" />
         </Style>
 
         <!--  default styling for custom LabeledTextBox: separator and index capsule background  -->

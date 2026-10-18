@@ -49,6 +49,7 @@ public class MainProjectsViewModel : ViewModelBase
         Directory.CreateDirectory(dir);
         _recentStorePath = Path.Combine(dir, "recent_projects.json");
         LoadRecent();
+        RecentProjects.CollectionChanged += (_, __) => OnPropertyChanged(nameof(IsRecentEmpty));
         CreateProjectCommand = new AsyncRelayCommand(CreateProjectAsync);
         OpenProjectCommand = new AsyncRelayCommand(OpenProjectAsync);
         OpenSelectedProjectCommand = new RelayCommand(OpenSelectedProject, () => SelectedProject?.TranslationFile is not null);
@@ -76,6 +77,7 @@ public class MainProjectsViewModel : ViewModelBase
     }
 
     public ObservableCollection<RecentProject> RecentProjects { get => _recentProjects; set { if (SetProperty(ref _recentProjects, value)) CheckAutosaveRecovery(); } }
+    public bool IsRecentEmpty => RecentProjects.Count == 0;
     public string? PreviewStatus { get => _previewStatus; set => SetProperty(ref _previewStatus, value); }
     public Bitmap? CurrentPreviewImage { get => _currentPreviewImage; set => SetProperty(ref _currentPreviewImage, value); }
     public ObservableCollection<LabelItem> CurrentPreviewLabels { get => _currentPreviewLabels; set => SetProperty(ref _currentPreviewLabels, value); }

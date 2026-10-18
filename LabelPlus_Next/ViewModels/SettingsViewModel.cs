@@ -1,21 +1,19 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Downloader;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Views;
 using NLog;
 using System.Diagnostics;
-using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
-using System.Runtime.InteropServices;
 
 namespace LabelPlus_Next.ViewModels;
 
@@ -25,8 +23,6 @@ public partial class SettingsViewModel : ViewModelBase
 
     private readonly ISettingsService _settingsService;
     private AppSettings? _settings;
-
-    private const string DefaultUserAgent = "pan.baidu.com";
 
     [ObservableProperty] private string? baseUrl = "https://alist.seastarss.cn";
 
@@ -344,195 +340,218 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    // 开机检查：优先检查并更新 Updater，自身更新完成后，若 Client 有更新，直接启动 updater 处理（不在主程序下载 Client）
+    private const string ClientProjectKey = "LabelPlus_Next.Desktop";
+    private const string UpdaterProjectKey = "LabelPlus_Next.Update";
+
+    private readonly SemaphoreSlim _updateGate = new(1, 1);
+    private CancellationTokenSource? _updateCts;
+
+    [ObservableProperty] private bool isUpdating;
+
+    [RelayCommand]
+    public void CancelUpdate() => _updateCts?.Cancel();
+
+    // 检查更新：优先更新 Updater（分阶段安装，失败回滚），若 Client 有更新则交给 Updater 处理（主程序不下载 Client）
     public async Task CheckAndUpdateOnStartupAsync()
     {
+        if (!await _updateGate.WaitAsync(0))
+        {
+            Status = "正在检查更新，请稍候...";
+            return;
+        }
+
+        using var cts = new CancellationTokenSource();
+        _updateCts = cts;
+        IsUpdating = true;
         try
         {
             Status = "正在检查更新...";
-            Logger.Info("Startup update check...");
-            var manifestJson = await DownloadManifestViaApiAsync();
-            if (manifestJson is null)
+            Logger.Info("Update check started");
+            if (string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(ManifestPath))
             {
-                Status = "获取清单失败";
-                Logger.Warn("Manifest download failed");
+                Status = "未配置更新服务器";
                 return;
             }
 
-            var manifest = JsonSerializer.Deserialize(manifestJson, AppJsonContext.Default.ManifestV1);
-            if (manifest?.Projects is null)
-            {
-                Status = "清单格式错误";
-                Logger.Warn("Manifest parse failed or projects missing");
-                return;
-            }
-
+            // 本地版本先展示，即使服务器不可达也能看到当前版本
             var appDir = AppContext.BaseDirectory;
             var updateDir = Path.Combine(appDir, "update");
-            Directory.CreateDirectory(updateDir);
-
             var clientLocal = ReadLocalVersion(Path.Combine(appDir, "Client.version.json"));
             var updaterLocal = ReadLocalVersion(Path.Combine(updateDir, "Update.version.json"))
                                ?? ReadLocalVersion(Path.Combine(appDir, "Update.version.json"));
+            CurrentClientVersion = clientLocal;
+            CurrentUpdaterVersion = updaterLocal;
+            CurrentVersion = clientLocal;
 
-            manifest.Projects.TryGetValue("LabelPlus_Next.Desktop", out var cproj);
-            manifest.Projects.TryGetValue("LabelPlus_Next.Update", out var uproj);
-            var clientLatest = cproj?.Latest ?? (cproj?.Releases.Count > 0 ? cproj.Releases[0].Version : null);
-            var updaterLatest = uproj?.Latest ?? (uproj?.Releases.Count > 0 ? uproj.Releases[0].Version : null);
+            var resolver = new AlistResolver(BaseUrl!, Username, Password);
+            var manifest = await FetchManifestAsync(resolver, cts.Token);
+            if (manifest is null) return;
+            Directory.CreateDirectory(updateDir);
 
-            var needUpdater = IsGreater(updaterLatest, updaterLocal);
-            var needClient = IsGreater(clientLatest, clientLocal);
+            manifest.Projects.TryGetValue(ClientProjectKey, out var cproj);
+            manifest.Projects.TryGetValue(UpdaterProjectKey, out var uproj);
+            var clientLatest = LatestOf(cproj);
+            var updaterLatest = LatestOf(uproj);
 
+            LatestClientVersion = clientLatest;
+            LatestUpdaterVersion = updaterLatest;
+            LatestVersion = clientLatest;
+            UpdateNotes = FindRelease(cproj, clientLatest)?.Notes;
+            Logger.Info("Local client={c} updater={u}; remote client={rc} updater={ru}", clientLocal, updaterLocal, clientLatest, updaterLatest);
+
+            var needUpdater = UpdateVersion.IsNewer(updaterLatest, updaterLocal);
+            var needClient = UpdateVersion.IsNewer(clientLatest, clientLocal);
             if (!needUpdater && !needClient)
             {
-                Status = "已经是最新版本";
+                Status = $"已经是最新版本 {clientLocal}";
+                return;
             }
 
-            // 1) 优先更新 Updater
-            if (needUpdater && uproj is not null)
-            {
-                var (upUrl, upSha) = GetReleaseFileInfoByOS(uproj, updaterLatest!);
-                if (!string.IsNullOrWhiteSpace(upUrl))
-                {
-                    UpdateTask = $"下载更新程序 {updaterLatest}...";
-                    IsProgressIndeterminate = false;
-                    UpdateProgress = 0;
-                    Status = UpdateTask;
-                    var zipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
-                    var ok = await DownloadZipAutoAsync(upUrl!, zipPath);
-                    if (!ok)
-                    {
-                        Status = "下载更新程序失败";
-                        Logger.Warn("Updater download failed");
-                        return;
-                    }
-                    if (!await EnsureFileReadyAsync(zipPath))
-                    {
-                        Status = "下载文件不存在";
-                        Logger.Warn("Updater file not present after download");
-                        return;
-                    }
+            if (needUpdater && uproj is not null && !await UpdateUpdaterAsync(resolver, uproj, updaterLatest!, updateDir, cts.Token))
+                return;
 
-                    // 跳过强制 SHA256 校验：仅记录告警，不中断更新流程
-                    if (!string.IsNullOrWhiteSpace(upSha))
-                    {
-                        var actual = await ComputeSha256Async(zipPath);
-                        if (!string.Equals(actual, upSha, StringComparison.OrdinalIgnoreCase))
-                        {
-                            Logger.Warn("Updater SHA256 mismatch (ignored). expected={exp} actual={act}", upSha, actual);
-                        }
-                    }
-                    UpdateTask = "解压更新程序...";
-                    IsProgressIndeterminate = true;
-                    UpdateProgress = 0;
-                    Status = UpdateTask;
-                    await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, updateDir, true));
-                    try { CleanupForeignArchives(updateDir); } catch (Exception cex) { Logger.Warn(cex, "Cleanup after updater extraction failed"); }
-                    SafeDelete(zipPath);
-                    UpdateTask = null;
-                    IsProgressIndeterminate = false;
-                    UpdateProgress = 0;
-                    Status = $"更新程序已更新到 {updaterLatest}";
-                    Logger.Info("Updater updated to {ver}", updaterLatest);
-                }
-            }
-
-            // 2) 如 Client 有更新：直接启动 Updater 处理（不在主程序下载 Client）
             if (needClient)
-            {
-                await AutoSaveBeforeClientUpdateAsync().ConfigureAwait(false);
-                string? updaterEntry = ResolveUpdaterEntry(updateDir) ?? ResolveUpdaterEntry(appDir);
-                if (!string.IsNullOrEmpty(updaterEntry) && (File.Exists(updaterEntry) || Directory.Exists(updaterEntry)))
-                {
-                    try
-                    {
-                        Status = "启动更新程序...";
-                        var pid = Process.GetCurrentProcess().Id;
-
-                        // macOS .app 通过 open 启动，并传递 --args
-                        if (OperatingSystem.IsMacOS() && Directory.Exists(updaterEntry) && updaterEntry.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var psiOpen = new ProcessStartInfo
-                            {
-                                FileName = "/usr/bin/open",
-                                UseShellExecute = false,
-                                WorkingDirectory = Path.GetDirectoryName(updaterEntry) ?? updateDir
-                            };
-                            psiOpen.ArgumentList.Add(updaterEntry);
-                            psiOpen.ArgumentList.Add("--args");
-                            psiOpen.ArgumentList.Add("--waitpid");
-                            psiOpen.ArgumentList.Add(pid.ToString());
-                            psiOpen.ArgumentList.Add("--targetpath");
-                            psiOpen.ArgumentList.Add(appDir);
-                            Process.Start(psiOpen);
-                        }
-                        else
-                        {
-                            // 非 Windows 平台确保可执行位
-                            if (!OperatingSystem.IsWindows() && File.Exists(updaterEntry))
-                            {
-                                try
-                                {
-                                    var mode = System.IO.File.GetUnixFileMode(updaterEntry);
-                                    var hasExec = mode.HasFlag(System.IO.UnixFileMode.UserExecute) || mode.HasFlag(System.IO.UnixFileMode.GroupExecute) || mode.HasFlag(System.IO.UnixFileMode.OtherExecute);
-                                    if (!hasExec)
-                                    {
-                                        mode |= System.IO.UnixFileMode.UserExecute | System.IO.UnixFileMode.GroupExecute | System.IO.UnixFileMode.OtherExecute;
-                                        System.IO.File.SetUnixFileMode(updaterEntry, mode);
-                                    }
-                                }
-                                catch (PlatformNotSupportedException ex)
-                                {
-                                    Logger.Debug(ex, "Platform does not support setting Unix file mode for {entry}", updaterEntry);
-                                }
-                                catch (IOException ex)
-                                {
-                                    Logger.Warn(ex, "Failed to adjust execute permissions for {entry}", updaterEntry);
-                                }
-                                catch (UnauthorizedAccessException ex)
-                                {
-                                    Logger.Warn(ex, "Insufficient permissions to adjust execute bit for {entry}", updaterEntry);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logger.Error(ex, "Unexpected error adjusting execute permissions for {entry}", updaterEntry);
-                                    throw;
-                                }
-                            }
-
-                            var psi = new ProcessStartInfo
-                            {
-                                FileName = updaterEntry,
-                                UseShellExecute = OperatingSystem.IsWindows(),
-                                WorkingDirectory = Path.GetDirectoryName(updaterEntry) ?? updateDir
-                            };
-                            psi.ArgumentList.Add("--waitpid");
-                            psi.ArgumentList.Add(pid.ToString());
-                            psi.ArgumentList.Add("--targetpath");
-                            psi.ArgumentList.Add(appDir);
-                            Process.Start(psi);
-                        }
-
-                        var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-                        lifetime?.Shutdown();
-                    }
-                    catch (Exception ex)
-                    {
-                        Status = "启动更新程序失败";
-                        Logger.Error(ex, "Failed to start updater for client update");
-                    }
-                }
-                else
-                {
-                    Status = "未找到更新程序，无法启动客户端更新";
-                    Logger.Warn("Updater entry not found to start client update");
-                }
-            }
+                await LaunchUpdaterForClientAsync(appDir, updateDir);
+        }
+        catch (OperationCanceledException)
+        {
+            Status = "已取消更新";
+            Logger.Info("Update check cancelled");
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Startup update check failed");
+            Logger.Error(ex, "Update check failed");
             Status = $"检查更新失败: {ex.Message}";
+        }
+        finally
+        {
+            _updateCts = null;
+            IsUpdating = false;
+            UpdateTask = null;
+            IsProgressIndeterminate = false;
+            _updateGate.Release();
+        }
+    }
+
+    private async Task<ManifestV1?> FetchManifestAsync(AlistResolver resolver, CancellationToken ct)
+    {
+        var token = await resolver.GetTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Status = "登录更新服务器失败";
+            return null;
+        }
+        var filePath = Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs)
+            ? abs.AbsolutePath
+            : "/" + ManifestPath!.Replace('\\', '/').TrimStart('/');
+        var result = await new FileSystemApi(BaseUrl!).DownloadAsync(token, filePath, ct);
+        if (result.Code != 200 || result.Content is null)
+        {
+            Status = "获取清单失败";
+            Logger.Warn("Manifest download failed: {code} {msg}", result.Code, result.Message);
+            return null;
+        }
+        var bytes = result.Content.AsSpan();
+        if (bytes.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF])) bytes = bytes[3..];
+        try
+        {
+            var manifest = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.ManifestV1);
+            if (manifest?.Projects is { Count: > 0 }) return manifest;
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Manifest JSON invalid");
+        }
+        Status = "清单格式错误";
+        return null;
+    }
+
+    private async Task<bool> UpdateUpdaterAsync(AlistResolver resolver, ProjectReleases uproj, string version, string updateDir, CancellationToken ct)
+    {
+        var file = PickFile(uproj, version);
+        if (file is null)
+        {
+            Logger.Warn("Manifest has no updater package for {ver}", version);
+            return true; // 无包可用时不阻塞客户端更新
+        }
+
+        var zipPath = UpdateFiles.NewTempFile();
+        try
+        {
+            SetTask($"下载更新程序 {version}...", indeterminate: false);
+            var progress = new Progress<TransferProgress>(p => OnUi(() =>
+            {
+                IsProgressIndeterminate = p.IsIndeterminate;
+                UpdateProgress = p.Percentage;
+            }));
+            if (!await UpdateDownloader.DownloadVerifiedAsync(resolver, file.Value.Url, zipPath, file.Value.Sha256, chunks: 8, progress, ct: ct))
+            {
+                Status = "下载更新程序失败（下载或校验未通过）";
+                return false;
+            }
+
+            SetTask("安装更新程序...", indeterminate: false);
+            var installProgress = new Progress<double>(v => OnUi(() => UpdateProgress = v));
+            await StagedInstaller.ApplyZipAsync(zipPath, updateDir, progress: installProgress, ct: ct);
+            UpdatePlatform.CleanupForeignArchives(updateDir, Logger);
+            CurrentUpdaterVersion = version;
+            Status = $"更新程序已更新到 {version}";
+            Logger.Info("Updater updated to {ver}", version);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            Logger.Error(ex, "Installing updater failed; previous files restored");
+            Status = $"安装更新程序失败，已回滚: {ex.Message}";
+            return false;
+        }
+        finally
+        {
+            UpdateFiles.TryDelete(zipPath);
+        }
+    }
+
+    private async Task LaunchUpdaterForClientAsync(string appDir, string updateDir)
+    {
+        await AutoSaveBeforeClientUpdateAsync();
+        var entry = ResolveUpdaterEntry(updateDir) ?? ResolveUpdaterEntry(appDir);
+        if (entry is null)
+        {
+            Status = "未找到更新程序，无法启动客户端更新";
+            Logger.Warn("Updater entry not found");
+            return;
+        }
+
+        try
+        {
+            Status = "启动更新程序...";
+            var pid = Environment.ProcessId.ToString();
+            ProcessStartInfo psi;
+            if (OperatingSystem.IsMacOS() && entry.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+            {
+                // macOS .app 通过 open 启动，参数经 --args 传递
+                psi = new ProcessStartInfo("/usr/bin/open") { UseShellExecute = false };
+                psi.ArgumentList.Add(entry);
+                psi.ArgumentList.Add("--args");
+            }
+            else
+            {
+                UpdatePlatform.EnsureExecutable(entry, Logger);
+                psi = new ProcessStartInfo(entry) { UseShellExecute = OperatingSystem.IsWindows() };
+            }
+            psi.WorkingDirectory = Path.GetDirectoryName(entry) ?? updateDir;
+            psi.ArgumentList.Add("--waitpid");
+            psi.ArgumentList.Add(pid);
+            psi.ArgumentList.Add("--targetpath");
+            psi.ArgumentList.Add(appDir);
+            Process.Start(psi);
+
+            OnUi(() => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown());
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or InvalidOperationException or PlatformNotSupportedException)
+        {
+            Status = "启动更新程序失败";
+            Logger.Error(ex, "Failed to start updater");
         }
     }
 
@@ -540,13 +559,7 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
-            var mainWindow = MainWindow.Instance;
-            if (mainWindow is null)
-            {
-                Logger.Debug("Auto-save before update skipped: main window not available.");
-                return;
-            }
-            await mainWindow.TryAutoSaveBeforeUpdateAsync().ConfigureAwait(false);
+            if (MainWindow.Instance is { } mainWindow) await mainWindow.TryAutoSaveBeforeUpdateAsync();
         }
         catch (Exception ex)
         {
@@ -554,492 +567,33 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    private static string GetCurrentRid()
+    private void SetTask(string task, bool indeterminate)
     {
-        var arch = RuntimeInformation.ProcessArchitecture;
-        if (OperatingSystem.IsWindows())
-            return arch == Architecture.Arm64 ? "win-arm64" : "win-x64";
-        if (OperatingSystem.IsLinux())
-            return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
-        if (OperatingSystem.IsMacOS())
-            return arch == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
-        // default fallback
-        return arch == Architecture.Arm64 ? "linux-arm64" : "linux-x64";
+        UpdateTask = task;
+        Status = task;
+        UpdateProgress = 0;
+        IsProgressIndeterminate = indeterminate;
     }
 
-    private static (string? url, string? sha256) GetReleaseFileInfoByOS(ProjectReleases prj, string version)
+    private static void OnUi(Action action)
     {
-        foreach (var r in prj.Releases)
-        {
-            if (!string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase)) continue;
-            var files = r.Files;
-            if (files is { Count: > 0 })
-            {
-                var rid = GetCurrentRid();
-                // Prefer matching rid in Name or Url
-                var match = files.FirstOrDefault(f => (!string.IsNullOrEmpty(f.Name) && f.Name.Contains(rid, StringComparison.OrdinalIgnoreCase))
-                                                       || (!string.IsNullOrEmpty(f.Url) && f.Url.Contains(rid, StringComparison.OrdinalIgnoreCase)));
-                if (match is not null && !string.IsNullOrWhiteSpace(match.Url))
-                    return (match.Url, match.Sha256);
-                // Fallback to first with url
-                var any = files.FirstOrDefault(f => !string.IsNullOrWhiteSpace(f.Url));
-                if (any is not null)
-                    return (any.Url, any.Sha256);
-            }
-            return (r.Url, null);
-        }
-        return (null, null);
+        if (Dispatcher.UIThread.CheckAccess()) action();
+        else Dispatcher.UIThread.Post(action);
     }
 
-    private async Task<bool> DownloadZipAutoAsync(string url, string outPath)
+    private static string? LatestOf(ProjectReleases? p)
+        => p is null ? null : p.Latest ?? p.Releases.Select(r => r.Version).Where(v => !string.IsNullOrWhiteSpace(v)).MaxBy(v => v, Comparer<string?>.Create(UpdateVersion.Compare));
+
+    private static ReleaseItemV1? FindRelease(ProjectReleases? p, string? version)
+        => p?.Releases.FirstOrDefault(r => string.Equals(r.Version, version, StringComparison.OrdinalIgnoreCase));
+
+    private static (string Url, string? Sha256)? PickFile(ProjectReleases prj, string version)
     {
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(url) && url.Contains("/dav", StringComparison.OrdinalIgnoreCase))
-            {
-                if (TryExtractDavPath(url, out var davPath) && !string.IsNullOrEmpty(BaseUrl))
-                {
-                    // Login and resolve raw url via API
-                    var auth = new AuthApi(BaseUrl!);
-                    var login = await auth.LoginAsync(Username ?? string.Empty, Password ?? string.Empty);
-                    if (login.Code == 200 && !string.IsNullOrWhiteSpace(login.Data?.Token))
-                    {
-                        var token = login.Data!.Token!;
-                        var fs = new FileSystemApi(BaseUrl!);
-                        var meta = await fs.GetAsync(token, davPath);
-                        if (meta.Code == 200 && meta.Data is not null && !meta.Data.IsDir)
-                        {
-                            var raw = !string.IsNullOrWhiteSpace(meta.Data.RawUrl)
-                                ? meta.Data.RawUrl!
-                                : string.IsNullOrWhiteSpace(meta.Data.Sign)
-                                    ? null
-                                    : BaseUrl!.TrimEnd('/') + "/d/" + Uri.EscapeDataString(meta.Data.Sign!);
-                            if (!string.IsNullOrWhiteSpace(raw))
-                            {
-                                bool okApi;
-                                try
-                                {
-                                    var h = new Uri(raw!).Host.ToLowerInvariant();
-                                    if (h.Contains("baidupcs.com") || h.Contains("baidu.com"))
-                                    {
-                                        Logger.Info("Direct HttpClient (baidupcs) for {url}", raw);
-                                        okApi = await DownloadWithHttpClientAsync(raw!, outPath);
-                                    }
-                                    else
-                                    {
-                                        okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                    }
-                                }
-                                catch (UriFormatException ex)
-                                {
-                                    Logger.Warn(ex, "Raw URL is invalid, fallback to downloader: {url}", raw);
-                                    okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Logger.Warn(ex, "Unexpected error choosing download strategy, fallback to downloader: {url}", raw);
-                                    okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                }
-                                if (okApi)
-                                {
-                                    // 快速验档
-                                    try { using var _ = ZipFile.OpenRead(outPath); return true; }
-                                    catch (Exception ex)
-                                    {
-                                        Logger.Warn(ex, "Downloaded file is not a valid ZIP: {url}");
-                                        try { File.Delete(outPath); }
-                                        catch (IOException delEx)
-                                        {
-                                            Logger.Warn(delEx, "Failed to delete invalid ZIP {outPath}", outPath);
-                                        }
-                                        catch (UnauthorizedAccessException delEx)
-                                        {
-                                            Logger.Warn(delEx, "No permission to delete invalid ZIP {outPath}", outPath);
-                                        }
-                                        return false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                // Fallback to direct download
-                return await DownloadWithDownloaderAsync(url, outPath);
-            }
-            // 优先处理 /d/ 链接：忽略 d，取其后路径，通过 API fs/get 获取 raw_url 再多线程下载
-            if (!string.IsNullOrWhiteSpace(url) && url.Contains("/d/", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(BaseUrl))
-            {
-                try
-                {
-                    var u = new Uri(url);
-                    var path = u.AbsolutePath;
-                    var idx = path.IndexOf("/d/", StringComparison.OrdinalIgnoreCase);
-                    if (idx >= 0)
-                    {
-                        var after = path.Substring(idx + 3); // after '/d'
-                        if (after.StartsWith('/')) after = after.Substring(1);
-                        after = Uri.UnescapeDataString(after);
-                        var apiPath = "/" + after; // 确保以 '/' 开头
-                        var auth = new AuthApi(BaseUrl!);
-                        var login = await auth.LoginAsync(Username ?? string.Empty, Password ?? string.Empty);
-                        if (login.Code == 200 && !string.IsNullOrWhiteSpace(login.Data?.Token))
-                        {
-                            var token = login.Data!.Token!;
-                            var fs = new FileSystemApi(BaseUrl!);
-                            var meta = await fs.GetAsync(token, apiPath);
-                            if (meta.Code == 200 && meta.Data is not null && !meta.Data.IsDir)
-                            {
-                                var raw = !string.IsNullOrWhiteSpace(meta.Data.RawUrl)
-                                    ? meta.Data.RawUrl!
-                                    : string.IsNullOrWhiteSpace(meta.Data.Sign)
-                                        ? null
-                                        : BaseUrl!.TrimEnd('/') + "/d/" + Uri.EscapeDataString(meta.Data.Sign!);
-                                if (!string.IsNullOrWhiteSpace(raw))
-                                {
-                                    bool okApi;
-                                    try
-                                    {
-                                        var h = new Uri(raw!).Host.ToLowerInvariant();
-                                        if (h.Contains("baidupcs.com") || h.Contains("baidu.com"))
-                                        {
-                                            Logger.Info("Direct HttpClient (baidupcs) for {url}", raw);
-                                            okApi = await DownloadWithHttpClientAsync(raw!, outPath);
-                                        }
-                                        else
-                                        {
-                                            okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                        }
-                                    }
-                                    catch (UriFormatException ex)
-                                    {
-                                        Logger.Warn(ex, "Raw URL is invalid, fallback to downloader: {url}", raw);
-                                        okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Logger.Warn(ex, "Unexpected error choosing download strategy, fallback to downloader: {url}", raw);
-                                        okApi = await DownloadWithDownloaderAsync(raw!, outPath);
-                                    }
-                                    if (okApi)
-                                    {
-                                        // 快速验档
-                                        try { using var _ = ZipFile.OpenRead(outPath); return true; }
-                                        catch (Exception ex)
-                                        {
-                                            Logger.Warn(ex, "Downloaded file is not a valid ZIP: {url}");
-                                            try { File.Delete(outPath); }
-                                            catch (IOException delEx)
-                                            {
-                                                Logger.Warn(delEx, "Failed to delete invalid ZIP {outPath}", outPath);
-                                            }
-                                            catch (UnauthorizedAccessException delEx)
-                                            {
-                                                Logger.Warn(delEx, "No permission to delete invalid ZIP {outPath}", outPath);
-                                            }
-                                            return false;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (UriFormatException ex)
-                {
-                    Logger.Warn(ex, "Invalid /d/ URL format, skipping API fallback: {url}", url);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn(ex, "Unexpected error handling /d/ URL fallback: {url}", url);
-                }
-            }
-
-            // 回退：为 /d/ 添加 ?download=1 直接下载
-            if (!string.IsNullOrWhiteSpace(url) && url.Contains("/d/", StringComparison.OrdinalIgnoreCase) && !url.Contains("download=", StringComparison.OrdinalIgnoreCase))
-            {
-                url += url.Contains('?') ? "&download=1" : "?download=1";
-            }
-
-            bool ok;
-            try
-            {
-                var host = new Uri(url).Host.ToLowerInvariant();
-                if (host.Contains("baidupcs.com") || host.Contains("baidu.com"))
-                {
-                    Logger.Info("Direct HttpClient (baidupcs) for {url}", url);
-                    ok = await DownloadWithHttpClientAsync(url, outPath);
-                }
-                else
-                {
-                    ok = await DownloadWithDownloaderAsync(url, outPath);
-                }
-            }
-            catch (UriFormatException ex)
-            {
-                Logger.Warn(ex, "URL 格式不合法，回退至多线程下载: {url}", url);
-                ok = await DownloadWithDownloaderAsync(url, outPath);
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "检查主机名时发生异常，回退至多线程下载: {url}", url);
-                ok = await DownloadWithDownloaderAsync(url, outPath);
-            }
-            if (!ok) return false;
-
-            // 快速验档：确认是合法 ZIP，避免后续解压抛 InvalidDataException
-            try
-            {
-                using var _ = ZipFile.OpenRead(outPath);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "Downloaded file is not a valid ZIP: {url}");
-                try { File.Delete(outPath); }
-                catch (IOException delEx)
-                {
-                    Logger.Warn(delEx, "Failed to delete invalid ZIP {outPath}", outPath);
-                }
-                catch (UnauthorizedAccessException delEx)
-                {
-                    Logger.Warn(delEx, "No permission to delete invalid ZIP {outPath}", outPath);
-                }
-                return false;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "DownloadZipAutoAsync failed for url={url}");
-            return false;
-        }
-    }
-
-    private static bool TryExtractDavPath(string url, out string davPath)
-    {
-        davPath = string.Empty;
-        try
-        {
-            var u = new Uri(url);
-            var segments = u.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            for (var i = 0; i < segments.Length; i++)
-            {
-                if (string.Equals(segments[i], "dav", StringComparison.OrdinalIgnoreCase))
-                {
-                    var rest = string.Join('/', segments.Skip(i + 1));
-                    davPath = "/" + rest;
-                    return true;
-                }
-            }
-            return false;
-        }
-        catch (UriFormatException ex)
-        {
-            Logger.Debug(ex, "URL 解析失败，尝试基于字符串的 /dav 提取: {url}", url);
-            var idx = url.IndexOf("/dav", StringComparison.OrdinalIgnoreCase);
-            if (idx >= 0)
-            {
-                var after = url[(idx + 4)..];
-                davPath = after.StartsWith('/') ? after : "/" + after;
-                var q = davPath.IndexOf('?');
-                if (q >= 0) davPath = davPath[..q];
-                return true;
-            }
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "提取 DAV 路径时发生未预期异常: {url}", url);
-            throw;
-        }
-    }
-
-    private async Task<bool> DownloadWithDownloaderAsync(string url, string outPath)
-    {
-        try
-        {
-            var cfg = new DownloadConfiguration
-            {
-                BufferBlockSize = 10240,
-                ChunkCount = 8,
-                MaximumBytesPerSecond = 0,
-                MaxTryAgainOnFailure = 5,
-                MaximumMemoryBufferBytes = 50 * 1024 * 1024,
-                ParallelDownload = true,
-                ParallelCount = 4,
-                Timeout = 10000,
-                RangeDownload = false,
-                MinimumSizeOfChunking = 102400,
-                MinimumChunkSize = 10240,
-                ReserveStorageSpaceBeforeStartingDownload = true,
-                EnableLiveStreaming = false
-            };
-            cfg.RequestConfiguration = cfg.RequestConfiguration ?? new RequestConfiguration();
-            cfg.RequestConfiguration.Headers = cfg.RequestConfiguration.Headers ?? new System.Net.WebHeaderCollection();
-            cfg.RequestConfiguration.Headers["User-Agent"] = DefaultUserAgent;
-            // 对 baidupcs 域名禁用并发/分片并补充必要头，避免 403
-            try
-            {
-                var host = new Uri(url).Host.ToLowerInvariant();
-                if (host.Contains("baidupcs.com") || host.Contains("baidu.com"))
-                {
-                    cfg.RequestConfiguration.Headers["Referer"] = "https://pan.baidu.com/disk/home";
-                    cfg.RequestConfiguration.Headers["Origin"] = "https://pan.baidu.com";
-                    cfg.RequestConfiguration.Headers["Accept"] = "*/*";
-                }
-            }
-            catch (UriFormatException ex)
-            {
-                Logger.Warn(ex, "URL 格式无效，跳过特定头设置: {url}", url);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "配置下载器请求头时发生未预期异常: {url}", url);
-                throw;
-            }
-            Logger.Info("Downloader starting: url={url}, ua={ua}, parallel={parallel}, chunks={chunks}, parallelCount={pc}, range={range}",
-                url, DefaultUserAgent, cfg.ParallelDownload, cfg.ChunkCount, cfg.ParallelCount, cfg.RangeDownload);
-            var service = new DownloadService(cfg);
-            service.DownloadProgressChanged += (s, e) =>
-            {
-                UpdateProgress = e.ProgressPercentage;
-                IsProgressIndeterminate = false;
-            };
-            service.DownloadFileCompleted += (s, e) =>
-            {
-                UpdateProgress = 100;
-                IsProgressIndeterminate = false;
-                try
-                {
-                    var err = (e as System.ComponentModel.AsyncCompletedEventArgs)?.Error;
-                    var canceled = (e as System.ComponentModel.AsyncCompletedEventArgs)?.Cancelled ?? false;
-                    if (err != null) Logger.Warn(err, "Downloader completed with error: {url}", url);
-                    else Logger.Info("Downloader completed: url={url}, out={out}", url, outPath);
-                    if (canceled) Logger.Warn("Downloader canceled: {url}", url);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex, "处理下载完成事件时发生异常: {url}", url);
-                }
-            };
-            await service.DownloadFileTaskAsync(url, outPath);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Downloader failed: {url}", url);
-            IsProgressIndeterminate = false;
-            return false;
-        }
-    }
-
-    private async Task<bool> DownloadWithHttpClientAsync(string url, string outPath)
-    {
-        try
-        {
-            using var handler = new HttpClientHandler
-            {
-                AllowAutoRedirect = true,
-                AutomaticDecompression = System.Net.DecompressionMethods.All
-            };
-            using var http = new HttpClient(handler)
-            {
-                Timeout = TimeSpan.FromMinutes(5)
-            };
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            req.Headers.TryAddWithoutValidation("User-Agent", DefaultUserAgent);
-            req.Headers.TryAddWithoutValidation("Accept", "*/*");
-            try
-            {
-                var host = new Uri(url).Host.ToLowerInvariant();
-                if (host.Contains("baidupcs.com") || host.Contains("baidu.com"))
-                {
-                    req.Headers.TryAddWithoutValidation("Referer", "https://pan.baidu.com/disk/home");
-                    req.Headers.TryAddWithoutValidation("Origin", "https://pan.baidu.com");
-                }
-            }
-            catch (UriFormatException ex)
-            {
-                Logger.Warn(ex, "URL 格式无效，跳过额外头部: {url}", url);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "配置 HttpClient 请求头时发生未预期异常: {url}", url);
-                throw;
-            }
-
-            Logger.Info("HttpClient downloading: {url}", url);
-            using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
-            if (!resp.IsSuccessStatusCode)
-            {
-                Logger.Warn("HttpClient non-success: {(int)resp.StatusCode} {resp.ReasonPhrase} for {url}");
-                return false;
-            }
-
-            var total = resp.Content.Headers.ContentLength;
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var dir = Path.GetDirectoryName(outPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            await using var fs = File.Create(outPath);
-
-            var buffer = new byte[64 * 1024];
-            long read = 0;
-            int n;
-            if (total is null || total <= 0)
-            {
-                IsProgressIndeterminate = true;
-                while ((n = await stream.ReadAsync(buffer)) > 0)
-                {
-                    await fs.WriteAsync(buffer.AsMemory(0, n));
-                }
-                IsProgressIndeterminate = false;
-                UpdateProgress = 100;
-            }
-            else
-            {
-                while ((n = await stream.ReadAsync(buffer)) > 0)
-                {
-                    await fs.WriteAsync(buffer.AsMemory(0, n));
-                    read += n;
-                    UpdateProgress = total > 0 ? (read * 100.0 / total.Value) : 0;
-                    IsProgressIndeterminate = false;
-                }
-                UpdateProgress = 100;
-            }
-            Logger.Info("HttpClient completed: url={url}, out={out}", url, outPath);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "DownloadWithHttpClientAsync failed: {url}", url);
-            IsProgressIndeterminate = false;
-            return false;
-        }
-    }
-
-    private async Task<string?> DownloadManifestViaApiAsync()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(ManifestPath)) return null;
-            var auth = new AuthApi(BaseUrl!);
-            var login = await auth.LoginAsync(Username ?? string.Empty, Password ?? string.Empty);
-            if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token)) return null;
-            var token = login.Data!.Token!;
-            string filePath;
-            if (Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs)) filePath = abs.AbsolutePath;
-            else filePath = ManifestPath!.StartsWith('/') ? ManifestPath! : "/" + ManifestPath!;
-            var fs = new FileSystemApi(BaseUrl!);
-            var result = await fs.DownloadAsync(token, filePath);
-            if (result.Code != 200 || result.Content is null) return null;
-            var bytes = result.Content;
-            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) bytes = bytes[3..];
-            return Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Trim();
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "DownloadManifestViaApiAsync failed");
-            return null;
-        }
+        var release = FindRelease(prj, version);
+        if (release is null) return null;
+        var file = UpdatePlatform.PickForCurrentPlatform(release.Files, f => f.Name, f => f.Url);
+        if (file is not null) return (file.Url!, file.Sha256);
+        return string.IsNullOrWhiteSpace(release.Url) ? null : (release.Url!, null);
     }
 
     private static string? ReadLocalVersion(string path)
@@ -1049,222 +603,12 @@ public partial class SettingsViewModel : ViewModelBase
             if (!File.Exists(path)) return null;
             using var fs = File.OpenRead(path);
             using var doc = JsonDocument.Parse(fs);
-            if (doc.RootElement.TryGetProperty("version", out var v)) return v.GetString();
+            return doc.RootElement.TryGetProperty("version", out var v) ? v.GetString() : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            Logger.Warn(ex, "读取版本文件失败 {path}", path);
             return null;
-        }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "读取版本文件 {path} 时发生 IO 异常", path);
-            return null;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "读取版本文件 {path} 权限不足", path);
-            return null;
-        }
-        catch (JsonException ex)
-        {
-            Logger.Warn(ex, "版本文件 {path} JSON 格式错误", path);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "读取版本文件 {path} 时发生未预期异常", path);
-            throw;
-        }
-    }
-
-    private static bool IsGreater(string? remote, string? local)
-    {
-        if (string.IsNullOrWhiteSpace(remote)) return false;
-        if (string.IsNullOrWhiteSpace(local)) return true;
-        if (Version.TryParse(remote, out var r) && Version.TryParse(local, out var l)) return r > l;
-        return string.Compare(remote, local, StringComparison.OrdinalIgnoreCase) > 0;
-    }
-
-    private static async Task<string> ComputeSha256Async(string path)
-    {
-        await using var fs = File.OpenRead(path);
-        using var sha = SHA256.Create();
-        var bytes = await sha.ComputeHashAsync(fs);
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
-
-    private static async Task ExtractZipSelectiveAsync(string zipPath, string destDir, Func<string, bool> skipPredicate)
-    {
-        using var archive = ZipFile.OpenRead(zipPath);
-        var destRoot = Path.GetFullPath(destDir);
-        foreach (var entry in archive.Entries)
-        {
-            var name = entry.FullName;
-            if (string.IsNullOrEmpty(name)) continue;
-            if (name.EndsWith("/") || name.EndsWith("\\")) continue; // directory entry
-            if (skipPredicate(name)) continue;
-
-            var relative = name.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-            var outPath = Path.GetFullPath(Path.Combine(destRoot, relative));
-            if (!outPath.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase)) continue; // prevent path traversal
-            var outDir = Path.GetDirectoryName(outPath);
-            if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
-            await using var inStream = entry.Open();
-            await using var outStream = File.Create(outPath);
-            await inStream.CopyToAsync(outStream);
-        }
-    }
-
-    private static void TryStartMainApp(string appDir)
-    {
-        try
-        {
-            var exe = ResolveMainExe(appDir);
-            if (exe is null) return;
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                UseShellExecute = true,
-                WorkingDirectory = appDir
-            };
-            Process.Start(psi);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn(ex, "Failed to start main application from {dir}", appDir);
-        }
-    }
-
-    private static string? ResolveMainExe(string appDir)
-    {
-        var clientVerPath = Path.Combine(appDir, "Client.version.json");
-        try
-        {
-            if (File.Exists(clientVerPath))
-            {
-                using var fs = File.OpenRead(clientVerPath);
-                using var doc = JsonDocument.Parse(fs);
-                if (doc.RootElement.TryGetProperty("project", out var p) && p.ValueKind == JsonValueKind.String)
-                {
-                    var proj = p.GetString();
-                    if (!string.IsNullOrWhiteSpace(proj))
-                    {
-                        var exe = Path.Combine(appDir, proj + ".exe");
-                        if (File.Exists(exe)) return exe;
-                    }
-                }
-            }
-        }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "读取 Client.version.json 失败: {path}", clientVerPath);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "无权限读取 Client.version.json: {path}", clientVerPath);
-        }
-        catch (JsonException ex)
-        {
-            Logger.Warn(ex, "Client.version.json 格式错误: {path}", clientVerPath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "解析 Client.version.json 时发生未预期异常: {path}", clientVerPath);
-            throw;
-        }
-
-        try
-        {
-            var candidates = Directory.GetFiles(appDir, "*.exe", SearchOption.TopDirectoryOnly);
-            foreach (var f in candidates)
-            {
-                var name = Path.GetFileName(f);
-                if (name.Contains(".Desktop", StringComparison.OrdinalIgnoreCase) && !name.Contains("Update", StringComparison.OrdinalIgnoreCase))
-                    return f;
-            }
-            foreach (var f in candidates)
-            {
-                if (!Path.GetFileName(f).Contains("Update", StringComparison.OrdinalIgnoreCase)) return f;
-            }
-        }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "枚举应用程序可执行文件失败: {dir}", appDir);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "无权限枚举应用程序可执行文件: {dir}", appDir);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "查找应用程序可执行文件时发生未预期异常: {dir}", appDir);
-            throw;
-        }
-        return null;
-    }
-
-    private static void SafeDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "Failed to delete file {path}", path);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to delete file {path}", path);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error deleting file {path}", path);
-            throw;
-        }
-    }
-
-    private static void CleanupForeignArchives(string dir)
-    {
-        try
-        {
-            if (!Directory.Exists(dir)) return;
-            var rid = GetCurrentRid();
-            var rids = new[] { "win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-x64", "osx-arm64" };
-            var others = rids.Where(r => !string.Equals(r, rid, StringComparison.OrdinalIgnoreCase)).ToArray();
-            foreach (var file in Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly))
-            {
-                var ext = Path.GetExtension(file);
-                if (!".zip".Equals(ext, StringComparison.OrdinalIgnoreCase) && !".7z".Equals(ext, StringComparison.OrdinalIgnoreCase)) continue;
-                var name = Path.GetFileName(file);
-                if (others.Any(r => name.Contains(r, StringComparison.OrdinalIgnoreCase)))
-                {
-                    try { File.Delete(file); Logger.Info("Cleanup removed foreign archive: {file}", file); }
-                    catch (IOException ex)
-                    {
-                        Logger.Warn(ex, "Failed to delete foreign archive {file}", file);
-                    }
-                    catch (UnauthorizedAccessException ex)
-                    {
-                        Logger.Warn(ex, "No permission to delete foreign archive {file}", file);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex, "Unexpected error deleting foreign archive {file}", file);
-                        throw;
-                    }
-                }
-            }
-        }
-        catch (IOException ex)
-        {
-            Logger.Warn(ex, "Failed to clean up foreign archives in {dir}", dir);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to clean up foreign archives in {dir}", dir);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error cleaning up foreign archives in {dir}", dir);
-            throw;
         }
     }
 
@@ -1272,98 +616,31 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
+            if (!Directory.Exists(dir)) return null;
             if (OperatingSystem.IsWindows())
             {
                 var exe = Path.Combine(dir, "LabelPlus_Next.Update.exe");
                 if (File.Exists(exe)) return exe;
-                var anyUpdate = Directory.GetFiles(dir, "*.exe", SearchOption.TopDirectoryOnly)
-                    .FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
-                if (anyUpdate is not null) return anyUpdate;
-                var anyExe = Directory.GetFiles(dir, "*.exe", SearchOption.TopDirectoryOnly).FirstOrDefault();
-                if (anyExe is not null) return anyExe;
-                return null;
+                var exes = Directory.GetFiles(dir, "*.exe", SearchOption.TopDirectoryOnly);
+                return exes.FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
             }
             if (OperatingSystem.IsMacOS())
             {
-                // 优先 .app bundle
-                var app1 = Path.Combine(dir, "LabelPlus_Next.Update.app");
-                if (Directory.Exists(app1)) return app1;
+                var app = Path.Combine(dir, "LabelPlus_Next.Update.app");
+                if (Directory.Exists(app)) return app;
                 var apps = Directory.GetDirectories(dir, "*.app", SearchOption.TopDirectoryOnly);
-                var appUpdate = apps.FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
-                if (appUpdate is not null) return appUpdate;
-                if (apps.Length > 0) return apps[0];
-                // 退回无扩展名可执行文件
-                var unix = Directory.GetFileSystemEntries(dir, "*", SearchOption.TopDirectoryOnly)
-                    .Where(p => File.Exists(p) && string.IsNullOrEmpty(Path.GetExtension(p)));
-                var named = unix.FirstOrDefault(p => Path.GetFileName(p).Equals("LabelPlus_Next.Update", StringComparison.OrdinalIgnoreCase));
+                var named = apps.FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
                 if (named is not null) return named;
-                var upd = unix.FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
-                if (upd is not null) return upd;
-                return unix.FirstOrDefault();
             }
-            // Linux
-            {
-                var unix = Directory.GetFileSystemEntries(dir, "*", SearchOption.TopDirectoryOnly)
-                    .Where(p => File.Exists(p) && string.IsNullOrEmpty(Path.GetExtension(p)));
-                var named = unix.FirstOrDefault(p => Path.GetFileName(p).Equals("LabelPlus_Next.Update", StringComparison.OrdinalIgnoreCase));
-                if (named is not null) return named;
-                var upd = unix.FirstOrDefault(p => Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
-                if (upd is not null) return upd;
-                return unix.FirstOrDefault();
-            }
+            var bin = Path.Combine(dir, "LabelPlus_Next.Update");
+            if (File.Exists(bin)) return bin;
+            return Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(p => string.IsNullOrEmpty(Path.GetExtension(p)) && Path.GetFileName(p).Contains("Update", StringComparison.OrdinalIgnoreCase));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to resolve updater entry in {dir}", dir);
+            return null;
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to resolve updater entry in {dir}", dir);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error resolving updater entry in {dir}", dir);
-            throw;
-        }
-        return null;
-    }
-
-    private static async Task<bool> EnsureFileReadyAsync(string path, int maxAttempts = 10, int delayMs = 100)
-    {
-        for (var i = 0; i < maxAttempts; i++)
-        {
-            try
-            {
-                if (File.Exists(path))
-                {
-                    using var fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    return true;
-                }
-            }
-            catch (IOException ex)
-            {
-                Logger.Debug(ex, "File not ready yet: {path}", path);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Logger.Warn(ex, "No permission to probe file readiness: {path}", path);
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Unexpected error probing file readiness: {path}", path);
-                throw;
-            }
-            try { await Task.Delay(delayMs); }
-            catch (TaskCanceledException)
-            {
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "Delay interrupted while waiting for file readiness: {path}", path);
-            }
-        }
-        return false;
     }
 }

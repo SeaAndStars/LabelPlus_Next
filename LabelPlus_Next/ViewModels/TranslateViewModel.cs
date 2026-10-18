@@ -563,36 +563,12 @@ public partial class TranslateViewModel : ViewModelBase
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
-            var translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
-            string? translationDir = null;
-            if (!string.IsNullOrEmpty(translationFilePath)) translationDir = Path.GetDirectoryName(translationFilePath);
-            var imagePath = value;
-            if (translationDir != null && !Path.IsPathRooted(imagePath)) imagePath = Path.Combine(translationDir, imagePath);
-            imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar).Replace("\\", Path.DirectorySeparatorChar.ToString());
-            imagePath = Uri.UnescapeDataString(imagePath);
-            imagePath = Path.GetFullPath(imagePath);
-            if (File.Exists(imagePath))
-            {
-                try { PicImageSource = new Bitmap(imagePath); }
-                catch (ArgumentException ex)
-                {
-                    Logger.Warn(ex, "Failed to load bitmap {path}", imagePath);
-                    PicImageSource = null;
-                }
-                catch (FileNotFoundException ex)
-                {
-                    Logger.Warn(ex, "Bitmap file disappeared before loading {path}", imagePath);
-                    PicImageSource = null;
-                }
-                catch (IOException ex)
-                {
-                    Logger.Warn(ex, "IO error while loading bitmap {path}", imagePath);
-                    PicImageSource = null;
-                }
-            }
-            else { PicImageSource = null; }
+            var imagePath = ResolveImagePath(value);
+            if (File.Exists(imagePath)) _ = LoadImageAsync(imagePath);
+            else SetDisplayedImage(null, null);
+            PrefetchNeighbor(value);
         }
-        else { PicImageSource = null; }
+        else { SetDisplayedImage(null, null); }
 
         if (CurrentLabels.Count > 0)
         {
@@ -604,6 +580,46 @@ public partial class TranslateViewModel : ViewModelBase
             SelectedLabel = null;
             CurrentText = string.Empty;
         }
+    }
+
+    private readonly Services.BitmapCache _bitmapCache = new();
+    private int _imageLoadVersion;
+
+    private string ResolveImagePath(string relative)
+    {
+        var translationFilePath = OpenTranslationFilePath ?? NewTranslationPath;
+        var translationDir = string.IsNullOrEmpty(translationFilePath) ? null : Path.GetDirectoryName(translationFilePath);
+        var imagePath = relative;
+        if (translationDir != null && !Path.IsPathRooted(imagePath)) imagePath = Path.Combine(translationDir, imagePath);
+        imagePath = imagePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        return Path.GetFullPath(Uri.UnescapeDataString(imagePath));
+    }
+
+    // Decode off the UI thread; drop results that arrive after the user already moved to another page
+    private async Task LoadImageAsync(string imagePath)
+    {
+        var version = ++_imageLoadVersion;
+        var bitmap = await _bitmapCache.GetAsync(imagePath);
+        if (version != _imageLoadVersion) return;
+        await RunOnUiAsync(() =>
+        {
+            if (version == _imageLoadVersion) SetDisplayedImage(bitmap, bitmap is null ? null : imagePath);
+        });
+    }
+
+    private void SetDisplayedImage(IImage? image, string? path)
+    {
+        if (path is null) _imageLoadVersion++;
+        PicImageSource = image;
+        _bitmapCache.MarkDisplayed(path);
+    }
+
+    private void PrefetchNeighbor(string current)
+    {
+        var idx = ImageFileNames.IndexOf(current);
+        if (idx < 0 || idx + 1 >= ImageFileNames.Count) return;
+        var next = ResolveImagePath(ImageFileNames[idx + 1]);
+        if (File.Exists(next)) _bitmapCache.Prefetch(next);
     }
 
     partial void OnSelectedLabelChanged(LabelItem? value) => CurrentText = value?.Text ?? string.Empty;

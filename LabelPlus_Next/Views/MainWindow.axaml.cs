@@ -7,8 +7,10 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Svg.Skia;
+using Avalonia.Controls.Primitives;
+using Avalonia.Media;
 using Avalonia.Threading;
+using LabelPlus_Next.Animations;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.ViewModels;
@@ -34,6 +36,8 @@ public partial class MainWindow : UrsaWindow
     private TeamWorkPage? _teamWorkPage;
     private UploadPage? _uploadPage;
     private SettingsPage? _settingsPage; // embedded settings
+    private SimpleTextPage? _proofPage;
+    private SimpleTextPage? _deliverPage;
     private bool _uploadMenuInserted;
     private bool _closeConfirmed;
     private string? _lastContentTag;
@@ -183,7 +187,7 @@ public partial class MainWindow : UrsaWindow
     private void InsertUploadMenuIfAbsent()
     {
         if (_uploadMenuInserted || _menuMain is null) return;
-        var uploadItem = new NavMenuItem { Header = "上传", Icon = CreateSvgIcon("upload.svg"), Tag = "upload" };
+        var uploadItem = new NavMenuItem { Header = "上传", Icon = CreateIcon("SemiIconUpload"), Tag = "upload" };
         var items = _menuMain.Items;
         var insertIndex = -1;
         for (var i = 0; i < items.Count; i++)
@@ -238,6 +242,8 @@ public partial class MainWindow : UrsaWindow
     {
         _navCollapsed = !_navCollapsed;
         if (_menuMain is not null) _menuMain.IsHorizontalCollapsed = _navCollapsed;
+        if (_menuFooter is not null) _menuFooter.IsHorizontalCollapsed = _navCollapsed;
+        if (this.FindControl<Control>("BrandText") is { } brandText) brandText.IsVisible = !_navCollapsed;
         UpdateToggleItemVisual();
     }
 
@@ -248,15 +254,18 @@ public partial class MainWindow : UrsaWindow
         if (first is NavMenuItem nmi)
         {
             nmi.Header = _navCollapsed ? "展开" : "收起";
-            nmi.Icon = CreateSvgIcon(_navCollapsed ? "chevron-left.svg" : "chevron-right.svg");
+            nmi.Icon = CreateIcon(_navCollapsed ? "SemiIconChevronRight" : "SemiIconChevronLeft");
         }
     }
 
-    private static SvgImage CreateSvgIcon(string fileName)
+    // Theme geometry icons follow the menu foreground, so they stay legible in both light and dark themes
+    // (NavMenuItem renders a bare Geometry as text, so it must be wrapped in a PathIcon)
+    private PathIcon CreateIcon(string resourceKey) => new()
     {
-        var source = SvgSource.Load($"avares://LabelPlus_Next/Assets/Icons/{fileName}", new Uri("avares://LabelPlus_Next/"));
-        return new SvgImage { Source = source };
-    }
+        Width = 16,
+        Height = 16,
+        Data = this.TryFindResource(resourceKey, ActualThemeVariant, out var res) ? res as Geometry : null
+    };
 
     private void OnNavSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
@@ -305,29 +314,20 @@ public partial class MainWindow : UrsaWindow
         var t = NormalizeTag(tag);
         if (t is null) return;
         System.Diagnostics.Debug.WriteLine($"[Nav] SetContent {t}");
-        switch (t)
+        Control? page = t switch
         {
-            case "translate":
-                _translateView ??= new TranslateView { DataContext = App.Services.GetRequiredService<TranslateViewModel>() };
-                host.Content = _translateView; break;
-            case "teamwork":
-                _teamWorkPage ??= new TeamWorkPage { DataContext = App.Services.GetRequiredService<TeamWorkViewModel>() };
-                host.Content = _teamWorkPage; break;
-            case "proof":
-                host.Content = new SimpleTextPage("校对页面"); break;
-            case "upload":
-                _uploadPage ??= new UploadPage { DataContext = App.Services.GetRequiredService<UploadViewModel>() };
-                host.Content = _uploadPage; break;
-            case "deliver":
-                host.Content = new SimpleTextPage("交付页面"); break;
-            case "settings":
-                _settingsPage ??= new SettingsPage { DataContext = _settingsVm };
-                host.Content = _settingsPage; break;
-            default:
-                if (string.IsNullOrEmpty(_lastContentTag)) host.Content = new SimpleTextPage("欢迎");
-                break;
-        }
+            "translate" => _translateView ??= new TranslateView { DataContext = App.Services.GetRequiredService<TranslateViewModel>() },
+            "teamwork" => _teamWorkPage ??= new TeamWorkPage { DataContext = App.Services.GetRequiredService<TeamWorkViewModel>() },
+            "proof" => _proofPage ??= new SimpleTextPage("校对", "校对工作流正在开发中，敬请期待。"),
+            "upload" => _uploadPage ??= new UploadPage { DataContext = App.Services.GetRequiredService<UploadViewModel>() },
+            "deliver" => _deliverPage ??= new SimpleTextPage("交付", "交付工作流正在开发中，敬请期待。"),
+            "settings" => _settingsPage ??= new SettingsPage { DataContext = _settingsVm },
+            _ => string.IsNullOrEmpty(_lastContentTag) ? new SimpleTextPage("欢迎") : null
+        };
         _lastContentTag = t;
+        if (page is null || ReferenceEquals(host.Content, page)) return;
+        host.Content = page;
+        PageTransition.PlayEnter(page);
     }
     #endregion
 

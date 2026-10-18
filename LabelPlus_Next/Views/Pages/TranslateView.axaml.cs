@@ -4,7 +4,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Antelcat.I18N.Avalonia;
 using Avalonia.VisualTree;
 using LabelPlus_Next.CustomControls;
 using LabelPlus_Next.Models;
@@ -28,7 +28,8 @@ public partial class TranslateView : UserControl
     private SettingsViewModel? _settingsVm;
 
     // 拖拽相关
-    private const string DragDataFormat = "application/x-labelplus-labelitem";
+    private static readonly DataFormat<LabelItem> DragDataFormat =
+        DataFormat.CreateInProcessFormat<LabelItem>("application/x-labelplus-labelitem");
     private Control? _lastDropHintRow;
 
     public TranslateView() { InitializeComponent(); }
@@ -92,7 +93,7 @@ public partial class TranslateView : UserControl
         }
     }
 
-    private void OnGridGotFocus(object? sender, GotFocusEventArgs e)
+    private void OnGridGotFocus(object? sender, FocusChangedEventArgs e)
     {
         _lastCentered = null;
     }
@@ -331,9 +332,11 @@ public partial class TranslateView : UserControl
             }
             if (container?.DataContext is LabelItem item)
             {
-                var data = new DataObject();
-                data.Set(DragDataFormat, item);
-                await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+                var data = new DataTransfer();
+                var dragItem = new DataTransferItem();
+                dragItem.Set(DragDataFormat, item);
+                data.Add(dragItem);
+                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move);
             }
         }
     }
@@ -371,7 +374,7 @@ public partial class TranslateView : UserControl
 
     private void OnGridDragOver(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(DragDataFormat)) return;
+        if (!e.DataTransfer.Contains(DragDataFormat)) return;
         e.DragEffects = DragDropEffects.Move;
         e.Handled = true;
 
@@ -402,8 +405,8 @@ public partial class TranslateView : UserControl
     {
         var vm = Vm;
         if (vm is null || _labelsGrid is null) return;
-        if (!e.Data.Contains(DragDataFormat)) return;
-        if (e.Data.Get(DragDataFormat) is not LabelItem dragged) return;
+        if (!e.DataTransfer.Contains(DragDataFormat)) return;
+        if (e.DataTransfer.TryGetValue(DragDataFormat) is not LabelItem dragged) return;
 
         var oldIndex = vm.CurrentLabels.IndexOf(dragged);
         if (oldIndex < 0) return;
@@ -486,16 +489,6 @@ public partial class TranslateView : UserControl
             // final fallback
             I18NExtension.Culture = CultureInfo.CurrentUICulture;
         }
-    }
-    private void BrowseMode_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var pic = _picViewer ?? this.FindControl<PicViewer>("Pic");
-        if (pic != null) pic.Mode = ViewerMode.Browse;
-    }
-    private void LabelMode_OnClick(object? sender, RoutedEventArgs e)
-    {
-        var pic = _picViewer ?? this.FindControl<PicViewer>("Pic");
-        if (pic != null) pic.Mode = ViewerMode.Label;
     }
     private void CategoryInner_OnClick(object? sender, RoutedEventArgs e) { Vm?.SetSelectedCategory(1); }
     private void CategoryOuter_OnClick(object? sender, RoutedEventArgs e) { Vm?.SetSelectedCategory(2); }

@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Update.ViewModels;
 using LabelPlus_Next.Update.Views;
@@ -40,7 +39,7 @@ public class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             RegisterGlobalExceptionHandlers();
-            DisableAvaloniaDataAnnotationValidation();
+            // Avalonia 12 disables data-annotations validation by default.
             // Build DI
             var services = new ServiceCollection();
             services.AddSingleton<IMessageService, MessageService>();
@@ -192,16 +191,6 @@ public class App : Application
         {
             GLogger.Warn(zex, "Updater 打包日志失败");
             return (null, "打包日志失败: " + zex.Message);
-        }
-    }
-
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-        foreach (var plugin in dataValidationPluginsToRemove)
-        {
-            BindingPlugins.DataValidators.Remove(plugin);
         }
     }
 
