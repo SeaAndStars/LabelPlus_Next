@@ -152,6 +152,10 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
         </Style>
+        <Style Selector="Border.lp-count-tag">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,3" />
+        </Style>
         <Style Selector="Border.lp-empty">
             <Setter Property="Background" Value="{DynamicResource LpCanvasBrush}" />
             <Setter Property="CornerRadius" Value="8" />
@@ -331,7 +335,7 @@
         <Style Selector="Button.lp-cat-chip">
             <Setter Property="Height" Value="28" />
             <Setter Property="Padding" Value="10,0" />
-            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="CornerRadius" Value="6" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="Normal" />
@@ -383,7 +387,7 @@
         <Style Selector="Border.lp-icon-group">
             <Setter Property="Padding" Value="2" />
             <Setter Property="Background" Value="{DynamicResource LpSegmentBrush}" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="6" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.lp-icon-btn">

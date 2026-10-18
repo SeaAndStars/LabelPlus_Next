@@ -211,9 +211,8 @@
                                     </StackPanel>
                                 </Button>
                                 <Border
-                                    Padding="8,2"
                                     VerticalAlignment="Center"
-                                    Classes="lp-tag">
+                                    Classes="lp-tag lp-count-tag">
                                     <TextBlock
                                         FontSize="11"
                                         Text="{Binding CurrentLabels.Count, StringFormat={}{0} 个标签}" />
@@ -265,6 +264,7 @@
                                     Padding="8,0"
                                     Classes="lp-flat"
                                     Click="FileSetting_OnClick"
+                                    CornerRadius="6"
                                     Foreground="{DynamicResource LpSubtleText}"
                                     FontSize="12"
                                     ToolTip.Tip="文件设置">

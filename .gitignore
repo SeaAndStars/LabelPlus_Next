@@ -520,3 +520,6 @@ $RECYCLE.BIN/
 
 # Local publish output
 release/
+
+# Local runtime state
+.local/
