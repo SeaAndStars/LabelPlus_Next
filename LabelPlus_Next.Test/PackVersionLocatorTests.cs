@@ -78,6 +78,23 @@ public class PackVersionLocatorTests
         Assert.IsNull(PackVersionLocator.FindRepoRoot(null, null, false));
     }
 
+
+    [TestMethod]
+    public void FindRepoRoot_WalksParentsWithoutRepo()
+    {
+        var root = Path.Combine(_dir, "plain", "nested");
+        Directory.CreateDirectory(root);
+        Assert.IsNull(PackVersionLocator.FindRepoRoot(root, null, false));
+    }
+
+    [TestMethod]
+    public void LooksLikeRepoRoot_ReturnsFalseForEmptyDirectory()
+    {
+        var dir = Path.Combine(_dir, "empty");
+        Directory.CreateDirectory(dir);
+        var method = typeof(PackVersionLocator).GetMethod("LooksLikeRepoRoot", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.IsFalse((bool)method.Invoke(null, new object[] { dir })!);
+    }
     [TestMethod]
     public void FindVersionFilesInRepo_DedupesPrefersCorrectSpellingAndSkipsIgnored()
     {

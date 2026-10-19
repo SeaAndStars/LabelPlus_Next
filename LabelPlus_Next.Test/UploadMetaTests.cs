@@ -24,6 +24,18 @@ public class UploadMetaTests
     private static object? Instance(UploadViewModel vm, string name, params object?[] args)
         => typeof(UploadViewModel).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(vm, args);
 
+
+    [TestMethod]
+    public async Task OpenSettingsCommand_RaisesEvent()
+    {
+        var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), false);
+        Assert.IsFalse(vm.HasUploadProgress);
+        typeof(UploadViewModel).GetField("Logger", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null);
+        var raised = 0;
+        vm.OpenSettingsRequested += (_, _) => raised++;
+        await vm.OpenSettingsCommand.ExecuteAsync(null);
+        Assert.AreEqual(1, raised);
+    }
     [TestMethod]
     public void BuildMetaTree_CreatesRootsRowsAndCommands()
     {

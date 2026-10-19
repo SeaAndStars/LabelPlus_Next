@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.Tools.Models;
@@ -648,11 +648,7 @@ public class MainWindowViewModel : ObservableObject
             Logger.Debug(ex, "Invalid URL format detected, returning trimmed string");
             return url?.TrimEnd('/');
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error normalizing URL");
-            throw;
-        }
+
     }
 
     private string ResolveToAbsolute(string possiblyRelative)
@@ -661,6 +657,13 @@ public class MainWindowViewModel : ObservableObject
 
         var baseUri = new Uri(EnsureSlash(BaseUrl!), UriKind.Absolute);
         var origin = new Uri(baseUri.GetLeftPart(UriPartial.Authority));
+
+        // Root-relative paths must be combined with the site origin before
+        // Uri.TryCreate treats them as file:// paths on Unix.
+        if (possiblyRelative.StartsWith('/') && !possiblyRelative.StartsWith("//"))
+        {
+            return new Uri(origin, possiblyRelative).ToString();
+        }
 
         if (Uri.TryCreate(possiblyRelative, UriKind.Absolute, out var abs))
         {
@@ -675,12 +678,6 @@ public class MainWindowViewModel : ObservableObject
         }
 
         var basePath = baseUri.AbsolutePath.Trim('/'); // e.g. "dav"
-
-        if (possiblyRelative.StartsWith('/'))
-        {
-            // Root-relative path: combine with site origin to avoid duplicating base path
-            return new Uri(origin, possiblyRelative).ToString();
-        }
         var rel = possiblyRelative.Replace('\\', '/');
         // If rel already contains the base path prefix (e.g. "dav/..."), combine with origin
         if (!string.IsNullOrEmpty(basePath) && (rel.Equals(basePath, StringComparison.OrdinalIgnoreCase) || rel.StartsWith(basePath + "/", StringComparison.OrdinalIgnoreCase)))
@@ -708,11 +705,7 @@ public class MainWindowViewModel : ObservableObject
             Logger.Debug(ex, "Failed to compute relative URL, returning null");
             return null;
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error computing relative URL");
-            throw;
-        }
+
     }
 
     private void LoadSettings()

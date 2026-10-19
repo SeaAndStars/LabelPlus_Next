@@ -705,14 +705,9 @@ public partial class TranslateViewModel : ViewModelBase
                 }
                 else list = new List<RecentProjectStore>();
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Logger.Warn(ex, "Failed to read recent projects store {path}", RecentStorePath);
-                list = new List<RecentProjectStore>();
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Logger.Warn(ex, "Access denied reading recent projects store {path}", RecentStorePath);
                 list = new List<RecentProjectStore>();
             }
             catch (JsonException ex)
@@ -747,17 +742,9 @@ public partial class TranslateViewModel : ViewModelBase
 #pragma warning restore IL2026, IL3050
             File.WriteAllText(RecentStorePath, json);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to update recent projects store {path}", RecentStorePath);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "Access denied updating recent projects store {path}", RecentStorePath);
-        }
-        catch (JsonException ex)
-        {
-            Logger.Warn(ex, "Failed to serialize recent projects store {path}", RecentStorePath);
         }
     }
 

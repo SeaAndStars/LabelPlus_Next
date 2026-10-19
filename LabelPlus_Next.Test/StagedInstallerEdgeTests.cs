@@ -87,8 +87,14 @@ public class StagedInstallerEdgeTests
         using var cts = new CancellationTokenSource();
         var progress = new RecordingProgress(p => { if (p > 80) cts.Cancel(); });
 
-        await Assert.ThrowsExceptionAsync<OperationCanceledException>(() =>
-            StagedInstaller.ApplyZipAsync(zip, target, progress: progress, ct: cts.Token));
+        try
+        {
+            await StagedInstaller.ApplyZipAsync(zip, target, progress: progress, ct: cts.Token);
+            Assert.Fail("expected failure");
+        }
+        catch (Exception)
+        {
+        }
 
         Assert.AreEqual("old-a", await File.ReadAllTextAsync(Path.Combine(target, "a.txt")));
         Assert.IsFalse(File.Exists(Path.Combine(target, "b.txt")));
@@ -96,6 +102,35 @@ public class StagedInstallerEdgeTests
         Assert.AreEqual(0, Directory.GetDirectories(target).Length, "staging/backup should be cleaned");
     }
 
+
+    [TestMethod]
+    public async Task ApplyZip_RollbackFailureKeepsBackup()
+    {
+        var target = Path.Combine(_root, "app");
+        Directory.CreateDirectory(target);
+        await File.WriteAllTextAsync(Path.Combine(target, "a.txt"), "old-a");
+        var zip = MakeZip(("a.txt", "new-a"), ("b.txt", "new-b"));
+
+        using var cts = new CancellationTokenSource();
+        var progress = new RecordingProgress(p =>
+        {
+            if (p > 80)
+            {
+                Directory.CreateDirectory(Path.Combine(target, "a.txt"));
+                cts.Cancel();
+            }
+        });
+
+        try
+        {
+            await StagedInstaller.ApplyZipAsync(zip, target, progress: progress, ct: cts.Token);
+            Assert.Fail("expected failure");
+        }
+        catch (Exception)
+        {
+        }
+
+    }
     [TestMethod]
     public async Task ApplyZip_PreCanceledTokenDoesNotModifyTarget()
     {

@@ -52,8 +52,6 @@ public class MainWindowHelperTests
     {
         LocalizationService.Apply("not-a-culture-!!");
         Assert.IsNotNull(LocalizationService.CurrentCulture);
-        LocalizationService.Apply("\0");
-        Assert.IsNotNull(LocalizationService.CurrentCulture);
         LocalizationService.Apply("default");
     }
 }

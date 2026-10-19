@@ -160,6 +160,7 @@ public class UploadParsingTests
         Put("番外03/sp.png");
         Put("番外03/番外04.png");
         Put("特别篇/plain.png");
+        Put("特别篇/序章.png");
         Put("特别篇/番外06.psd");
         Put("第01话/001.png");
         Put("第01话/001.psd");
@@ -175,6 +176,7 @@ public class UploadParsingTests
         Put("第5卷.png");
         Put("random.png");
         Put("第6话.txt");
+        Put("序章.png");
 
         var args = new object?[] { _dir, false, null };
         var list = (List<EpisodeEntry>)Call("ScanEpisodes", args)!;
@@ -187,6 +189,7 @@ public class UploadParsingTests
         Assert.IsTrue(list.Any(e => e.Number == 6));
         Assert.IsTrue(list.Any(e => e.IsVolume));
         Assert.IsTrue(list.Any(e => e.IsMisc));
+        Assert.IsTrue(list.Any(e => e.IsSpecial && e.Display == "番外"));
         Assert.IsTrue(list.Any(e => e.Status == "嵌字"));
         Assert.IsTrue(list.Any(e => e.Status == "校对"));
         Assert.IsTrue(list.Any(e => e.Status == "翻译"));

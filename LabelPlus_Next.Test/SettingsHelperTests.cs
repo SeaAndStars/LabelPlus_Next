@@ -123,11 +123,14 @@ public class SettingsHelperTests
     }
 
     [TestMethod]
-    public void OnUi_ExecutesActionWithoutThrowing()
+    public async Task OnUi_ExecutesFromTestThreadAndThreadPool()
     {
         var flag = 0;
         Call("OnUi", (Action)(() => flag = 1));
         Assert.IsTrue(flag == 0 || flag == 1);
+
+        await Task.Run(() => Call("OnUi", (Action)(() => flag = 2)));
+        Assert.IsTrue(flag is 0 or 1 or 2);
     }
     [TestMethod]
     public async Task SetTask_UpdatesProgressState()

@@ -77,6 +77,34 @@ public class ConvertersTests
             converter.ConvertBack("x", typeof(int), null, En));
     }
 
+
+    private sealed class ThrowingCulture : CultureInfo
+    {
+        public ThrowingCulture() : base("en") { }
+        public override object? GetFormat(Type? formatType) => new ThrowingFormatter();
+    }
+
+    private sealed class ThrowingFormatter : ICustomFormatter
+    {
+        public string Format(string? format, object? arg, IFormatProvider? formatProvider) => throw new FormatException();
+    }
+
+    [TestMethod]
+    public void LocalizedCount_InvalidFormatFallsBack()
+    {
+        LocalizationService.Apply("en");
+        var converter = LocalizedCountConverter.Instance;
+        Assert.AreEqual("3", converter.Convert(3, typeof(string), "ui0180", new ThrowingCulture()));
+    }
+
+    [TestMethod]
+    public void EpisodeTreeItem_IsEpisodeIsInverseOfIsFile()
+    {
+        var item = new LabelPlus_Next.Models.EpisodeTreeItem();
+        Assert.IsTrue(item.IsEpisode);
+        item.IsFile = true;
+        Assert.IsFalse(item.IsEpisode);
+    }
     [TestMethod]
     public void LocalizedFallback_ReturnsValueOrPlaceholder()
     {
