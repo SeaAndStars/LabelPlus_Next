@@ -251,6 +251,9 @@ public partial class MergeConflictViewModel : ObservableObject
         _totalConflicts = Conflicts.Count;
         _currentConflict = _totalConflicts > 0 ? 1 : 0;
         SelectedConflictIndex = _currentConflict > 0 ? 0 : -1;
+        // Setting SelectedConflictIndex to its existing default (0) does not raise
+        // a change notification, so initialise the selected item explicitly.
+        SelectedConflictItem = _totalConflicts > 0 ? Conflicts[0] : null;
     }
 
     internal void OnItemChoiceChanged(ConflictItem _)
@@ -308,59 +311,6 @@ public partial class MergeConflictViewModel : ObservableObject
         UpdateConflictsStatus();
     }
 
-    private static (int count, List<int> positions) CountConflicts(string text)
-    {
-        var pos = new List<int>();
-        int idx = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            pos.Add(i);
-            idx = i + StartMarker.Length;
-        }
-        return (pos.Count, pos);
-    }
-
-    private static string ApplyAll(string text, bool keepRemote)
-    {
-        int idx = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            var (j, k) = FindMarkers(text, i);
-            if (j < 0 || k < 0) break;
-            var (remoteChunk, localChunk) = ExtractChunks(text, i, j, k);
-            var replacement = keepRemote ? remoteChunk : localChunk;
-            text = text.Substring(0, i) + replacement + text.Substring(k + EndMarker.Length);
-            idx = i + replacement.Length;
-        }
-        return text;
-    }
-
-    private static string ApplyNth(string text, int nth, bool keepRemote)
-    {
-        int idx = 0;
-        int seen = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            seen++;
-            var (j, k) = FindMarkers(text, i);
-            if (j < 0 || k < 0) break;
-            if (seen == nth)
-            {
-                var (remoteChunk, localChunk) = ExtractChunks(text, i, j, k);
-                var replacement = keepRemote ? remoteChunk : localChunk;
-                return text.Substring(0, i) + replacement + text.Substring(k + EndMarker.Length);
-            }
-            idx = k + EndMarker.Length;
-        }
-        return text;
-    }
-
     private static (int midPos, int endPos) FindMarkers(string text, int startPos)
     {
         var j = text.IndexOf('\n' + MidMarker + '\n', startPos, StringComparison.Ordinal);
@@ -368,18 +318,6 @@ public partial class MergeConflictViewModel : ObservableObject
         var k = text.IndexOf('\n' + EndMarker, j + 1, StringComparison.Ordinal);
         if (k < 0) k = text.IndexOf(EndMarker, j + 1, StringComparison.Ordinal);
         return (j, k);
-    }
-
-    private static (string remoteChunk, string localChunk) ExtractChunks(string text, int startPos, int midPos, int endPos)
-    {
-        var remStart = startPos + StartMarker.Length;
-        // skip newline if exists
-        if (remStart < text.Length && text[remStart] == '\n') remStart++;
-        var remoteChunk = text.Substring(remStart, Math.Max(0, midPos - remStart));
-        var locStart = midPos + MidMarker.Length;
-        if (locStart < text.Length && text[locStart] == '\n') locStart++;
-        var localChunk = text.Substring(locStart, Math.Max(0, endPos - locStart));
-        return (remoteChunk, localChunk);
     }
 
     private static (int start, int length) GetConflictRange(string text, int nth)
