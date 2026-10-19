@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using LabelPlus_Next.Shared;
 
 namespace LabelPlus_Next.Update.Controls;
 
@@ -36,6 +37,7 @@ public partial class ChromeTitleBar : UserControl
         _window = TopLevel.GetTopLevel(this) as Window;
         if (_window is not null)
         {
+            WindowChrome.RemoveSystemBorder(_window);
             _window.PropertyChanged += OnWindowPropertyChanged;
             UpdateWindowState();
         }

@@ -19,6 +19,20 @@
     ExtendClientAreaToDecorationsHint="False"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
+    <u:UrsaWindow.Styles>
+        <!--  Row separators for the two file lists  -->
+        <Style Selector="ListBox.lp-divided">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.lp-divided ListBoxItem">
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="8,8" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+    </u:UrsaWindow.Styles>
     <Grid RowDefinitions="Auto,*">
         <cc:ChromeTitleBar Grid.Row="0" Title="管理图片" />
 
@@ -34,6 +48,7 @@
                     <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.labelFolderFile}}" />
                     <ListBox
                         Grid.Row="1"
+                        Classes="lp-divided"
                         ItemsSource="{Binding FileFolderList, Mode=TwoWay}"
                         SelectedItem="{Binding SelectedFolerFile}" />
                 </Grid>
@@ -64,6 +79,7 @@
                     <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.labelIncludedFile}}" />
                     <ListBox
                         Grid.Row="1"
+                        Classes="lp-divided"
                         ItemsSource="{Binding FileList, Mode=TwoWay}"
                         SelectedItem="{Binding SelectedFile}" />
                 </Grid>
