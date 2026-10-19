@@ -201,6 +201,18 @@ public class SettingsCoverageTests
     }
 
     [TestMethod]
+    public async Task CheckUpdate_UnreachableServerSetsErrorAndResetsState()
+    {
+        var vm = new SettingsViewModel(new MemorySettings());
+        await vm.LoadAsync();
+        vm.BaseUrl = "http://127.0.0.1:1";
+        vm.ManifestPath = "/m.json";
+        await vm.CheckAndUpdateOnStartupAsync();
+        Assert.IsFalse(vm.IsUpdating);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(vm.Status));
+    }
+
+    [TestMethod]
     public async Task UploadSettings_SaveLoadAndRefreshEvent()
     {
         var path = Path.Combine(_dir, "upload.json");
