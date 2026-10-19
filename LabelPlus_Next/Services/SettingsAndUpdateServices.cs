@@ -56,7 +56,7 @@ public class WebDavUpdateService : IUpdateService
     public async Task<UpdateManifest?> FetchManifestAsync(UpdateSettings upd, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(upd.BaseUrl) || string.IsNullOrWhiteSpace(upd.ManifestPath))
-            throw new InvalidOperationException("BaseUrl/ManifestPath 未配置。");
+            throw new InvalidOperationException(UiText.Tr("BaseUrl/ManifestPath 未配置。"));
 
         var uri = new Uri(new Uri(AppendSlash(upd.BaseUrl!)), upd.ManifestPath);
         using var req = new HttpRequestMessage(HttpMethod.Get, uri);

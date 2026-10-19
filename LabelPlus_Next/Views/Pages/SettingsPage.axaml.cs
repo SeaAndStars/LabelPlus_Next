@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.ViewModels;
+using LabelPlus_Next.Services;
 using LabelPlus_Next.Views.Windows;
 using System;
 
@@ -42,6 +43,6 @@ public partial class SettingsPage : UserControl
 
     private void OnThrowUnhandledClick(object? sender, RoutedEventArgs e)
     {
-        throw new InvalidOperationException("测试未处理异常：这是一条模拟的全局异常。" );
+        throw new InvalidOperationException(UiText.Tr("测试未处理异常：这是一条模拟的全局异常。"));
     }
 }

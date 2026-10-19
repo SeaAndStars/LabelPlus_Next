@@ -1,4 +1,6 @@
-﻿namespace LabelPlus_Next.Models;
+﻿using LabelPlus_Next.Services;
+
+namespace LabelPlus_Next.Models;
 
 public class LabelFileHeaderManager
 {
@@ -12,7 +14,7 @@ public class LabelFileHeaderManager
         var blocks = headerText.Split(new[] { nl + "-" + nl }, StringSplitOptions.None);
 
         if (blocks.Length < 3)
-            throw new Exception("文件头丢失");
+            throw new Exception(UiText.Tr("文件头丢失"));
 
         // 文件头部分
         var fileHead = blocks[0].Split(',');

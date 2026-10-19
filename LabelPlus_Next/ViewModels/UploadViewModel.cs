@@ -120,13 +120,13 @@ public partial class UploadViewModel : ObservableObject
         var us = await LoadUploadSettingsAsync();
         if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
         {
-            Status = "未配置服务器地址";
+            Status = UiText.Tr("未配置服务器地址");
             OpenSettingsRequested?.Invoke(this, EventArgs.Empty);
             return null;
         }
         if (string.IsNullOrWhiteSpace(us.Username) || string.IsNullOrWhiteSpace(us.Password))
         {
-            Status = "未配置账号或密码";
+            Status = UiText.Tr("未配置账号或密码");
             OpenSettingsRequested?.Invoke(this, EventArgs.Empty);
             return null;
         }
@@ -135,7 +135,7 @@ public partial class UploadViewModel : ObservableObject
         var login = await auth.LoginAsync(us.Username!, us.Password!);
         if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
         {
-            Status = $"登录失败: {login.Code} {login.Message}";
+            Status = UiText.Tr("登录失败: {0} {1}", login.Code, login.Message);
             return null;
         }
         return new ApiContext(baseUrl, login.Data!.Token!);
@@ -143,7 +143,7 @@ public partial class UploadViewModel : ObservableObject
 
     private async Task PickUploadFolderAsync()
     {
-        var folder = await _dialogs.PickFolderAsync("选择要上传的文件夹");
+        var folder = await _dialogs.PickFolderAsync(UiText.Tr("选择要上传的文件夹"));
         if (string.IsNullOrWhiteSpace(folder)) return;
         _uploadToExistingProject = true;
         LastSelectedFolderPath = folder;
@@ -151,13 +151,13 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = folderName;
         if (!string.Equals(SelectedProject, folderName, StringComparison.Ordinal))
         {
-            await _dialogs.ShowMessageAsync($"所选文件夹名“{folderName}”与目标项目名“{SelectedProject}”不一致，请确认。");
-            Status = "项目名不一致";
+            await _dialogs.ShowMessageAsync(UiText.Tr("所选文件夹名“{0}”与目标项目名“{1}”不一致，请确认。", folderName, SelectedProject));
+            Status = UiText.Tr("项目名不一致");
             Logger.Warn("Folder name mismatch: folder={folderName} selectedProject={selected}", folderName, SelectedProject);
             return;
         }
         PendingProjectName = SelectedProject;
-        Status = $"已选择文件夹：{folderName}";
+        Status = UiText.Tr("已选择文件夹：{0}", folderName);
         Logger.Info("Picked upload folder: {folder}", folder);
 
         try
@@ -181,13 +181,13 @@ public partial class UploadViewModel : ObservableObject
         catch (Exception ex)
         {
             Logger.Error(ex, "PickUploadFolderAsync failed");
-            Status = "未能读取文件";
+            Status = UiText.Tr("未能读取文件");
         }
     }
 
     private async Task PickUploadFilesAsync()
     {
-        var files = await _dialogs.PickFilesAsync("选择要上传的文件（可多选）");
+        var files = await _dialogs.PickFilesAsync(UiText.Tr("选择要上传的文件（可多选）"));
         if (files is null || files.Count == 0) return;
         _uploadToExistingProject = true;
 
@@ -197,8 +197,8 @@ public partial class UploadViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedProject)) SelectedProject = parentFolder;
         if (!string.IsNullOrWhiteSpace(SelectedProject) && !string.Equals(SelectedProject, parentFolder, StringComparison.Ordinal))
         {
-            await _dialogs.ShowMessageAsync($"所选文件所在文件夹名“{parentFolder}”与目标项目名“{SelectedProject}”不一致，请确认。");
-            Status = "项目名不一致";
+            await _dialogs.ShowMessageAsync(UiText.Tr("所选文件所在文件夹名“{0}”与目标项目名“{1}”不一致，请确认。", parentFolder, SelectedProject));
+            Status = UiText.Tr("项目名不一致");
             Logger.Warn("PickUploadFilesAsync: parent folder mismatch. parent={parentFolder} selected={selected}", parentFolder, SelectedProject);
             return;
         }
@@ -325,7 +325,7 @@ public partial class UploadViewModel : ObservableObject
         if (specialBucket.LocalFiles.Count > 0) PendingEpisodes.Add(specialBucket);
         if (miscBucket.LocalFiles.Count > 0) PendingEpisodes.Add(miscBucket);
         LastSelectedFolderPath = Path.GetDirectoryName(first);
-        Status = $"已选择文件：{files.Count} 个";
+        Status = UiText.Tr("已选择文件：{0} 个", files.Count);
         HasDuplicates = false;
         BuildMetaTree();
         MetadataReady?.Invoke(this, EventArgs.Empty);
@@ -349,18 +349,18 @@ public partial class UploadViewModel : ObservableObject
             else
             {
                 // let user pick multiple episode folders
-                var pickedMany = await _dialogs.PickFoldersAsync("选择要上传的话数文件夹（可多选）");
+                var pickedMany = await _dialogs.PickFoldersAsync(UiText.Tr("选择要上传的话数文件夹（可多选）"));
                 if (pickedMany is { Count: > 0 }) candidateFolders.AddRange(pickedMany);
                 else
                 {
-                    var pickedSingle = await _dialogs.PickFolderAsync("选择要上传的文件夹");
+                    var pickedSingle = await _dialogs.PickFolderAsync(UiText.Tr("选择要上传的文件夹"));
                     if (!string.IsNullOrEmpty(pickedSingle)) candidateFolders.Add(pickedSingle);
                 }
             }
 
             if (candidateFolders.Count == 0)
             {
-                Status = "请先选择上传文件夹";
+                Status = UiText.Tr("请先选择上传文件夹");
                 Logger.Warn("AddProject aborted: no valid folder.");
                 return;
             }
@@ -379,7 +379,7 @@ public partial class UploadViewModel : ObservableObject
                 if (ProjectMap.ContainsKey(projectName))
                 {
                     Logger.Warn("Aggregate already contains project {name}", projectName);
-                    await MessageBox.ShowAsync($"聚合清单中已存在项目“{projectName}”。建议使用‘上传到项目’以避免冲突。", "提示", MessageBoxIcon.Information);
+                    await MessageBox.ShowAsync(UiText.Tr("聚合清单中已存在项目“{0}”。建议使用‘上传到项目’以避免冲突。", projectName), UiText.Tr("提示"), MessageBoxIcon.Information);
                     return;
                 }
 
@@ -394,7 +394,7 @@ public partial class UploadViewModel : ObservableObject
                 HasDuplicates = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                 if (HasDuplicates)
                 {
-                    await MessageBox.ShowAsync("检测到与远端项目存在相同话数。建议使用‘上传到项目’功能以避免覆盖。", "提示", MessageBoxIcon.Warning);
+                    await MessageBox.ShowAsync(UiText.Tr("检测到与远端项目存在相同话数。建议使用‘上传到项目’功能以避免覆盖。"), UiText.Tr("提示"), MessageBoxIcon.Warning);
                     return;
                 }
                 PendingEpisodes.Clear();
@@ -417,7 +417,7 @@ public partial class UploadViewModel : ObservableObject
                     var projectName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     if (ProjectMap.ContainsKey(projectName))
                     {
-                        await _dialogs.ShowMessageAsync($"聚合清单中已存在项目“{projectName}”，已跳过。");
+                        await _dialogs.ShowMessageAsync(UiText.Tr("聚合清单中已存在项目“{0}”，已跳过。", projectName));
                         continue;
                     }
                     var projectJsonPath = ProjectMap.TryGetValue(projectName, out var path) && !string.IsNullOrWhiteSpace(path)
@@ -428,7 +428,7 @@ public partial class UploadViewModel : ObservableObject
                     var dup = episodes.Any(e => existingEpisodeNums.Contains(e.Number));
                     if (dup)
                     {
-                        await _dialogs.ShowMessageAsync($"项目“{projectName}”存在与远端相同话数，已跳过。请使用‘上传到项目’。");
+                        await _dialogs.ShowMessageAsync(UiText.Tr("项目“{0}”存在与远端相同话数，已跳过。请使用‘上传到项目’。", projectName));
                         continue;
                     }
 
@@ -451,7 +451,7 @@ public partial class UploadViewModel : ObservableObject
 
             if (list.Count == 0)
             {
-                Status = "没有可上传的项目";
+                Status = UiText.Tr("没有可上传的项目");
                 return;
             }
 
@@ -459,7 +459,7 @@ public partial class UploadViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"新增项目失败: {ex.Message}";
+            Status = UiText.Tr("新增项目失败: {0}", ex.Message);
             Logger.Error(ex, "AddProjectAsync failed");
         }
     }
@@ -771,7 +771,7 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            Status = "正在刷新项目列表...";
+            Status = UiText.Tr("正在刷新项目列表...");
             var ctx = await GetApiContextAsync();
             if (ctx is null) return;
 
@@ -779,7 +779,7 @@ public partial class UploadViewModel : ObservableObject
             var result = await fsApi.DownloadAsync(ctx.Token, "/project.json");
             if (result.Code != 200 || result.Content is null)
             {
-                Status = $"下载失败: {result.Code} {result.Message}";
+                Status = UiText.Tr("下载失败: {0} {1}", result.Code, result.Message);
                 return;
             }
 
@@ -790,7 +790,7 @@ public partial class UploadViewModel : ObservableObject
             using var doc = JsonDocument.Parse(json);
             if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
             {
-                Status = "清单格式错误（缺少 projects）";
+                Status = UiText.Tr("清单格式错误（缺少 projects）");
                 return;
             }
 
@@ -808,11 +808,11 @@ public partial class UploadViewModel : ObservableObject
                 Projects.Add(name);
             }
 
-            Status = $"已加载 {Projects.Count} 个项目";
+            Status = UiText.Tr("已加载 {0} 个项目", Projects.Count);
         }
         catch (Exception ex)
         {
-            Status = $"刷新失败: {ex.Message}";
+            Status = UiText.Tr("刷新失败: {0}", ex.Message);
             Logger.Error(ex, "RefreshAsync failed");
         }
     }
@@ -872,7 +872,7 @@ public partial class UploadViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(PendingProjectName))
             {
-                Status = "无项目";
+                Status = UiText.Tr("无项目");
                 return false;
             }
 
@@ -903,18 +903,18 @@ public partial class UploadViewModel : ObservableObject
             {
                 var volNum = TankobonVolumeNumber.GetValueOrDefault(1);
                 var keyPreview = volNum.ToString("00");
-                var msg = $"检测到‘单行本回退模式’：��把整个目录当作卷 {volNum} 上传，并在项目 JSON 中写入键名 {keyPreview}。\n是否继续？";
-                var confirm = await MessageBox.ShowAsync(msg, "单行本回退模式", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var msg = UiText.Tr("检测到‘单行本回退模式’：将把整个目录当作卷 {0} 上传，并在项目 JSON 中写入键名 {1}。\n是否继续？", volNum, keyPreview);
+                var confirm = await MessageBox.ShowAsync(msg, UiText.Tr("单行本回退模式"), MessageBoxIcon.Warning, MessageBoxButton.YesNo);
                 if (confirm != MessageBoxResult.Yes)
                 {
-                    Status = "已取消（单行本回退模式）";
+                    Status = UiText.Tr("已取消（单行本回退模式）");
                     return false;
                 }
                 TankobonAcknowledged = true;
             }
 
-            Status = "登录中...";
-            Step("登录完成");
+            Status = UiText.Tr("登录中...");
+            Step(UiText.Tr("登录完成"));
             var fsApi = new FileSystemApi(ctx.BaseUrl);
 
             var projectDir = "/" + PendingProjectName!.Trim('/') + "/";
@@ -924,11 +924,11 @@ public partial class UploadViewModel : ObservableObject
                 var chk = await fsApi.GetAsync(ctx.Token, projectDir.TrimEnd('/'));
                 if (chk.Code != 200 || chk.Data is null || !chk.Data.IsDir)
                 {
-                    Status = $"创建目录失败: {mkProj.Message}";
+                    Status = UiText.Tr("创建目录失败: {0}", mkProj.Message);
                     return false;
                 }
             }
-            Step("已创建项目目录", projectDir);
+            Step(UiText.Tr("已创建项目目录"), projectDir);
 
             foreach (var ep in toUpload)
             {
@@ -939,11 +939,11 @@ public partial class UploadViewModel : ObservableObject
                     var chk = await fsApi.GetAsync(ctx.Token, epDir.TrimEnd('/'));
                     if (chk.Code != 200 || chk.Data is null || !chk.Data.IsDir)
                     {
-                        Status = $"创建话数目录失败: {mk.Message}";
+                        Status = UiText.Tr("创建话数目录失败: {0}", mk.Message);
                         return false;
                     }
                 }
-                Step($"目录就绪: {ep.Number}", epDir);
+                Step(UiText.Tr("目录就绪: {0}", ep.Number), epDir);
             }
 
             var items = new List<FileUploadItem>();
@@ -955,7 +955,7 @@ public partial class UploadViewModel : ObservableObject
                 var remoteAll = new List<string>();
                 foreach (var file in ep.LocalFiles)
                 {
-                    if (!File.Exists(file)) { Step("跳过缺失文件", file); continue; }
+                    if (!File.Exists(file)) { Step(UiText.Tr("跳过缺失文件"), file); continue; }
                     var name = Path.GetFileName(file);
                     var remote = epDir + name;
                     remoteAll.Add(remote);
@@ -976,7 +976,7 @@ public partial class UploadViewModel : ObservableObject
                         else if (ext.Equals(".psd", StringComparison.OrdinalIgnoreCase))
                             typesetPath = typesetPath ?? remote;
                     }
-                    Step("已规划文件", remote);
+                    Step(UiText.Tr("已规划文件"), remote);
                 }
                 var range = DetectRangeFromFiles(ep.LocalFiles);
                 resultMap[ep] = (source: sourcePath, translate: translatePath, proof: proofPath, typeset: typesetPath, range: range, all: remoteAll);
@@ -990,17 +990,17 @@ public partial class UploadViewModel : ObservableObject
             {
                 if (ProjectMap.ContainsKey(PendingProjectName!))
                 {
-                    Status = $"聚合清单中已存在项目“PendingProjectName”，请更换名称或改用‘上传到项目’。";
+                    Status = UiText.Tr("聚合清单中已存在项目“PendingProjectName”，请更换名称或改用‘上传到项目’。");
                     return false;
                 }
                 const string aggregatePath = "/project.json";
                 var agg = await fsApi.DownloadAsync(ctx.Token, aggregatePath);
                 if (agg.Code != 200 || agg.Content is null)
                 {
-                    Status = $"下载聚合清单失败: {agg.Code} {agg.Message}";
+                    Status = UiText.Tr("下载聚合清单失败: {0} {1}", agg.Code, agg.Message);
                     return false;
                 }
-                Step("已下载聚合清单", aggregatePath);
+                Step(UiText.Tr("已下载聚合清单"), aggregatePath);
 
                 Dictionary<string, string> map = new();
                 try
@@ -1008,14 +1008,14 @@ public partial class UploadViewModel : ObservableObject
                     using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(agg.Content).TrimStart('\uFEFF'));
                     if (!doc.RootElement.TryGetProperty("projects", out var projects) || projects.ValueKind != JsonValueKind.Object)
                     {
-                        Status = "聚合清单格式错误";
+                        Status = UiText.Tr("聚合清单格式错误");
                         return false;
                     }
                     foreach (var prop in projects.EnumerateObject()) map[prop.Name] = prop.Value.GetString() ?? string.Empty;
                 }
                 catch
                 {
-                    Status = "解析聚合清单失败";
+                    Status = UiText.Tr("解析聚合清单失败");
                     return false;
                 }
 
@@ -1030,10 +1030,10 @@ public partial class UploadViewModel : ObservableObject
                 var putAgg = await fsApi.SafePutAsync(ctx.Token, aggregatePath, Encoding.UTF8.GetBytes(aggOut));
                 if (putAgg.Code != 200)
                 {
-                    Status = $"更新聚合清单失败: {putAgg.Message}";
+                    Status = UiText.Tr("更新聚合清单失败: {0}", putAgg.Message);
                     return false;
                 }
-                Step("聚合清单已更新", aggregatePath);
+                Step(UiText.Tr("聚合清单已更新"), aggregatePath);
             }
 
             ProjectCn cn;
@@ -1062,7 +1062,7 @@ public partial class UploadViewModel : ObservableObject
                 else cn = new ProjectCn();
             }
             else cn = new ProjectCn();
-            Step("已获取项目JSON", projectJsonPath);
+            Step(UiText.Tr("已获取项目JSON"), projectJsonPath);
 
             foreach (var ep in toUpload)
             {
@@ -1148,7 +1148,7 @@ public partial class UploadViewModel : ObservableObject
                 return Extract(key);
             }
             cn.Items = cn.Items.OrderByDescending(kv => ComputeRank(kv.Key)).ToDictionary(k => k.Key, v => v.Value);
-            Step("JSON 合并完成", projectJsonPath);
+            Step(UiText.Tr("JSON 合并完成"), projectJsonPath);
 
             var ctxSer = new AppJsonContext(new JsonSerializerOptions(AppJsonContext.Default.Options)
             {
@@ -1161,10 +1161,10 @@ public partial class UploadViewModel : ObservableObject
             var putJson = await fsApi.SafePutAsync(ctx.Token, projectJsonPath, bytesOut);
             if (putJson.Code != 200)
             {
-                Status = $"更新项目JSON失败: {putJson.Message}";
+                Status = UiText.Tr("更新项目JSON失败: {0}", putJson.Message);
                 return false;
             }
-            Step("JSON 已上传", projectJsonPath);
+            Step(UiText.Tr("JSON 已上传"), projectJsonPath);
 
             var offset = UploadCompleted;
             var progress = new Progress<UploadProgress>(p =>
@@ -1173,25 +1173,25 @@ public partial class UploadViewModel : ObservableObject
                 UploadCompleted = Math.Min(offset + p.Completed, UploadTotal);
                 CurrentUploadingPath = p.CurrentRemotePath;
                 if (p.SpeedMBps is double sp)
-                    Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath} ({sp:F2} MB/s)";
+                    Status = UiText.Tr("上传中 {0}/{1}: {2} ({3:F2} MB/s)", UploadCompleted, UploadTotal, CurrentUploadingPath, sp);
                 else
-                    Status = $"上传中 {UploadCompleted}/{UploadTotal}: {CurrentUploadingPath}";
+                    Status = UiText.Tr("上传中 {0}/{1}: {2}", UploadCompleted, UploadTotal, CurrentUploadingPath);
             });
 
             var res = await fsApi.PutManyAsync(ctx.Token, items, progress, 6);
             if (res.Any(r => r.Code != 200))
             {
                 var first = res.FirstOrDefault(r => r.Code != 200);
-                Status = $"上传失败: {first?.Message}";
+                Status = UiText.Tr("上传失败: {0}", first?.Message);
                 return false;
             }
 
-            Status = "上传完成";
+            Status = UiText.Tr("上传完成");
             await RefreshAsync();
             try
             {
-                if (_dialogs is not null) await _dialogs.ShowMessageAsync("上传完成");
-                else await MessageBox.ShowAsync("上传完成", "提示", MessageBoxIcon.Information);
+                if (_dialogs is not null) await _dialogs.ShowMessageAsync(UiText.Tr("上传完成"));
+                else await MessageBox.ShowAsync(UiText.Tr("上传完成"), UiText.Tr("提示"), MessageBoxIcon.Information);
             }
             catch (InvalidOperationException ex)
             {
@@ -1205,7 +1205,7 @@ public partial class UploadViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"上传异常: {ex.Message}";
+            Status = UiText.Tr("上传异常: {0}", ex.Message);
             Logger.Error(ex, "UploadPendingAsync failed");
             return false;
         }

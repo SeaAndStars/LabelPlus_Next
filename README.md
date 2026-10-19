@@ -198,9 +198,9 @@ sequenceDiagram
   "schema": "v1",
   "projects": {
     "LabelPlus_Next.Desktop": {
-      "latest": "1.3.2",
+      "latest": "1.3.3",
       "releases": [{
-        "version": "1.3.2",
+        "version": "1.3.3",
         "notes": "更新说明（显示在设置页）",
         "files": [{
           "name": "LabelPlus_Next.Desktop-win-x64.zip",
@@ -210,7 +210,7 @@ sequenceDiagram
         }]
       }]
     },
-    "LabelPlus_Next.Update": { "latest": "1.3.2", "releases": [ /* 同上 */ ] }
+    "LabelPlus_Next.Update": { "latest": "1.3.3", "releases": [ /* 同上 */ ] }
   }
 }
 ```

@@ -160,7 +160,7 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             Logger.Error(ex, "Load settings failed");
-            Status = $"加载失败: {ex.Message}";
+            Status = UiText.Tr("加载失败: {0}", ex.Message);
         }
     }
 
@@ -199,7 +199,7 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             Logger.Error(ex, "Save settings failed");
-            Status = $"保存失败: {ex.Message}";
+            Status = UiText.Tr("保存失败: {0}", ex.Message);
         }
     }
 
@@ -236,7 +236,7 @@ public partial class SettingsViewModel : ViewModelBase
                 else
                 {
                     Logger.Warn("Login failed: code={code}, message={msg}", login.Code, login.Message);
-                    Status = $"登录失败: {login.Code} {login.Message}";
+                    Status = UiText.Tr("登录失败: {0} {1}", login.Code, login.Message);
                     return;
                 }
             }
@@ -265,7 +265,7 @@ public partial class SettingsViewModel : ViewModelBase
             if (result.Code != 200 || result.Content is null)
             {
                 Logger.Warn("Download failed: code={code}, message={msg}", result.Code, result.Message);
-                Status = $"下载失败: {result.Code} {result.Message}";
+                Status = UiText.Tr("下载失败: {0} {1}", result.Code, result.Message);
                 return;
             }
             Logger.Info("Download success: bytes={len}", result.Content.Length);
@@ -299,13 +299,13 @@ public partial class SettingsViewModel : ViewModelBase
                 var previewLen = Math.Min(64, bytes.Length);
                 var hex = BitConverter.ToString(bytes, 0, previewLen).Replace("-", string.Empty);
                 Logger.Error(jx, "Manifest JSON parse failed. FirstBytesHex={hex}", hex);
-                Status = $"验证失败：清单不是有效 JSON（{jx.Message}）";
+                Status = UiText.Tr("验证失败：清单不是有效 JSON（{0}）", jx.Message);
             }
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Verify via API failed");
-            Status = $"验证异常: {ex.Message}";
+            Status = UiText.Tr("验证异常: {0}", ex.Message);
         }
     }
 
@@ -339,15 +339,15 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (JsonException jx)
         {
-            Status = $"验证失败：清单不是有效 JSON（{jx.Message}）";
+            Status = UiText.Tr("验证失败：清单不是有效 JSON（{0}）", jx.Message);
         }
         catch (HttpRequestException hx)
         {
-            Status = $"验证失败：网络错误（{hx.Message}）";
+            Status = UiText.Tr("验证失败：网络错误（{0}）", hx.Message);
         }
         catch (Exception ex)
         {
-            Status = $"验证异常: {ex.Message}";
+            Status = UiText.Tr("验证异常: {0}", ex.Message);
         }
     }
 
@@ -489,7 +489,7 @@ public partial class SettingsViewModel : ViewModelBase
         var zipPath = UpdateFiles.NewTempFile();
         try
         {
-            SetTask($"下载更新程序 {version}...", indeterminate: false);
+            SetTask(UiText.Tr("下载更新程序 {0}...", version), indeterminate: false);
             var progress = new Progress<TransferProgress>(p => OnUi(() =>
             {
                 IsProgressIndeterminate = p.IsIndeterminate;
@@ -501,19 +501,19 @@ public partial class SettingsViewModel : ViewModelBase
                 return false;
             }
 
-            SetTask("安装更新程序...", indeterminate: false);
+            SetTask(UiText.Tr("安装更新程序..."), indeterminate: false);
             var installProgress = new Progress<double>(v => OnUi(() => UpdateProgress = v));
             await StagedInstaller.ApplyZipAsync(zipPath, updateDir, progress: installProgress, ct: ct);
             UpdatePlatform.CleanupForeignArchives(updateDir, Logger);
             CurrentUpdaterVersion = version;
-            Status = $"更新程序已更新到 {version}";
+            Status = UiText.Tr("更新程序已更新到 {0}", version);
             Logger.Info("Updater updated to {ver}", version);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             Logger.Error(ex, "Installing updater failed; previous files restored");
-            Status = $"安装更新程序失败，已回滚: {ex.Message}";
+            Status = UiText.Tr("安装更新程序失败，已回滚: {0}", ex.Message);
             return false;
         }
         finally

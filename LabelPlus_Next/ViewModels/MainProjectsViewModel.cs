@@ -157,7 +157,7 @@ public class MainProjectsViewModel : ViewModelBase
         try
         {
             IsBusy = true;
-            var folder = await _dialogs.PickFolderAsync("选择新项目目录");
+            var folder = await _dialogs.PickFolderAsync(UiText.Tr("选择新项目目录"));
             if (string.IsNullOrWhiteSpace(folder)) return;
             var images = await _dialogs.ChooseImagesAsync(folder);
             if (images is null || images.Count == 0) return;
@@ -240,10 +240,10 @@ public class MainProjectsViewModel : ViewModelBase
         {
             if (!File.Exists(proj.TranslationFile))
             {
-                PreviewStatus = "文件不存在";
+                PreviewStatus = UiText.Tr("文件不存在");
                 return;
             }
-            PreviewStatus = "加载预览...";
+            PreviewStatus = UiText.Tr("加载预览...");
             var imageNames = ParseImageNames(proj.TranslationFile, 50); // load up to 50 names
             if (version != _previewLoadVersion) return;
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -252,7 +252,7 @@ public class MainProjectsViewModel : ViewModelBase
             });
             if (PreviewImageNames.Count == 0)
             {
-                PreviewStatus = "无图片条目";
+                PreviewStatus = UiText.Tr("无图片条目");
                 return;
             }
             await LoadPreviewAtAsync(0);
@@ -260,7 +260,7 @@ public class MainProjectsViewModel : ViewModelBase
         catch (Exception ex)
         {
             if (version != _previewLoadVersion) return;
-            PreviewStatus = "预览失败: " + ex.Message;
+            PreviewStatus = UiText.Tr("预览失败: {0}", ex.Message);
         }
     }
 
