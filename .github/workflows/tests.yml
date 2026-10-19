@@ -52,8 +52,14 @@ jobs:
             --logger "trx;LogFileName=test_results.trx" \
             --results-directory ./TestResults
 
-          COVERAGE_FILE=$(find TestResults -name coverage.cobertura.xml | head -1)
-          LINE_RATE=$(grep -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | head -1 | grep -o '[0-9.]*')
+          COVERAGE_FILE=$(find TestResults -name coverage.cobertura.xml -print -quit)
+          if [ -z "$COVERAGE_FILE" ]; then
+            echo "coverage.cobertura.xml not found" >&2
+            exit 1
+          fi
+          # grep -m1 stops after the first match; piping to head triggers SIGPIPE
+          # under `set -e` on some runners (observed on ubuntu-latest).
+          LINE_RATE=$(grep -m1 -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | sed 's/[^0-9.]//g')
           echo "Core line coverage: $LINE_RATE (target 100%)"
           echo "CORE_LINE_COVERAGE=$LINE_RATE" >> "$GITHUB_ENV"
 
