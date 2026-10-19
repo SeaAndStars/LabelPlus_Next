@@ -106,16 +106,16 @@
                         <Border Classes="lp-segment" HorizontalAlignment="Left">
                             <StackPanel Orientation="Horizontal" Spacing="2">
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Browse}"
+                                             IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Browse}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_BrowseMode}}" />
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Label}"
+                                             IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Label}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditLabelMode}}" />
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Input}"
+                                             IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Input}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_InputMode}}" />
                                 <RadioButton Theme="{DynamicResource ButtonRadioButton}"
-                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Check}"
+                                             IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Check}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_CheckMode}}" />
                             </StackPanel>
                         </Border>
@@ -179,6 +179,8 @@
                 </Grid>
             </Border>
 
+            <Border Grid.Column="1" Classes="lp-split-line" Width="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+            <Border Grid.Column="1" Classes="lp-split-grip" Width="4" Height="36" HorizontalAlignment="Center" VerticalAlignment="Center" />
             <GridSplitter Grid.Column="1" Classes="lp-splitter" ResizeDirection="Columns" />
 
             <!--  标签列表 + 文本  -->
@@ -302,13 +304,23 @@
                             <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="{I18N {x:Static lang:LangKeys.ui0116}}" SortMemberPath="Text">
                                 <dataGrid:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            MaxLines="2"
-                                            Text="{Binding Text}"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="Wrap"
-                                            ToolTip.Tip="{Binding Text}" />
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="10">
+                                            <Border
+                                                Width="4"
+                                                Margin="0,7"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Stretch"
+                                                Background="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}"
+                                                CornerRadius="2" />
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                MaxLines="2"
+                                                Text="{Binding Text}"
+                                                TextTrimming="CharacterEllipsis"
+                                                TextWrapping="Wrap"
+                                                ToolTip.Tip="{Binding Text}" />
+                                        </Grid>
                                     </DataTemplate>
                                 </dataGrid:DataGridTemplateColumn.CellTemplate>
                             </dataGrid:DataGridTemplateColumn>
@@ -324,6 +336,8 @@
                             </dataGrid:DataGridTemplateColumn>
                         </dataGrid:DataGrid.Columns>
                     </dataGrid:DataGrid>
+                    <Border Grid.Row="2" Classes="lp-split-line" Height="1" HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    <Border Grid.Row="2" Classes="lp-split-grip" Width="36" Height="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <GridSplitter Grid.Row="2" Classes="lp-splitter" ResizeDirection="Rows" />
                     <Grid Grid.Row="3" RowDefinitions="Auto,*">
                         <StackPanel Classes="lp-pane-header" Orientation="Horizontal" Spacing="8">

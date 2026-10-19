@@ -15,7 +15,7 @@
                     <SolidColorBrush x:Key="ChromeTitleBarHover" Color="#0F1D2129" />
                     <SolidColorBrush x:Key="ChromeTitleBarActive" Color="#FF0064FA" />
                     <SolidColorBrush x:Key="ChromeTitleBarActiveSoft" Color="#140064FA" />
-                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFF53F3F" />
+                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFE81123" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ChromeTitleBarBackground" Color="#FF232324" />
@@ -25,7 +25,7 @@
                     <SolidColorBrush x:Key="ChromeTitleBarHover" Color="#14FFFFFF" />
                     <SolidColorBrush x:Key="ChromeTitleBarActive" Color="#FF3C7EFF" />
                     <SolidColorBrush x:Key="ChromeTitleBarActiveSoft" Color="#243C7EFF" />
-                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFF76965" />
+                    <SolidColorBrush x:Key="ChromeTitleBarDanger" Color="#FFE81123" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
@@ -59,6 +59,22 @@
         <Style Selector="Button.caption.close:pressed">
             <Setter Property="Background" Value="{DynamicResource ChromeTitleBarDanger}" />
             <Setter Property="Foreground" Value="White" />
+        </Style>
+        <!--  The Semi Button template paints its own presenter, so the close
+              hover must target the template presenter as well.  -->
+        <Style Selector="Button.caption /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Button.caption:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarHover}" />
+        </Style>
+        <Style Selector="Button.caption.close:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarDanger}" />
+        </Style>
+        <Style Selector="Button.caption.close:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ChromeTitleBarDanger}" />
         </Style>
     </UserControl.Styles>
 

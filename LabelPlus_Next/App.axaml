@@ -214,6 +214,15 @@
         <Style Selector="GridSplitter.lp-splitter:pointerover">
             <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
         </Style>
+        <Style Selector="Border.lp-split-line">
+            <Setter Property="Background" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.lp-split-grip">
+            <Setter Property="Background" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
         <Style Selector="DataGrid.lp-grid">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
