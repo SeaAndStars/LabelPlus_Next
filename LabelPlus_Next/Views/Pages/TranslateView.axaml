@@ -101,23 +101,23 @@
             <!--  图片区域  -->
             <Border Classes="lp-card lp-pane">
                 <Grid Name="PictureView" RowDefinitions="Auto,*,Auto">
-                    <Grid Classes="lp-pane-header" ColumnDefinitions="Auto,*">
-                        <!--  模式切换（分段控件）  -->
-                        <Border Classes="lp-segment" HorizontalAlignment="Left">
-                            <StackPanel Orientation="Horizontal" Spacing="2">
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                    <Grid Classes="lp-pane-header" ColumnDefinitions="*">
+                        <!--  模式切换（分段控件，窄宽度时自动换行）  -->
+                        <Border Classes="lp-segment" HorizontalAlignment="Stretch">
+                            <WrapPanel Orientation="Horizontal">
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Browse}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_BrowseMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Label}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditLabelMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Input}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_InputMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Check}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_CheckMode}}" />
-                            </StackPanel>
+                            </WrapPanel>
                         </Border>
                     </Grid>
 
@@ -296,15 +296,14 @@
                         SelectionMode="Single"
                         DragDrop.AllowDrop="True">
                         <dataGrid:DataGrid.Columns>
-                            <dataGrid:DataGridTextColumn
+                            <dataGrid:DataGridTemplateColumn
                                 Width="84"
-                                Binding="{Binding Index}"
                                 Header="{I18N {x:Static lang:LangKeys.ui0115}}"
-                                IsReadOnly="True" />
-                            <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="{I18N {x:Static lang:LangKeys.ui0116}}" SortMemberPath="Text">
+                                IsReadOnly="True"
+                                SortMemberPath="Index">
                                 <dataGrid:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="10">
+                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="8">
                                             <Border
                                                 Width="4"
                                                 Margin="0,7"
@@ -315,12 +314,21 @@
                                             <TextBlock
                                                 Grid.Column="1"
                                                 VerticalAlignment="Center"
-                                                MaxLines="2"
-                                                Text="{Binding Text}"
-                                                TextTrimming="CharacterEllipsis"
-                                                TextWrapping="Wrap"
-                                                ToolTip.Tip="{Binding Text}" />
+                                                Text="{Binding Index}" />
                                         </Grid>
+                                    </DataTemplate>
+                                </dataGrid:DataGridTemplateColumn.CellTemplate>
+                            </dataGrid:DataGridTemplateColumn>
+                            <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="{I18N {x:Static lang:LangKeys.ui0116}}" SortMemberPath="Text">
+                                <dataGrid:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            MaxLines="2"
+                                            Text="{Binding Text}"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="Wrap"
+                                            ToolTip.Tip="{Binding Text}" />
                                     </DataTemplate>
                                 </dataGrid:DataGridTemplateColumn.CellTemplate>
                             </dataGrid:DataGridTemplateColumn>
