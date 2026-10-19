@@ -103,6 +103,7 @@ public class SettingsHelperTests
     public void ResolveUpdaterEntry_FindsLinuxBinaryAndRejectsMissing()
     {
         Assert.IsNull(Call("ResolveUpdaterEntry", Path.Combine(_dir, "missing")));
+        if (OperatingSystem.IsWindows()) return;
         var bin = Path.Combine(_dir, "LabelPlus_Next.Update");
         File.WriteAllText(bin, "");
         Assert.AreEqual(bin, Call("ResolveUpdaterEntry", _dir));
