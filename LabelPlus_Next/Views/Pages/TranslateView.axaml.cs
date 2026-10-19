@@ -94,6 +94,12 @@ public partial class TranslateView : UserControl
             vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(win, out var mgr) ? mgr : new WindowNotificationManager(win)
                 { Position = NotificationPosition.TopRight };
         }
+        if (vm.NotificationManager is not null)
+        {
+            // Leave the custom title bar and the top toolbar unobstructed.
+            vm.NotificationManager.Position = NotificationPosition.TopRight;
+            vm.NotificationManager.Margin = new Thickness(0, 104, 16, 0);
+        }
     }
 
     private void OnGridGotFocus(object? sender, FocusChangedEventArgs e)

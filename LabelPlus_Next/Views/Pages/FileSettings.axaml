@@ -16,7 +16,8 @@
     d:DesignWidth="640"
     x:DataType="viewModels:FileSettingsViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">

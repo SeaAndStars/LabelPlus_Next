@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.Notifications;
@@ -22,6 +23,11 @@ public partial class TeamWorkPage : UserControl
             vm.NotificationManager = UWindowNotificationManager.TryGetNotificationManager(win, out var existing)
             ? existing
             : new UWindowNotificationManager(win) { Position = NotificationPosition.TopRight };
+            if (vm.NotificationManager is not null)
+            {
+                vm.NotificationManager.Position = NotificationPosition.TopRight;
+                vm.NotificationManager.Margin = new Thickness(0, 104, 16, 0);
+            }
         }
                 vm.OpenSettingsRequested -= VmOnOpenSettingsRequested;
                 vm.OpenSettingsRequested += VmOnOpenSettingsRequested;

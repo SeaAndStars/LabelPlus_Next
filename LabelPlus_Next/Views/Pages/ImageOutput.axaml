@@ -15,7 +15,8 @@
     d:DesignHeight="394"
     d:DesignWidth="400"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">

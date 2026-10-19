@@ -901,6 +901,9 @@ public class App : Application
             manager = UrsaWindowNotificationManager.TryGetNotificationManager(host, out var existing) && existing is not null
                 ? existing
                 : new UrsaWindowNotificationManager(host) { Position = NotificationPosition.TopRight };
+            // Keep toasts clear of the custom title bar and the top action row.
+            manager.Position = NotificationPosition.TopRight;
+            manager.Margin = new Thickness(0, 104, 16, 0);
         }
 
         try

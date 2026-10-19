@@ -12,7 +12,8 @@
     Height="574"
     x:DataType="vm:SettingsViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False">
     <Grid RowDefinitions="Auto,*">
         <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0068}}" />

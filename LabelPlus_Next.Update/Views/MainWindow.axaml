@@ -18,7 +18,8 @@
     Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     WindowStartupLocation="CenterScreen"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
 

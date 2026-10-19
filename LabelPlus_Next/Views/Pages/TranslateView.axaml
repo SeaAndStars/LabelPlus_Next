@@ -318,7 +318,7 @@
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             Foreground="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}"
-                                            Text="{Binding CategoryString}" />
+                                            Text="{Binding CategoryString, Converter={x:Static local:CategoryDisplayConverter.Instance}}" />
                                     </DataTemplate>
                                 </dataGrid:DataGridTemplateColumn.CellTemplate>
                             </dataGrid:DataGridTemplateColumn>

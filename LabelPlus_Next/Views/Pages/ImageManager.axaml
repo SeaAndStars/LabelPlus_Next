@@ -16,7 +16,8 @@
     d:DesignWidth="760"
     x:DataType="viewModels:ImageManagerViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
     <u:UrsaWindow.Styles>
