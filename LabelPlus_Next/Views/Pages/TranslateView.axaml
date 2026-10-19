@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="LabelPlus_Next.Views.Pages.TranslateView"
     xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -306,9 +306,9 @@
                                         <Grid ColumnDefinitions="4,*" ColumnSpacing="8">
                                             <Border
                                                 Width="4"
-                                                Margin="0,7"
+                                                Height="32"
                                                 HorizontalAlignment="Left"
-                                                VerticalAlignment="Stretch"
+                                                VerticalAlignment="Center"
                                                 Background="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}"
                                                 CornerRadius="2" />
                                             <TextBlock

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
@@ -71,6 +71,8 @@ public partial class MainWindow : UrsaWindow
         _menuMain = this.FindControl<NavMenu>("NavMenuMain");
         _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
         _settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
+        LocalizationService.CultureChanged += OnCultureChanged;
+        Closed += (_, _) => LocalizationService.CultureChanged -= OnCultureChanged;
         _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
         UpdateToggleItemVisual();
         SetContent("translate");
@@ -247,6 +249,22 @@ public partial class MainWindow : UrsaWindow
         if (_menuFooter is not null) _menuFooter.IsHorizontalCollapsed = _navCollapsed;
         if (this.FindControl<Control>("BrandText") is { } brandText) brandText.IsVisible = !_navCollapsed;
         UpdateToggleItemVisual();
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_menuMain?.Items is { } items)
+            {
+                foreach (var item in items.OfType<NavMenuItem>())
+                {
+                    if (string.Equals(item.Tag as string, "upload", StringComparison.Ordinal))
+                        item.Header = I18NExtension.Translate(LangKeys.ui0120) ?? "上传";
+                }
+            }
+            UpdateToggleItemVisual();
+        });
     }
 
     private void UpdateToggleItemVisual()

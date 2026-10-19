@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -56,6 +56,8 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private CancellationTokenSource? _cts;
     private Func<Task>? _lastOp;
+    private string? _lastNotifyKey;
+    private DateTime _lastNotifyAt;
 
     public TeamWorkViewModel()
     {
@@ -110,6 +112,8 @@ public partial class TeamWorkViewModel : ObservableObject
 
     public async Task RefreshAsync()
     {
+        if (IsBusy) return;
+        IsBusy = true;
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -118,7 +122,7 @@ public partial class TeamWorkViewModel : ObservableObject
         {
             Logger.Info("TeamWork Refresh: start loading aggregate.");
             Status = UiText.Tr("正在加载项目...");
-            IsBusy = true; Progress = 10; ProgressText = UiText.Tr("登录中");
+            Progress = 10; ProgressText = UiText.Tr("登录中");
             var login = await LoginAsync();
             if (login is null) return;
             var (baseUrl, token) = login.Value;
@@ -161,6 +165,10 @@ public partial class TeamWorkViewModel : ObservableObject
             Status = UiText.Tr("加载失败: {0}", ex.Message);
             Logger.Error(ex, "Refresh TeamWork failed.");
             ShowNotify(UiText.Tr("加载失败"), ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -516,6 +524,14 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private void ShowNotify(string title, string message, NotificationType type)
     {
+        // Suppress an identical toast shown twice by overlapping refresh calls.
+        var key = title + "\u0001" + message + "\u0001" + (int)type;
+        var now = DateTime.UtcNow;
+        if (string.Equals(key, _lastNotifyKey, StringComparison.Ordinal) && now - _lastNotifyAt < TimeSpan.FromSeconds(2))
+            return;
+        _lastNotifyKey = key;
+        _lastNotifyAt = now;
+
         try { NotificationManager?.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]); }
         catch (InvalidOperationException ex)
         {

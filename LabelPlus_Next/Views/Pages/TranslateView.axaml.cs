@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using Avalonia.Input;
@@ -33,7 +33,19 @@ public partial class TranslateView : UserControl
     private Point _dragStartPosition;
     private const double DragThreshold = 4;
 
-    public TranslateView() { InitializeComponent(); }
+    public TranslateView()
+    {
+        InitializeComponent();
+        // Culture changes must refresh converter-produced grid text (category names).
+        LabelPlus_Next.Services.LocalizationService.CultureChanged += OnCultureChanged;
+    }
+
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        if (Vm is null) return;
+        foreach (var item in Vm.CurrentLabels)
+            item.NotifyCategoryDisplayChanged();
+    }
 
     private TranslateViewModel? Vm
     {

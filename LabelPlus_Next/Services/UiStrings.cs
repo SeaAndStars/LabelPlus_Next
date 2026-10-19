@@ -153,6 +153,8 @@ internal static class UiStrings
         ["文件未找到或无法访问: {0}，请检查路径是否正确，文件是否存在。"] = "File not found or inaccessible: {0}. Check the path and whether the file exists.",
         ["文件头丢失"] = "File header is missing.",
         ["测试未处理异常：这是一条模拟的全局异常。"] = "Unhandled exception test: this is a simulated global exception.",
+        ["无法访问所选文件夹，请检查权限。"] = "Cannot access the selected folder. Check permissions.",
+        ["读取所选文件夹失败: {0}"] = "Failed to read the selected folder: {0}",
     };
 
     internal static readonly Dictionary<string, string> Hant = new()
@@ -304,5 +306,7 @@ internal static class UiStrings
         ["文件未找到或无法访问: {0}，请检查路径是否正确，文件是否存在。"] = "檔案未找到或無法訪問: {0}，請檢查路徑是否正確，檔案是否存在。",
         ["文件头丢失"] = "檔案頭丟失",
         ["测试未处理异常：这是一条模拟的全局异常。"] = "測試未處理異常：這是一條模擬的全域性異常。",
+        ["无法访问所选文件夹，请检查权限。"] = "無法存取所選資料夾，請檢查權限。",
+        ["读取所选文件夹失败: {0}"] = "讀取所選資料夾失敗: {0}",
     };
 }

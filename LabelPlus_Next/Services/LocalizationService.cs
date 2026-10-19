@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -15,6 +15,9 @@ public static class LocalizationService
 {
     /// <summary>The culture currently applied to the UI (also used by UiText.Tr).</summary>
     public static CultureInfo CurrentCulture { get; private set; } = CultureInfo.CurrentUICulture;
+
+    /// <summary>Raised after the UI culture changed, for strings built in code.</summary>
+    public static event EventHandler? CultureChanged;
 
     public static IReadOnlyList<LanguageOption> Options { get; } = new[]
     {
@@ -49,6 +52,7 @@ public static class LocalizationService
 
         CurrentCulture = culture;
         I18NExtension.Culture = culture;
+        CultureChanged?.Invoke(null, EventArgs.Empty);
     }
 
     private static bool IsSystemDefault(string? code)
