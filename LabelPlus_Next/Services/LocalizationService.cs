@@ -13,6 +13,9 @@ namespace LabelPlus_Next.Services;
 /// </summary>
 public static class LocalizationService
 {
+    /// <summary>The culture currently applied to the UI (also used by UiText.Tr).</summary>
+    public static CultureInfo CurrentCulture { get; private set; } = CultureInfo.CurrentUICulture;
+
     public static IReadOnlyList<LanguageOption> Options { get; } = new[]
     {
         new LanguageOption("default"),
@@ -30,20 +33,22 @@ public static class LocalizationService
 
     public static void Apply(string? code)
     {
+        CultureInfo culture;
         try
         {
-            I18NExtension.Culture = IsSystemDefault(code)
-                ? CultureInfo.CurrentUICulture
-                : new CultureInfo(code!);
+            culture = IsSystemDefault(code) ? CultureInfo.CurrentUICulture : new CultureInfo(code!);
         }
         catch (CultureNotFoundException)
         {
-            I18NExtension.Culture = CultureInfo.CurrentUICulture;
+            culture = CultureInfo.CurrentUICulture;
         }
         catch (Exception)
         {
-            I18NExtension.Culture = CultureInfo.CurrentUICulture;
+            culture = CultureInfo.CurrentUICulture;
         }
+
+        CurrentCulture = culture;
+        I18NExtension.Culture = culture;
     }
 
     private static bool IsSystemDefault(string? code)

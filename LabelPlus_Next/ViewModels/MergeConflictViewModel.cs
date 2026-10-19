@@ -3,15 +3,16 @@ using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using LabelPlus_Next.Services;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MergeConflictViewModel : ObservableObject
 {
-    [ObservableProperty] private string title = "保存冲突合并";
+    [ObservableProperty] private string title = UiText.Tr("保存冲突合并");
     [ObservableProperty] private string fileName = "translation.txt";
-    [ObservableProperty] private string remoteLabel = "远端";
-    [ObservableProperty] private string localLabel = "本地";
+    [ObservableProperty] private string remoteLabel = UiText.Tr("远端");
+    [ObservableProperty] private string localLabel = UiText.Tr("本地");
     [ObservableProperty] private string remoteText = string.Empty;
     [ObservableProperty] private string localText = string.Empty;
     [ObservableProperty] private string mergedText = string.Empty;
@@ -171,7 +172,7 @@ public partial class MergeConflictViewModel : ObservableObject
         if (_totalConflicts == 0)
         {
             _currentConflict = 0;
-            ConflictStatus = "无冲突";
+            ConflictStatus = UiText.Tr("无冲突");
             CurrentStart = 0;
             CurrentLength = 0;
         }
@@ -180,7 +181,7 @@ public partial class MergeConflictViewModel : ObservableObject
             if (_currentConflict < 1) _currentConflict = 1;
             _currentConflict = Math.Clamp(_currentConflict, 1, _totalConflicts);
             var chosen = Conflicts.Count(c => c.Choice != ChoiceOption.None);
-            ConflictStatus = $"冲突 {_currentConflict}/{_totalConflicts}，已选择 {chosen}/{_totalConflicts}";
+            ConflictStatus = UiText.Tr("冲突 {0}/{1}，已选择 {2}/{3}", _currentConflict, _totalConflicts, chosen, _totalConflicts);
             var (start, length) = GetConflictRange(MergedText, _currentConflict);
             CurrentStart = start;
             CurrentLength = length;
