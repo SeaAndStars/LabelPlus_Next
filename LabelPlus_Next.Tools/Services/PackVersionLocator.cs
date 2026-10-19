@@ -176,7 +176,9 @@ public static class PackVersionLocator
     {
         try
         {
-            return Directory.EnumerateDirectories(directory);
+            // Materialize inside the try: enumeration is lazy and otherwise
+            // throws later at the caller, outside this helper's catch.
+            return Directory.EnumerateDirectories(directory).ToList();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
