@@ -16,6 +16,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../LabelPlus_Next/LabelPlus_Next.csproj"/>
+        <ProjectReference Include="../LabelPlus_Next.Tools/LabelPlus_Next.Tools.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

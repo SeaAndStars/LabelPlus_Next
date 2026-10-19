@@ -29,7 +29,7 @@
                     <!--  Line 1  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock VerticalAlignment="Center" Text="BaseUrl" />
-                        <TextBox Width="420" Text="{Binding BaseUrl}" />
+                        <TextBox Width="420" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" />
 
                         <Button Command="{Binding ConnectCommand}" Content="Connect" />
                         <Button Command="{Binding RefreshCommand}" Content="⭮" />
@@ -39,35 +39,63 @@
                     <!--  Line 2  -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock VerticalAlignment="Center" Text="User" />
-                        <TextBox Width="160" Text="{Binding Username}" />
+                        <TextBox Width="160" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock VerticalAlignment="Center" Text="Password" />
-                        <TextBox Width="160" Text="{Binding Password}" />
+                        <TextBox Width="160" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock VerticalAlignment="Center" Text="TargetPath" />
-                        <TextBox Width="240" Text="{Binding TargetPath}" />
+                        <TextBox Width="240" Text="{Binding TargetPath, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Click="OnUploadToFolderClick" Content="Upload to selected" />
                         <Button Click="OnUploadClick" Content="Upload (root)" />
                     </StackPanel>
                 </StackPanel>
 
-                <TreeView
-                    x:Name="Tree"
-                    Grid.Row="1"
-                    ItemsSource="{Binding Nodes}">
-                    <TreeView.DataTemplates>
-                        <TreeDataTemplate x:DataType="m:DavNode" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="{Binding Name}" />
-                                <TextBlock
-                                    Foreground="Gray"
-                                    Opacity="0.6"
-                                    Text="{Binding Uri}" />
-                            </StackPanel>
-                        </TreeDataTemplate>
-                    </TreeView.DataTemplates>
-                </TreeView>
+                <Panel Grid.Row="1">
+                    <TreeView x:Name="Tree" ItemsSource="{Binding Nodes}">
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem" x:DataType="m:DavNode">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            </Style>
+                        </TreeView.Styles>
+                        <TreeView.DataTemplates>
+                            <TreeDataTemplate x:DataType="m:DavNode" ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock
+                                        Foreground="Gray"
+                                        Opacity="0.6"
+                                        Text="{Binding Uri}" />
+                                </StackPanel>
+                            </TreeDataTemplate>
+                        </TreeView.DataTemplates>
+                    </TreeView>
+
+                    <!--  Explains why the tree is empty instead of leaving a blank pane.  -->
+                    <Border
+                        MaxWidth="760"
+                        Padding="20"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsVisible="{Binding IsTreeMessageVisible}">
+                        <StackPanel Spacing="12">
+                            <TextBlock
+                                Text="{Binding TreeMessage}"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap" />
+                            <Button
+                                Command="{Binding ConnectCommand}"
+                                Content="重试"
+                                HorizontalAlignment="Center"
+                                IsVisible="{Binding HasTreeError}" />
+                        </StackPanel>
+                    </Border>
+                </Panel>
 
                 <!--  Status  -->
-                <TextBlock Grid.Row="2" Text="{Binding Status}" />
+                <TextBlock
+                    Grid.Row="2"
+                    Margin="0,8,0,0"
+                    Text="{Binding Status}"
+                    TextWrapping="Wrap" />
             </Grid>
         </TabItem>
         <TabItem Header="打包发布">

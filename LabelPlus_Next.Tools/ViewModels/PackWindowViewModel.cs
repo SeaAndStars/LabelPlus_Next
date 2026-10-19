@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Tools.Models;
+using LabelPlus_Next.Tools.Services;
 using NLog;
 using System;
 using System.Collections.Generic;
@@ -148,19 +149,27 @@ public partial class PackWindowViewModel : ObservableObject
     {
         try
         {
-            var settingsPath = Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
+            var settingsPath = ToolsSettingsStore.DefaultPath;
             if (!File.Exists(settingsPath))
             {
                 Status = "未在程序根目录找到 tools.settings.json";
                 return;
             }
-            var uploadSettings = await LoadSettingsAsync(settingsPath);
+            var uploadSettings = await ToolsSettingsStore.LoadAsync(settingsPath);
             if (uploadSettings is null)
             {
                 Status = "读取 tools.settings.json 失败";
                 return;
             }
             TargetPath ??= uploadSettings.TargetPath;
+
+            // Files/API live at the site root; the WebDAV URL may end with /dav.
+            var apiBase = ToolsEndpoints.ResolveApiBaseUrl(uploadSettings.ApiBaseUrl, uploadSettings.BaseUrl);
+            if (apiBase is null)
+            {
+                Status = "未配置 API BaseUrl：请在“设置服务器”中填写站点根地址（例如 https://主机）";
+                return;
+            }
 
             var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
             Directory.CreateDirectory(outDir);
@@ -186,19 +195,18 @@ public partial class PackWindowViewModel : ObservableObject
                 var zipInfo = new FileInfo(outZip);
                 var sha256 = await ComputeSha256Async(outZip);
 
-                var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+                var baseDir = AppendSlash(apiBase);
                 var targetDir = NormalizePath(TargetPath);
-                var destBase = new Uri(new Uri(baseDir), targetDir);
                 var pubBase = new Uri(new Uri(baseDir), "d/" + targetDir);
                 var zipUrl = new Uri(pubBase, fileName).ToString();
                 var manifestDownloadUrlFromProject = ManifestUrl;
 
-                // 使用文件 API 上传
+                // 使用文件 API 上传（站点根地址，而不是 /dav 端点）
                 var auth = new AuthApi(baseDir);
                 var login = await auth.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
                 if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
                 {
-                    Status = $"登录失败: {login.Code} {login.Message}";
+                    Status = $"登录失败: {login.Code} {login.Message}（API: {baseDir}）";
                     return;
                 }
                 var token = login.Data!.Token!;
@@ -327,13 +335,13 @@ public partial class PackWindowViewModel : ObservableObject
                 return;
             }
 
-            var baseUrl = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+            var baseUrl = AppendSlash(apiBase);
             var target = NormalizePath(TargetPath);
             var destRoot = new Uri(new Uri(baseUrl), target);
             var pubRoot = new Uri(new Uri(baseUrl), "d/" + target);
             var auth2 = new AuthApi(baseUrl);
             var login2 = await auth2.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
-            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token)) { Status = $"登录失败: {login2.Code} {login2.Message}"; return; }
+            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token)) { Status = $"登录失败: {login2.Code} {login2.Message}（API: {baseUrl}）"; return; }
             var token2 = login2.Data!.Token!;
             var fs2 = new FileSystemApi(baseUrl);
             var remoteBase2 = "/" + target;
@@ -508,12 +516,6 @@ public partial class PackWindowViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(text)) return text;
         return text[0] == '\uFEFF' ? text[1..] : text;
-    }
-
-    private static async Task<ToolsSettings?> LoadSettingsAsync(string settingsPath)
-    {
-        await using var fs = File.OpenRead(settingsPath);
-        return await JsonSerializer.DeserializeAsync<ToolsSettings>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
     }
 
     private static int CompareSemVer(string a, string b)

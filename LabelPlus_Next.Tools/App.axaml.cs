@@ -41,10 +41,13 @@ public class App : Application
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
             // Avalonia 12 disables data-annotations validation by default.
+            var viewModel = new MainWindowViewModel();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel()
+                DataContext = viewModel
             };
+            // Flush any debounced configuration edit when the window/app is closed.
+            desktop.ShutdownRequested += (_, _) => viewModel.FlushSettings();
         }
 
         base.OnFrameworkInitializationCompleted();
