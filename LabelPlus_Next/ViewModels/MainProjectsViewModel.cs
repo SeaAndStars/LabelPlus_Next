@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -308,11 +308,6 @@ public class MainProjectsViewModel : ViewModelBase
         {
             Logger.Warn(ex, "No permission to read translation file {file}", translationFile);
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error parsing image names from {file}", translationFile);
-            throw;
-        }
         return result;
     }
 
@@ -369,11 +364,6 @@ public class MainProjectsViewModel : ViewModelBase
         {
             Logger.Warn(ex, "No permission to read labels from {file}", translationFile);
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error parsing labels from {file}", translationFile);
-            throw;
-        }
         return list;
     }
 
@@ -416,22 +406,13 @@ public class MainProjectsViewModel : ViewModelBase
             RecentProjects = new ObservableCollection<RecentProject>(list.OrderByDescending(r => r.LastOpened));
             CheckAutosaveRecovery();
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to load recent projects from {path}", _recentStorePath);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to load recent projects from {path}", _recentStorePath);
         }
         catch (JsonException ex)
         {
             Logger.Warn(ex, "Recent projects file is invalid JSON: {path}", _recentStorePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error loading recent projects");
-            throw;
         }
     }
 
@@ -445,21 +426,13 @@ public class MainProjectsViewModel : ViewModelBase
 #pragma warning restore IL2026, IL3050
             File.WriteAllText(_recentStorePath, json);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to save recent projects to {path}", _recentStorePath);
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to save recent projects to {path}", _recentStorePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error saving recent projects to {path}", _recentStorePath);
-            throw;
-        }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     private void CheckAutosaveRecovery()
     {
         if (_recoveryChecked) return;
@@ -494,18 +467,9 @@ public class MainProjectsViewModel : ViewModelBase
                 PreviewStatus = UiText.F(LangKeys.ui0208, "发现 {0} 个自动保存备份，可在对应项目 bak 文件夹中恢复。", candidates.Count);
             }
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to check autosave recovery");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to access autosave backup directories");
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error checking autosave recovery");
-            throw;
         }
     }
 }

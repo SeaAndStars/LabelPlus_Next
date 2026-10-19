@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
@@ -97,6 +98,27 @@ public class MainProjectsParsingTests
     }
 
 
+
+    [TestMethod]
+    public void ParameterlessConstructor_UsesAppServices()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
+            .AddSingleton<IFileDialogService, NoopFileDialogService>()
+            .BuildServiceProvider();
+        var prop = typeof(LabelPlus_Next.App).GetProperty("Services", BindingFlags.Public | BindingFlags.Static)!;
+        var old = prop.GetValue(null);
+        try
+        {
+            prop.SetValue(null, services);
+            var vm = new MainProjectsViewModel();
+            Assert.IsNotNull(vm.RecentProjects);
+        }
+        finally
+        {
+            prop.SetValue(null, old);
+            services.Dispose();
+        }
+    }
     [TestMethod]
     public void Constructors_UseDefaultRecentPathAndNullPath()
     {
@@ -168,6 +190,9 @@ public class MainProjectsParsingTests
     {
         var vm = new MainProjectsViewModel(new NoopFileDialogService(), "/proc/self/mem", new InlineUiDispatcher());
         vm.RefreshRecentCommand.Execute(null);
+
+        var denied = new MainProjectsViewModel(new NoopFileDialogService(), "/proc/1/mem", new InlineUiDispatcher());
+        denied.RefreshRecentCommand.Execute(null);
         Assert.IsNotNull(vm.RecentProjects);
     }
     [TestMethod]

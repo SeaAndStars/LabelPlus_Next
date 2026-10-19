@@ -212,6 +212,37 @@ public class SettingsCoverageTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(vm.Status));
     }
 
+
+    [TestMethod]
+    public async Task CheckUpdate_UpToDateManifestSetsStatus()
+    {
+        using var server = new FakeAlistServer();
+        server.Files["/manifest.json"] = System.Text.Encoding.UTF8.GetBytes(
+            "{\"schema\":\"v1\",\"projects\":{\"LabelPlus_Next.Desktop\":{\"latest\":\"1.3.3\",\"releases\":[{\"version\":\"1.3.3\",\"url\":\"https://example.invalid/c.zip\"}]}}}");
+
+        var versionPath = Path.Combine(AppContext.BaseDirectory, "Client.version.json");
+        var versionBackup = File.Exists(versionPath) ? File.ReadAllBytes(versionPath) : null;
+        try
+        {
+            await File.WriteAllTextAsync(versionPath, "{\"project\":\"LabelPlus_Next.Desktop\",\"version\":\"1.3.3\"}");
+            var vm = new SettingsViewModel(new MemorySettings());
+            await vm.LoadAsync();
+            vm.BaseUrl = server.BaseUrl;
+            vm.ManifestPath = "/manifest.json";
+            await vm.CheckAndUpdateOnStartupAsync();
+
+            Assert.IsFalse(vm.IsUpdating);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(vm.Status));
+        Assert.IsTrue(server.Requests.Any(r => r.Path.StartsWith("/api/auth/login")));
+            Assert.IsTrue(server.Requests.Any(r => r.Path.StartsWith("/api/fs/get")));
+        }
+        finally
+        {
+            if (versionBackup is not null) await File.WriteAllBytesAsync(versionPath, versionBackup);
+            else if (File.Exists(versionPath)) File.Delete(versionPath);
+        }
+    }
+
     [TestMethod]
     public async Task UploadSettings_SaveLoadAndRefreshEvent()
     {

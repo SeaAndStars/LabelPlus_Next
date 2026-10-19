@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Tools.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -93,6 +94,7 @@ public class ToolsMainWindowHelperTests
         Assert.AreEqual("https://host/dav/file.png", Instance(vm, "ResolveToAbsolute", "/dav/file.png"));
         Assert.AreEqual("https://host/dav/file.png", Instance(vm, "ResolveToAbsolute", "dav/file.png"));
         Assert.AreEqual("https://host/dav/file.png", Instance(vm, "ResolveToAbsolute", "https://host/dav/file.png"));
+        Assert.AreEqual("https://host/dav/file.png", Instance(vm, "ResolveToAbsolute", "file:///dav/file.png"));
         Assert.AreEqual("https://host/dav/", Instance(vm, "ResolveToAbsolute", ""));
 
         Assert.AreEqual("a/b", Instance(vm, "ToRelativePath", "https://host/dav/a/b"));
@@ -113,6 +115,49 @@ public class ToolsMainWindowHelperTests
         Assert.AreEqual("https://host/dav/other/f.png", Instance(vm, "BuildAbsoluteTarget", "https://host/dav/other/", "f.png"));
     }
 
+
+    [TestMethod]
+    public void ConstructorPropertiesAndClientSetupWork()
+    {
+        var parameterless = new MainWindowViewModel();
+        Assert.IsNotNull(parameterless.SettingsFilePath);
+        var vm = new MainWindowViewModel(Path.Combine(_dir, "default.settings.json"));
+        vm.Status = "ready";
+        Assert.AreEqual("ready", vm.Status);
+        vm.IsLoading = true;
+        Assert.IsTrue(vm.IsLoading);
+        vm.IsUploading = true;
+        Assert.IsTrue(vm.IsUploading);
+        vm.BaseUrl = "https://dav.invalid/";
+        vm.Username = "u";
+        vm.Password = "p";
+        Instance(vm, "EnsureClient", false);
+        Instance(vm, "EnsureClient", false);
+        Instance(vm, "EnsureClient", true);
+
+        var node = new DavNode { IsCollection = true };
+        Call("EnsurePlaceholderForFolder", node);
+        Assert.AreEqual(1, node.Children.Count);
+
+        Instance(vm, "BeginTreeLoad");
+        Assert.AreEqual("正在读取目录…", vm.TreeMessage);
+        Instance(vm, "ShowTreeMessage", "err", true);
+        Assert.IsTrue(vm.HasTreeError);
+        Instance(vm, "HideTreeMessage");
+        Assert.IsFalse(vm.IsTreeMessageVisible);
+    }
+
+    [TestMethod]
+    public void LoadAndFlushSettings_FailuresAreSwallowed()
+    {
+        var bad = new MainWindowViewModel("/proc/self/mem");
+        Assert.IsNotNull(bad.SettingsFilePath);
+
+        var vm = new MainWindowViewModel("/proc/self/mem");
+        vm.BaseUrl = "https://dav.invalid/";
+        vm.FlushSettings();
+        Assert.IsNotNull(vm.BaseUrl);
+    }
     [TestMethod]
     public async Task SnapshotAndSavePersistSettings()
     {

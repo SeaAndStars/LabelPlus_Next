@@ -90,6 +90,7 @@ public class PackWindowHelperTests
         var valid = Path.Combine(_dir, "version.json");
         File.WriteAllText(valid, "{\"project\":\"x\",\"version\":\"1.2.3\"}");
         Assert.AreEqual("1.2.3", Call("TryReadVersion", valid));
+        Assert.IsNull(Call("TryReadVersion", "/proc/self/mem"));
     }
 
     [TestMethod]
@@ -111,6 +112,9 @@ public class PackWindowHelperTests
         Directory.Delete(publish, true);
         var fallback = (string)Call("GetPublishDir", repo, "LabelPlus_Next.Desktop", "win-x64")!;
         StringAssert.Contains(fallback, "net10.0");
+
+        var missingProject = (string)Call("GetProjectPath", repo, "Missing.Project")!;
+        StringAssert.Contains(missingProject, "Missing.Project.csproj");
     }
 
 

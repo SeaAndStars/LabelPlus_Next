@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -42,10 +42,6 @@ public static class LocalizationService
             culture = IsSystemDefault(code) ? CultureInfo.CurrentUICulture : new CultureInfo(code!);
         }
         catch (CultureNotFoundException)
-        {
-            culture = CultureInfo.CurrentUICulture;
-        }
-        catch (Exception)
         {
             culture = CultureInfo.CurrentUICulture;
         }

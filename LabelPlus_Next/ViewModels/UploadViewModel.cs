@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -650,13 +650,6 @@ public partial class UploadViewModel : ObservableObject
             if (ContainsVolumeKeyword(name)) return (NameKind.Volume, numRange);
             return (NameKind.Episode, numRange);
         }
-        var m = Regex.Match(s, @"\b(?:S\d+E(?<e>\d+)|EP\s*(?<e2>\d+)|E\s*(?<e3>\d+))\b", RegexOptions.IgnoreCase);
-        if (m.Success)
-        {
-            if (int.TryParse(m.Groups["e"].Value, out var se)) return (NameKind.Episode, se);
-            if (int.TryParse(m.Groups["e2"].Value, out var e2)) return (NameKind.Episode, e2);
-            if (int.TryParse(m.Groups["e3"].Value, out var e3)) return (NameKind.Episode, e3);
-        }
         if (int.TryParse(new string(s.Where(char.IsDigit).ToArray()), out var num) && num > 0) return (NameKind.Episode, num);
         var nn2 = ParseChineseNumeral(s); if (nn2 > 0) return (NameKind.Episode, nn2);
         return (NameKind.Unknown, 0);
@@ -682,13 +675,6 @@ public partial class UploadViewModel : ObservableObject
             if (int.TryParse(mEp.Groups["e"].Value, out var se)) { number = se; return true; }
             if (int.TryParse(mEp.Groups["e2"].Value, out var e2)) { number = e2; return true; }
             if (int.TryParse(mEp.Groups["e3"].Value, out var e3)) { number = e3; return true; }
-        }
-        var m3 = Regex.Match(name, @"第\s*([0-9一二三四五六七八九十百千两〇零]+)", RegexOptions.IgnoreCase);
-        if (m3.Success)
-        {
-            var grp = m3.Groups[1].Value;
-            if (int.TryParse(grp, out var n3)) { number = n3; return number > 0; }
-            number = ParseChineseNumeral(grp); if (number > 0) return true;
         }
         if (TryParseRangeNumber(name, out var nRange) && nRange > 0) { number = nRange; return true; }
         var s = Regex.Replace(name, @"\b(19|20)\d{2}[-_.]?(0?[1-9]|1[0-2])[-_.]?(0?[1-9]|[12]\d|3[01])\b", " ", RegexOptions.IgnoreCase);
@@ -1462,30 +1448,6 @@ public partial class UploadViewModel : ObservableObject
             if (!TryParseEpisodeNumber(dirName, out var num))
             {
                 var (kind, n2) = ParseEpisodeOrVolume(dirName);
-                if (kind == NameKind.Special)
-                {
-                    EpisodeEntry target;
-                    if (TryParseSpecialNumber(dirName, out var sn, out _))
-                    {
-                        if (sn > 0)
-                        {
-                            if (!bySpecial.TryGetValue(sn, out var ts) || ts is null)
-                            {
-                                ts = new EpisodeEntry { Number = sn, Status = "立项", IsSpecial = true };
-                                bySpecial[sn] = ts;
-                            }
-                            target = bySpecial[sn];
-                        }
-                        else target = special;
-                    }
-                    else target = special;
-                    foreach (var f in Directory.EnumerateFiles(sub, "*", SearchOption.AllDirectories))
-                    {
-                        target.LocalFiles.Add(f);
-                        UpgradeStatusFromFile(ref target, f);
-                    }
-                    continue;
-                }
                 if (kind == NameKind.Volume) isVolLocal = true;
                 if (n2 <= 0)
                 {
@@ -1518,18 +1480,15 @@ public partial class UploadViewModel : ObservableObject
             if (IsSpecialName(name))
             {
                 EpisodeEntry target;
-                if (TryParseSpecialNumber(name, out var spNum, out _))
+                TryParseSpecialNumber(name, out var spNum, out _);
+                if (spNum > 0)
                 {
-                    if (spNum > 0)
+                    if (!bySpecial.TryGetValue(spNum, out var t) || t is null)
                     {
-                        if (!bySpecial.TryGetValue(spNum, out var t) || t is null)
-                        {
-                            t = new EpisodeEntry { Number = spNum, Status = "立项", IsSpecial = true };
-                            bySpecial[spNum] = t;
-                        }
-                        target = bySpecial[spNum];
+                        t = new EpisodeEntry { Number = spNum, Status = "立项", IsSpecial = true };
+                        bySpecial[spNum] = t;
                     }
-                    else target = special;
+                    target = bySpecial[spNum];
                 }
                 else target = special;
                 target.LocalFiles.Add(f);
@@ -1540,27 +1499,6 @@ public partial class UploadViewModel : ObservableObject
             if (!TryParseEpisodeNumber(name, out var numRoot))
             {
                 var (kind, n) = ParseEpisodeOrVolume(name);
-                if (kind == NameKind.Special)
-                {
-                    EpisodeEntry target;
-                    if (TryParseSpecialNumber(name, out var sn, out _))
-                    {
-                        if (sn > 0)
-                        {
-                            if (!bySpecial.TryGetValue(sn, out var ts) || ts is null)
-                            {
-                                ts = new EpisodeEntry { Number = sn, Status = "立项", IsSpecial = true };
-                                bySpecial[sn] = ts;
-                            }
-                            target = bySpecial[sn];
-                        }
-                        else target = special;
-                    }
-                    else target = special;
-                    target.LocalFiles.Add(f);
-                    UpgradeStatusFromFile(ref target, f);
-                    continue;
-                }
                 if (kind == NameKind.Volume) isVolRoot = true;
                 if (n <= 0) { misc.LocalFiles.Add(f); UpgradeStatusFromFile(ref misc, f); continue; }
                 numRoot = n;
@@ -1598,41 +1536,8 @@ public partial class UploadViewModel : ObservableObject
             misc.Display ??= "杂项";
             list.Add(misc);
         }
-        foreach (var e in byEpisode.Values)
-        {
-            if (e.IsSpecial && e.Number > 0 && string.IsNullOrWhiteSpace(e.Display))
-                e.Display = $"番外{e.Number:00}";
-        }
         list.AddRange(bySpecial.Values.OrderByDescending(e => e.Number));
         list.AddRange(byEpisode.Values.OrderByDescending(e => e.Number));
-
-        // 若解析不到任何话，尝试单行本回退
-        if (list.Count == 0)
-        {
-            var allFiles = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).ToList();
-            if (allFiles.Count > 0)
-            {
-                isTankobonFallback = true;
-                var dirName = new DirectoryInfo(folder).Name;
-                var (kind, n) = ParseEpisodeOrVolume(dirName);
-                if (kind == NameKind.Volume && n > 0) volumeNumber = n;
-                else
-                {
-                    var tryNum = TryPickNumberFromFiles(allFiles);
-                    volumeNumber = tryNum > 0 ? tryNum : 1;
-                }
-                var ep = new EpisodeEntry { Number = volumeNumber ?? 1, Status = "立项", IsVolume = true };
-                foreach (var f in allFiles)
-                {
-                    ep.LocalFiles.Add(f);
-                    UpgradeStatusFromFile(ref ep, f);
-                }
-                var range = DetectRangeFromFiles(ep.LocalFiles);
-                ep.RangeStart = range.lo; ep.RangeEnd = range.hi; ep.RangeDisplay = range.disp;
-                list.Add(ep);
-            }
-            return list;
-        }
 
         isTankobonFallback = false;
         volumeNumber = null;

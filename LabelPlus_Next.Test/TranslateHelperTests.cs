@@ -47,6 +47,16 @@ public class TranslateHelperTests
     private static object? Instance(TranslateViewModel vm, string name, params object?[] args)
         => typeof(TranslateViewModel).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(vm, args);
 
+
+    [TestMethod]
+    public void DefaultConstructors_UseSharedManager()
+    {
+        var a = new TranslateViewModel();
+        var b = new TranslateViewModel(new NoopFileDialogService());
+        Assert.IsNotNull(a.ImageFileNames);
+        Assert.IsNotNull(b.ImageFileNames);
+        Assert.IsFalse(a.HasUnsavedChanges);
+    }
     [TestMethod]
     public void ComputeHash_IsStableAndContentSensitive()
     {
@@ -136,8 +146,11 @@ public class TranslateHelperTests
             Static("AddOrUpdateRecentProject", translation);
 
             Directory.Delete(path, true);
-            File.CreateSymbolicLink(path, "/proc/self/mem");
-            Static("AddOrUpdateRecentProject", translation);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.CreateSymbolicLink(path, "/proc/self/mem");
+                Static("AddOrUpdateRecentProject", translation);
+            }
         }
         finally
         {

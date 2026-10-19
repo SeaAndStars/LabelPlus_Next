@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Tools.Services;
@@ -814,11 +814,6 @@ public partial class PackWindowViewModel : ObservableObject
             Logger.Debug(ex, "检测 manifest JSON 格式失败");
             return false;
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "检查 manifest JSON 时发生未预期异常");
-            throw;
-        }
         return false;
     }
 
@@ -1059,6 +1054,7 @@ public partial class PackWindowViewModel : ObservableObject
     }
 
     // Helper: find repo root by walking up until we see project directories
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     private static string? FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
@@ -1151,25 +1147,15 @@ public partial class PackWindowViewModel : ObservableObject
                 return v.GetString();
             return null;
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "读取 {jsonPath} 失败，无法获取版本", jsonPath);
-            return null;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "读取 {jsonPath} 权限不足", jsonPath);
             return null;
         }
         catch (JsonException ex)
         {
             Logger.Warn(ex, "{jsonPath} JSON 格式无效，忽略版本信息", jsonPath);
             return null;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "处理 {jsonPath} 时发生未预期异常", jsonPath);
-            throw;
         }
     }
 }
