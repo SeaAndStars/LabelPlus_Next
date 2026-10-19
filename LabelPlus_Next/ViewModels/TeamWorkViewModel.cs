@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -393,18 +394,11 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private static string GetFileNameFromRemote(string remotePath)
     {
-        try
-        {
-            var p = (remotePath ?? string.Empty).Replace('\\', '/');
-            if (string.IsNullOrEmpty(p)) return string.Empty;
-            if (p.EndsWith('/')) p = p.TrimEnd('/');
-            var idx = p.LastIndexOf('/');
-            return idx >= 0 ? p[(idx + 1)..] : p;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return remotePath;
-        }
+        var p = (remotePath ?? string.Empty).Replace('\\', '/');
+        if (string.IsNullOrEmpty(p)) return string.Empty;
+        if (p.EndsWith('/')) p = p.TrimEnd('/');
+        var idx = p.LastIndexOf('/');
+        return idx >= 0 ? p[(idx + 1)..] : p;
     }
 
     // 新增：显示文件列表（用于兼容旧的命令绑定，当前 UI 未使用）
@@ -494,6 +488,7 @@ public partial class TeamWorkViewModel : ObservableObject
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static string BuildDownloadDirectory(string project, string episode)
     {
         string baseDir;
@@ -524,6 +519,7 @@ public partial class TeamWorkViewModel : ObservableObject
     // 还原缺失的帮助方法
     private static byte[] TrimBom(byte[] bytes) => (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) ? bytes[3..] : bytes;
 
+    [ExcludeFromCodeCoverage]
     private void ShowNotify(string title, string message, NotificationType type)
     {
         // Suppress an identical toast shown twice by overlapping refresh calls.

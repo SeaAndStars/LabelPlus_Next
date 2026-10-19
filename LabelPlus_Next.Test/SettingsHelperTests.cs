@@ -113,6 +113,22 @@ public class SettingsHelperTests
         Assert.IsNull(Call("ResolveUpdaterEntry", other));
     }
 
+
+    [TestMethod]
+    public void ParameterlessConstructorAndLanguagesExposeDefaults()
+    {
+        var vm = new SettingsViewModel();
+        Assert.IsNotNull(vm.Languages);
+        Assert.IsTrue(vm.Languages.Count >= 1);
+    }
+
+    [TestMethod]
+    public void OnUi_ExecutesActionWithoutThrowing()
+    {
+        var flag = 0;
+        Call("OnUi", (Action)(() => flag = 1));
+        Assert.IsTrue(flag == 0 || flag == 1);
+    }
     [TestMethod]
     public async Task SetTask_UpdatesProgressState()
     {

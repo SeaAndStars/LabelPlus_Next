@@ -96,6 +96,80 @@ public class MainProjectsParsingTests
         Assert.AreEqual(0, missing.Count());
     }
 
+
+    [TestMethod]
+    public void Constructors_UseDefaultRecentPathAndNullPath()
+    {
+        var a = new MainProjectsViewModel(new NoopFileDialogService());
+        Assert.IsNotNull(a.RecentProjects);
+        var b = new MainProjectsViewModel(new NoopFileDialogService(), null);
+        Assert.IsNotNull(b.RecentProjects);
+    }
+
+    [TestMethod]
+    public void Parsers_HandleDirectoryPathsAsUnauthorized()
+    {
+        var names = (System.Collections.Generic.List<string>)Call("ParseImageNames", _dir, 50)!;
+        Assert.AreEqual(0, names.Count);
+        var labels = (IEnumerable<LabelItem>)Call("ParseLabelsForImage", _dir, "a.png")!;
+        Assert.AreEqual(0, labels.Count());
+    }
+
+    [TestMethod]
+    public void LoadRecent_InvalidJsonIsIgnored()
+    {
+        var recent = Path.Combine(_dir, "bad_recent.json");
+        File.WriteAllText(recent, "{ invalid");
+        var vm = new MainProjectsViewModel(new NoopFileDialogService(), recent);
+        Assert.AreEqual(0, vm.RecentProjects.Count);
+    }
+
+    [TestMethod]
+    public void SaveRecent_FailureIsSwallowed()
+    {
+        var recentDir = Path.Combine(_dir, "recent_dir");
+        Directory.CreateDirectory(recentDir);
+        var vm = new MainProjectsViewModel(new NoopFileDialogService(), recentDir);
+        vm.RefreshRecentCommand.Execute(null);
+        Assert.IsNotNull(vm.RecentProjects);
+    }
+
+    [TestMethod]
+    public async Task OpenProject_SameFileTwiceUpdatesExistingRecent()
+    {
+        var file = Path.Combine(_dir, "same.txt");
+        await File.WriteAllTextAsync(file, "1,0\n-\n");
+        var dialogs = new NoopFileDialogService();
+        var vm = new MainProjectsViewModel(dialogs, Path.Combine(_dir, "recent_same.json"));
+        // Use reflection to invoke the open method with a fake dialog that returns this file.
+        var fake = new FakeDialog(file);
+        var vm2 = new MainProjectsViewModel(fake, Path.Combine(_dir, "recent_same2.json"));
+        await vm2.OpenProjectCommand.ExecuteAsync(null);
+        await vm2.OpenProjectCommand.ExecuteAsync(null);
+        Assert.AreEqual(1, vm2.RecentProjects.Count);
+    }
+
+    private sealed class FakeDialog : IFileDialogService
+    {
+        private readonly string _file;
+        public FakeDialog(string file) => _file = file;
+        public Task<IReadOnlyList<string>?> ChooseImagesAsync(string folderPath) => Task.FromResult<IReadOnlyList<string>?>(Array.Empty<string>());
+        public Task<string?> OpenTranslationFileAsync() => Task.FromResult<string?>(_file);
+        public Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
+        public Task<IReadOnlyList<string>?> PickFoldersAsync(string title) => Task.FromResult<IReadOnlyList<string>?>(Array.Empty<string>());
+        public Task<IReadOnlyList<string>?> PickFilesAsync(string title) => Task.FromResult<IReadOnlyList<string>?>(Array.Empty<string>());
+        public Task<string?> SaveAsTranslationFileAsync(string suggestedFileName = "translation") => Task.FromResult<string?>(null);
+        public Task ShowMessageAsync(string message) => Task.CompletedTask;
+    }
+
+
+    [TestMethod]
+    public void RecentStore_ProcMemIoFailuresAreSwallowed()
+    {
+        var vm = new MainProjectsViewModel(new NoopFileDialogService(), "/proc/self/mem", new InlineUiDispatcher());
+        vm.RefreshRecentCommand.Execute(null);
+        Assert.IsNotNull(vm.RecentProjects);
+    }
     [TestMethod]
     public void CheckAutosaveRecovery_ReportsRecentBackup()
     {

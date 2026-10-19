@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using LabelPlus_Next.Tools.ViewModels;
+using LabelPlus_Next.Tools.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LabelPlus_Next.Test;
@@ -69,6 +70,33 @@ public class PackManifestTests
         Assert.AreEqual(0, Releases(invalid, "proj").Count);
     }
 
+
+    [TestMethod]
+    public void UpsertV1_CreatesNewProjectAndFillsMissingUrl()
+    {
+        var manifest = Call("MigrateOldToV1", "proj", null)!;
+        Call("UpsertV1", manifest, "other", "1.0", null, null);
+        Assert.IsTrue(Projects(manifest).Contains("other"));
+        var release = Releases(manifest, "other")[0];
+        Assert.IsNull(release.GetType().GetProperty("Url")!.GetValue(release));
+
+        Call("UpsertV1", manifest, "other", "1.0", "https://u/1.0", null);
+        release = Releases(manifest, "other")[0];
+        Assert.AreEqual("https://u/1.0", release.GetType().GetProperty("Url")!.GetValue(release));
+    }
+
+    [TestMethod]
+    public void MigrateOldToV1_NonStringValuesThrowUnexpectedException()
+    {
+        Assert.ThrowsException<TargetInvocationException>(() =>
+            Call("MigrateOldToV1", "proj", "{\"version\":123,\"url\":\"x\"}"));
+    }
+
+    [TestMethod]
+    public void LooksLikeManifestJson_ReturnsFalseForUnknownObject()
+    {
+        Assert.IsFalse((bool)Call("LooksLikeManifestJson", "{\"foo\":1}")!);
+    }
     [TestMethod]
     public void UpsertV1_AddsUpdatesAndDedupesFiles()
     {
