@@ -54,8 +54,6 @@ public partial class MainWindowViewModel : ViewModelBase
     // Protocol activation URI (set by App on startup when opened via labelplus://...)
     public string? InitialUri { get; set; }
 
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
-
     public bool HasUnsavedChanges
     {
         get => LabelFileManager1.StoreManager.IsDirty;

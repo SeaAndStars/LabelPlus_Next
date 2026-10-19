@@ -11,8 +11,8 @@
 
 namespace LabelPlus_Next.Lang {
     using System;
-    
-    
+
+
     /// <summary>
     ///   一个强类型的资源类，用于查找本地化的字符串等。
     /// </summary>
@@ -24,15 +24,15 @@ namespace LabelPlus_Next.Lang {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class lang {
-        
+
         private static global::System.Resources.ResourceManager resourceMan;
-        
+
         private static global::System.Globalization.CultureInfo resourceCulture;
-        
+
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal lang() {
         }
-        
+
         /// <summary>
         ///   返回此类使用的缓存的 ResourceManager 实例。
         /// </summary>
@@ -46,7 +46,7 @@ namespace LabelPlus_Next.Lang {
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   重写当前线程的 CurrentUICulture 属性，对
         ///   使用此强类型资源类的所有资源查找执行重写。
@@ -60,7 +60,7 @@ namespace LabelPlus_Next.Lang {
                 resourceCulture = value;
             }
         }
-        
+
         /// <summary>
         ///   查找类似 关于(_A) 的本地化字符串。
         /// </summary>
@@ -69,7 +69,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("aboutAToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 确认 的本地化字符串。
         /// </summary>
@@ -78,7 +78,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("button_OK", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 输出 的本地化字符串。
         /// </summary>
@@ -87,7 +87,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("button_output", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 开始 的本地化字符串。
         /// </summary>
@@ -96,7 +96,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("button_start", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 是 的本地化字符串。
         /// </summary>
@@ -105,7 +105,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("button_yes", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 停止 的本地化字符串。
         /// </summary>
@@ -114,7 +114,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("buttonAbort", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 取消 的本地化字符串。
         /// </summary>
@@ -123,7 +123,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("buttonCancel", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 无法输出文件： 的本地化字符串。
         /// </summary>
@@ -132,7 +132,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("can_not_output_file", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 根据标号分组,执行指定动作组中的动作GroupN 的本地化字符串。
         /// </summary>
@@ -141,7 +141,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxAutoGroupAction", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 跳过无标号图 的本地化字符串。
         /// </summary>
@@ -150,7 +150,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxJumpNoNum", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 处理无标号文档 的本地化字符串。
         /// </summary>
@@ -159,7 +159,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxMakeUnLabeledFile", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 自定义字体 的本地化字符串。
         /// </summary>
@@ -168,7 +168,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxSetFont", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 自定义字号 的本地化字符串。
         /// </summary>
@@ -177,7 +177,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxSetFontSize", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 使用指定类型图源 的本地化字符串。
         /// </summary>
@@ -186,7 +186,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("checkBoxUseOtherFileType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 确认要删除所有标签吗！？ 的本地化字符串。
         /// </summary>
@@ -195,7 +195,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("clear_all_label_question", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 翻译 的本地化字符串。
         /// </summary>
@@ -204,7 +204,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("default_file_name", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件StartBlocks丢失 的本地化字符串。
         /// </summary>
@@ -213,7 +213,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("error_file_startblocks_lost", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件版本太高，无法使用本版本编辑！ 的本地化字符串。
         /// </summary>
@@ -222,7 +222,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("error_file_version_over", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 打开文件失败 的本地化字符串。
         /// </summary>
@@ -231,7 +231,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("error_openfilefail", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 退出(_E) 的本地化字符串。
         /// </summary>
@@ -240,7 +240,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("exitEToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件设置 的本地化字符串。
         /// </summary>
@@ -249,7 +249,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("FileSettingFrm.Text", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 图片 的本地化字符串。
         /// </summary>
@@ -258,7 +258,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("fileToolStripLabel", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件(_F) 的本地化字符串。
         /// </summary>
@@ -267,7 +267,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("fileToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 帮助(_H) 的本地化字符串。
         /// </summary>
@@ -276,7 +276,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("helpAToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出带标记图片 的本地化字符串。
         /// </summary>
@@ -285,7 +285,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("ImageOutputFrm.Text", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 图片管理(_I) 的本地化字符串。
         /// </summary>
@@ -294,7 +294,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("imageToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件未保存，请先将文件存至与图片同文件夹下！ 的本地化字符串。
         /// </summary>
@@ -303,7 +303,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("input_images_need_save", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 流程及自动化 的本地化字符串。
         /// </summary>
@@ -312,7 +312,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelAutodoTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 (动作组名) 的本地化字符串。
         /// </summary>
@@ -321,7 +321,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelAutoGroupActionTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 备注 的本地化字符串。
         /// </summary>
@@ -330,7 +330,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelComment", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 切换条目(Ctrl+Enter,),快捷短语(Alt+A) 的本地化字符串。
         /// </summary>
@@ -339,7 +339,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelCtrlEnterTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 默认格式 的本地化字符串。
         /// </summary>
@@ -348,7 +348,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelDefaultFormatTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 忽略文件 的本地化字符串。
         /// </summary>
@@ -357,7 +357,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelFolderFile", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 分组设置 的本地化字符串。
         /// </summary>
@@ -366,7 +366,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelGroup", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 包含文件 的本地化字符串。
         /// </summary>
@@ -375,7 +375,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelIncludedFile", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出标号(1、2、3…) 的本地化字符串。
         /// </summary>
@@ -384,7 +384,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("LabelNumCheckBox", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 输出格式 的本地化字符串。
         /// </summary>
@@ -393,7 +393,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelOutputFormat", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出项目 的本地化字符串。
         /// </summary>
@@ -402,7 +402,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelOutputItemTip", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 缩放比例 的本地化字符串。
         /// </summary>
@@ -411,7 +411,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("labelZoom", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 语言: 的本地化字符串。
         /// </summary>
@@ -420,7 +420,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("languageblock", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 删除(_D) 的本地化字符串。
         /// </summary>
@@ -429,7 +429,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("listview_menustrip_del", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 图片管理 的本地化字符串。
         /// </summary>
@@ -438,7 +438,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("ManageImageFrm.Text", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 新建翻译(_N) 的本地化字符串。
         /// </summary>
@@ -447,7 +447,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("newToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 不要在编辑后关闭此文件 的本地化字符串。
         /// </summary>
@@ -456,7 +456,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("notCloseFileCheckBox", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 添加头尾标志(startN、endN)  的本地化字符串。
         /// </summary>
@@ -465,7 +465,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("notHeadFootSignCheckBox", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 添加头尾标志(startN、endN) 以便使用动作 的本地化字符串。
         /// </summary>
@@ -474,7 +474,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("notLabelNumCheckBox", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 打开翻译(_O) 的本地化字符串。
         /// </summary>
@@ -483,7 +483,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("openToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 输出已终止 的本地化字符串。
         /// </summary>
@@ -492,7 +492,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("output_aborted", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 输出完毕 的本地化字符串。
         /// </summary>
@@ -501,7 +501,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("output_complete", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 输出失败 的本地化字符串。
         /// </summary>
@@ -510,7 +510,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("output_fail", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出带标记图片(_O) 的本地化字符串。
         /// </summary>
@@ -519,7 +519,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("outputAllToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出 的本地化字符串。
         /// </summary>
@@ -528,7 +528,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("outputButton", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出Photoshop脚本(_P) 的本地化字符串。
         /// </summary>
@@ -537,7 +537,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("outputPhotoshopScriptToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出(_O) 的本地化字符串。
         /// </summary>
@@ -546,7 +546,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("outputPToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 导出PS脚本 的本地化字符串。
         /// </summary>
@@ -555,7 +555,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("OutputScriptFrm.Text", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 生成成功 脚本文件已保存在同一目录下：auto_label_for_photoshop.jsx \n 使用方法：1.直接拖进Photoshop中；或"文件-脚本-浏览"，选中脚本 \n2.选择图片所在目录 的本地化字符串。
         /// </summary>
@@ -564,7 +564,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("ps_output_complete", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 保存成功 的本地化字符串。
         /// </summary>
@@ -573,7 +573,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("save_complete", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件已修改，是否保存？ 的本地化字符串。
         /// </summary>
@@ -582,7 +582,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("save_question", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 翻译另存为(_S) 的本地化字符串。
         /// </summary>
@@ -591,7 +591,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("saveAsDToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 保存翻译(_S) 的本地化字符串。
         /// </summary>
@@ -600,7 +600,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("saveProjectSToolStripMenuItem", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 请选择图片文件夹。\n程序将为您在目录下自动创建翻译文本文件。 的本地化字符串。
         /// </summary>
@@ -609,7 +609,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("tip_chose_photo_dir", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 新建文件已保存为：{0} 的本地化字符串。
         /// </summary>
@@ -618,7 +618,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("tip_new_file_be_saved", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 备注里不能以'-'作为单独一行 的本地化字符串。
         /// </summary>
@@ -627,7 +627,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("tip_setting_comment", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 请以正确的格式设置分组，每行一组，分组数量为1-9组 的本地化字符串。
         /// </summary>
@@ -636,7 +636,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("tip_setting_group", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 确认删除选中的标签吗? 的本地化字符串。
         /// </summary>
@@ -645,7 +645,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("tip_sure_del_label", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 浏览模式(_Q) 的本地化字符串。
         /// </summary>
@@ -654,7 +654,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_BrowseMode", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 审校模式(_R) 的本地化字符串。
         /// </summary>
@@ -663,7 +663,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_CheckMode", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 ▲ 字体增大 的本地化字符串。
         /// </summary>
@@ -672,7 +672,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_EditBig", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 Label模式(_W) 的本地化字符串。
         /// </summary>
@@ -681,7 +681,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_EditLabelMode", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 ▼ 字体减小 的本地化字符串。
         /// </summary>
@@ -690,7 +690,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_EditSmall", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 文件设置 的本地化字符串。
         /// </summary>
@@ -699,7 +699,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_FileSetting", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 隐藏窗口(_T) 的本地化字符串。
         /// </summary>
@@ -708,7 +708,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_HideWindow", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 录入模式(_E) 的本地化字符串。
         /// </summary>
@@ -717,7 +717,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_InputMode", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 框内 的本地化字符串。
         /// </summary>
@@ -726,7 +726,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_zoomIn", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 框外 的本地化字符串。
         /// </summary>
@@ -735,7 +735,7 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripButton_zoomOut", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 数字键设置分类 的本地化字符串。
         /// </summary>
@@ -744,13 +744,1803 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("toolStripLabelTipSetCategory", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 显示帮助(_H) 的本地化字符串。
         /// </summary>
         public static string viewHelpHToolStripMenuItem {
             get {
                 return ResourceManager.GetString("viewHelpHToolStripMenuItem", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 跟随系统 的本地化字符串。
+        /// </summary>
+        public static string languageSystemDefault {
+            get {
+                return ResourceManager.GetString("languageSystemDefault", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 语言 的本地化字符串。
+        /// </summary>
+        public static string settingsLanguageTitle {
+            get {
+                return ResourceManager.GetString("settingsLanguageTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 选择界面语言，切换后立即生效。 的本地化字符串。
+        /// </summary>
+        public static string settingsLanguageDescription {
+            get {
+                return ResourceManager.GetString("settingsLanguageDescription", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 保存 的本地化字符串。
+        /// </summary>
+        public static string buttonSave {
+            get {
+                return ResourceManager.GetString("buttonSave", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 漫画翻译工作台 的本地化字符串。
+        /// </summary>
+        public static string ui0001 {
+            get {
+                return ResourceManager.GetString("ui0001", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 收起 的本地化字符串。
+        /// </summary>
+        public static string ui0002 {
+            get {
+                return ResourceManager.GetString("ui0002", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 翻译 的本地化字符串。
+        /// </summary>
+        public static string ui0003 {
+            get {
+                return ResourceManager.GetString("ui0003", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 校对 的本地化字符串。
+        /// </summary>
+        public static string ui0004 {
+            get {
+                return ResourceManager.GetString("ui0004", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 协作 的本地化字符串。
+        /// </summary>
+        public static string ui0005 {
+            get {
+                return ResourceManager.GetString("ui0005", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 交付 的本地化字符串。
+        /// </summary>
+        public static string ui0006 {
+            get {
+                return ResourceManager.GetString("ui0006", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 设置 的本地化字符串。
+        /// </summary>
+        public static string ui0007 {
+            get {
+                return ResourceManager.GetString("ui0007", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最近项目 的本地化字符串。
+        /// </summary>
+        public static string ui0008 {
+            get {
+                return ResourceManager.GetString("ui0008", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 打开最近的项目，或新建一个开始翻译。 的本地化字符串。
+        /// </summary>
+        public static string ui0009 {
+            get {
+                return ResourceManager.GetString("ui0009", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 跳过，直接进入 的本地化字符串。
+        /// </summary>
+        public static string ui0010 {
+            get {
+                return ResourceManager.GetString("ui0010", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 打开项目 的本地化字符串。
+        /// </summary>
+        public static string ui0011 {
+            get {
+                return ResourceManager.GetString("ui0011", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 新建项目 的本地化字符串。
+        /// </summary>
+        public static string ui0012 {
+            get {
+                return ResourceManager.GetString("ui0012", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 打开所选 的本地化字符串。
+        /// </summary>
+        public static string ui0013 {
+            get {
+                return ResourceManager.GetString("ui0013", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 从列表移除所选 的本地化字符串。
+        /// </summary>
+        public static string ui0014 {
+            get {
+                return ResourceManager.GetString("ui0014", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 刷新 的本地化字符串。
+        /// </summary>
+        public static string ui0015 {
+            get {
+                return ResourceManager.GetString("ui0015", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 名称 的本地化字符串。
+        /// </summary>
+        public static string ui0016 {
+            get {
+                return ResourceManager.GetString("ui0016", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 翻译文件 的本地化字符串。
+        /// </summary>
+        public static string ui0017 {
+            get {
+                return ResourceManager.GetString("ui0017", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最近打开 的本地化字符串。
+        /// </summary>
+        public static string ui0018 {
+            get {
+                return ResourceManager.GetString("ui0018", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 还没有最近项目 的本地化字符串。
+        /// </summary>
+        public static string ui0019 {
+            get {
+                return ResourceManager.GetString("ui0019", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 点击右上角“新建项目”，或从磁盘打开一个翻译文件。 的本地化字符串。
+        /// </summary>
+        public static string ui0020 {
+            get {
+                return ResourceManager.GetString("ui0020", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 预览 的本地化字符串。
+        /// </summary>
+        public static string ui0021 {
+            get {
+                return ResourceManager.GetString("ui0021", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 只读 · 仅显示当前图片的标签 的本地化字符串。
+        /// </summary>
+        public static string ui0022 {
+            get {
+                return ResourceManager.GetString("ui0022", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择一个项目查看标注预览 的本地化字符串。
+        /// </summary>
+        public static string ui0023 {
+            get {
+                return ResourceManager.GetString("ui0023", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上一张 的本地化字符串。
+        /// </summary>
+        public static string ui0024 {
+            get {
+                return ResourceManager.GetString("ui0024", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 下一张 的本地化字符串。
+        /// </summary>
+        public static string ui0025 {
+            get {
+                return ResourceManager.GetString("ui0025", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最小化 的本地化字符串。
+        /// </summary>
+        public static string ui0026 {
+            get {
+                return ResourceManager.GetString("ui0026", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最大化 的本地化字符串。
+        /// </summary>
+        public static string ui0027 {
+            get {
+                return ResourceManager.GetString("ui0027", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 关闭 的本地化字符串。
+        /// </summary>
+        public static string ui0028 {
+            get {
+                return ResourceManager.GetString("ui0028", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上传设置 的本地化字符串。
+        /// </summary>
+        public static string ui0029 {
+            get {
+                return ResourceManager.GetString("ui0029", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 配置上传服务器的地址与账号信息。 的本地化字符串。
+        /// </summary>
+        public static string ui0030 {
+            get {
+                return ResourceManager.GetString("ui0030", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 服务器地址 (BaseUrl) 的本地化字符串。
+        /// </summary>
+        public static string ui0031 {
+            get {
+                return ResourceManager.GetString("ui0031", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 用户名 的本地化字符串。
+        /// </summary>
+        public static string ui0032 {
+            get {
+                return ResourceManager.GetString("ui0032", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 密码 的本地化字符串。
+        /// </summary>
+        public static string ui0033 {
+            get {
+                return ResourceManager.GetString("ui0033", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存并刷新 的本地化字符串。
+        /// </summary>
+        public static string ui0034 {
+            get {
+                return ResourceManager.GetString("ui0034", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存 的本地化字符串。
+        /// </summary>
+        public static string ui0035 {
+            get {
+                return ResourceManager.GetString("ui0035", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 确认上传话数 的本地化字符串。
+        /// </summary>
+        public static string ui0036 {
+            get {
+                return ResourceManager.GetString("ui0036", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 项目 的本地化字符串。
+        /// </summary>
+        public static string ui0037 {
+            get {
+                return ResourceManager.GetString("ui0037", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 勾选需要上传的话数与文件，展开可查看每个话数包含的文件。 的本地化字符串。
+        /// </summary>
+        public static string ui0038 {
+            get {
+                return ResourceManager.GetString("ui0038", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 包含 的本地化字符串。
+        /// </summary>
+        public static string ui0039 {
+            get {
+                return ResourceManager.GetString("ui0039", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 状态 的本地化字符串。
+        /// </summary>
+        public static string ui0040 {
+            get {
+                return ResourceManager.GetString("ui0040", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 显示名 的本地化字符串。
+        /// </summary>
+        public static string ui0041 {
+            get {
+                return ResourceManager.GetString("ui0041", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 负责人 的本地化字符串。
+        /// </summary>
+        public static string ui0042 {
+            get {
+                return ResourceManager.GetString("ui0042", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 范围 的本地化字符串。
+        /// </summary>
+        public static string ui0043 {
+            get {
+                return ResourceManager.GetString("ui0043", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 标签 的本地化字符串。
+        /// </summary>
+        public static string ui0044 {
+            get {
+                return ResourceManager.GetString("ui0044", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 备注 的本地化字符串。
+        /// </summary>
+        public static string ui0045 {
+            get {
+                return ResourceManager.GetString("ui0045", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 文件数 的本地化字符串。
+        /// </summary>
+        public static string ui0046 {
+            get {
+                return ResourceManager.GetString("ui0046", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 取消 的本地化字符串。
+        /// </summary>
+        public static string ui0047 {
+            get {
+                return ResourceManager.GetString("ui0047", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 开始上传 的本地化字符串。
+        /// </summary>
+        public static string ui0048 {
+            get {
+                return ResourceManager.GetString("ui0048", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存冲突合并 的本地化字符串。
+        /// </summary>
+        public static string ui0049 {
+            get {
+                return ResourceManager.GetString("ui0049", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 文件： 的本地化字符串。
+        /// </summary>
+        public static string ui0050 {
+            get {
+                return ResourceManager.GetString("ui0050", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上一处 的本地化字符串。
+        /// </summary>
+        public static string ui0051 {
+            get {
+                return ResourceManager.GetString("ui0051", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 下一处 的本地化字符串。
+        /// </summary>
+        public static string ui0052 {
+            get {
+                return ResourceManager.GetString("ui0052", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 采用远端 的本地化字符串。
+        /// </summary>
+        public static string ui0053 {
+            get {
+                return ResourceManager.GetString("ui0053", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 采用本地 的本地化字符串。
+        /// </summary>
+        public static string ui0054 {
+            get {
+                return ResourceManager.GetString("ui0054", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 全部用远端 的本地化字符串。
+        /// </summary>
+        public static string ui0055 {
+            get {
+                return ResourceManager.GetString("ui0055", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 全部用本地 的本地化字符串。
+        /// </summary>
+        public static string ui0056 {
+            get {
+                return ResourceManager.GetString("ui0056", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 当前用远端 的本地化字符串。
+        /// </summary>
+        public static string ui0057 {
+            get {
+                return ResourceManager.GetString("ui0057", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 当前用本地 的本地化字符串。
+        /// </summary>
+        public static string ui0058 {
+            get {
+                return ResourceManager.GetString("ui0058", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存合并 的本地化字符串。
+        /// </summary>
+        public static string ui0059 {
+            get {
+                return ResourceManager.GetString("ui0059", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 冲突列表 的本地化字符串。
+        /// </summary>
+        public static string ui0060 {
+            get {
+                return ResourceManager.GetString("ui0060", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 冲突 # 的本地化字符串。
+        /// </summary>
+        public static string ui0061 {
+            get {
+                return ResourceManager.GetString("ui0061", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 用远端 的本地化字符串。
+        /// </summary>
+        public static string ui0062 {
+            get {
+                return ResourceManager.GetString("ui0062", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 用本地 的本地化字符串。
+        /// </summary>
+        public static string ui0063 {
+            get {
+                return ResourceManager.GetString("ui0063", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 远端 的本地化字符串。
+        /// </summary>
+        public static string ui0064 {
+            get {
+                return ResourceManager.GetString("ui0064", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 本地 的本地化字符串。
+        /// </summary>
+        public static string ui0065 {
+            get {
+                return ResourceManager.GetString("ui0065", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 合并结果 的本地化字符串。
+        /// </summary>
+        public static string ui0066 {
+            get {
+                return ResourceManager.GetString("ui0066", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 Alt+↑/↓ 导航，Alt+L 用本地，Alt+R 用远端 的本地化字符串。
+        /// </summary>
+        public static string ui0067 {
+            get {
+                return ResourceManager.GetString("ui0067", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 自定义更新服务器 的本地化字符串。
+        /// </summary>
+        public static string ui0068 {
+            get {
+                return ResourceManager.GetString("ui0068", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 配置 HTTP 更新源，保存后立即用于下一次更新检查。 的本地化字符串。
+        /// </summary>
+        public static string ui0069 {
+            get {
+                return ResourceManager.GetString("ui0069", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 Manifest 路径 的本地化字符串。
+        /// </summary>
+        public static string ui0070 {
+            get {
+                return ResourceManager.GetString("ui0070", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 用户名（可选） 的本地化字符串。
+        /// </summary>
+        public static string ui0071 {
+            get {
+                return ResourceManager.GetString("ui0071", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 密码（可选） 的本地化字符串。
+        /// </summary>
+        public static string ui0072 {
+            get {
+                return ResourceManager.GetString("ui0072", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 验证 HTTP 的本地化字符串。
+        /// </summary>
+        public static string ui0073 {
+            get {
+                return ResourceManager.GetString("ui0073", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存到 settings.json 的本地化字符串。
+        /// </summary>
+        public static string ui0074 {
+            get {
+                return ResourceManager.GetString("ui0074", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 显示偏好、更新与开发者选项 的本地化字符串。
+        /// </summary>
+        public static string ui0075 {
+            get {
+                return ResourceManager.GetString("ui0075", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 标注显示 的本地化字符串。
+        /// </summary>
+        public static string ui0076 {
+            get {
+                return ResourceManager.GetString("ui0076", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 调整标号与标注提示的视觉层级，保存后立即应用到图片查看器。 的本地化字符串。
+        /// </summary>
+        public static string ui0077 {
+            get {
+                return ResourceManager.GetString("ui0077", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 标号大小 的本地化字符串。
+        /// </summary>
+        public static string ui0078 {
+            get {
+                return ResourceManager.GetString("ui0078", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 提示文字大小 的本地化字符串。
+        /// </summary>
+        public static string ui0079 {
+            get {
+                return ResourceManager.GetString("ui0079", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 提示背景透明度 的本地化字符串。
+        /// </summary>
+        public static string ui0080 {
+            get {
+                return ResourceManager.GetString("ui0080", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存显示设置 的本地化字符串。
+        /// </summary>
+        public static string ui0081 {
+            get {
+                return ResourceManager.GetString("ui0081", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 软件更新 的本地化字符串。
+        /// </summary>
+        public static string ui0082 {
+            get {
+                return ResourceManager.GetString("ui0082", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 更新包经 SHA256 校验后分阶段安装，失败会自动回滚到原版本。 的本地化字符串。
+        /// </summary>
+        public static string ui0083 {
+            get {
+                return ResourceManager.GetString("ui0083", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 检查更新 的本地化字符串。
+        /// </summary>
+        public static string ui0084 {
+            get {
+                return ResourceManager.GetString("ui0084", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 当前客户端 的本地化字符串。
+        /// </summary>
+        public static string ui0085 {
+            get {
+                return ResourceManager.GetString("ui0085", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最新客户端 的本地化字符串。
+        /// </summary>
+        public static string ui0086 {
+            get {
+                return ResourceManager.GetString("ui0086", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 当前更新程序 的本地化字符串。
+        /// </summary>
+        public static string ui0087 {
+            get {
+                return ResourceManager.GetString("ui0087", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 最新更新程序 的本地化字符串。
+        /// </summary>
+        public static string ui0088 {
+            get {
+                return ResourceManager.GetString("ui0088", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 更新说明 的本地化字符串。
+        /// </summary>
+        public static string ui0089 {
+            get {
+                return ResourceManager.GetString("ui0089", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 设置自定义更新服务器 的本地化字符串。
+        /// </summary>
+        public static string ui0090 {
+            get {
+                return ResourceManager.GetString("ui0090", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 开发者选项 的本地化字符串。
+        /// </summary>
+        public static string ui0091 {
+            get {
+                return ResourceManager.GetString("ui0091", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 Deeplink 回调 的本地化字符串。
+        /// </summary>
+        public static string ui0092 {
+            get {
+                return ResourceManager.GetString("ui0092", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 当浏览器打开 labelplus:// 时，客户端可向此 URL POST token。仅用于开发环境测试。 的本地化字符串。
+        /// </summary>
+        public static string ui0093 {
+            get {
+                return ResourceManager.GetString("ui0093", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 回调 URL 的本地化字符串。
+        /// </summary>
+        public static string ui0094 {
+            get {
+                return ResourceManager.GetString("ui0094", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 可填写如 'Bearer &amp;lt;token&amp;gt;' 或 'Basic &amp;lt;base64&amp;gt;'，仅本地开发测试使用 的本地化字符串。
+        /// </summary>
+        public static string ui0095 {
+            get {
+                return ResourceManager.GetString("ui0095", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 允许在本地回退到 http（仅开发） 的本地化字符串。
+        /// </summary>
+        public static string ui0096 {
+            get {
+                return ResourceManager.GetString("ui0096", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 保存设置 的本地化字符串。
+        /// </summary>
+        public static string ui0097 {
+            get {
+                return ResourceManager.GetString("ui0097", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 触发未处理异常 的本地化字符串。
+        /// </summary>
+        public static string ui0098 {
+            get {
+                return ResourceManager.GetString("ui0098", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 用于测试全局异常处理 的本地化字符串。
+        /// </summary>
+        public static string ui0099 {
+            get {
+                return ResourceManager.GetString("ui0099", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 打开翻译文件夹 的本地化字符串。
+        /// </summary>
+        public static string ui0100 {
+            get {
+                return ResourceManager.GetString("ui0100", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 切换主题 的本地化字符串。
+        /// </summary>
+        public static string ui0101 {
+            get {
+                return ResourceManager.GetString("ui0101", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 缩小 的本地化字符串。
+        /// </summary>
+        public static string ui0102 {
+            get {
+                return ResourceManager.GetString("ui0102", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 重置为 100% 的本地化字符串。
+        /// </summary>
+        public static string ui0103 {
+            get {
+                return ResourceManager.GetString("ui0103", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 放大 的本地化字符串。
+        /// </summary>
+        public static string ui0104 {
+            get {
+                return ResourceManager.GetString("ui0104", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择图片 的本地化字符串。
+        /// </summary>
+        public static string ui0105 {
+            get {
+                return ResourceManager.GetString("ui0105", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 将所选标签设为框内（快捷键 1） 的本地化字符串。
+        /// </summary>
+        public static string ui0106 {
+            get {
+                return ResourceManager.GetString("ui0106", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 框内 的本地化字符串。
+        /// </summary>
+        public static string ui0107 {
+            get {
+                return ResourceManager.GetString("ui0107", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 将所选标签设为框外（快捷键 2） 的本地化字符串。
+        /// </summary>
+        public static string ui0108 {
+            get {
+                return ResourceManager.GetString("ui0108", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 框外 的本地化字符串。
+        /// </summary>
+        public static string ui0109 {
+            get {
+                return ResourceManager.GetString("ui0109", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 添加标签 的本地化字符串。
+        /// </summary>
+        public static string ui0110 {
+            get {
+                return ResourceManager.GetString("ui0110", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 添加 的本地化字符串。
+        /// </summary>
+        public static string ui0111 {
+            get {
+                return ResourceManager.GetString("ui0111", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 删除所选标签 的本地化字符串。
+        /// </summary>
+        public static string ui0112 {
+            get {
+                return ResourceManager.GetString("ui0112", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 撤销删除 的本地化字符串。
+        /// </summary>
+        public static string ui0113 {
+            get {
+                return ResourceManager.GetString("ui0113", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 文件设置 的本地化字符串。
+        /// </summary>
+        public static string ui0114 {
+            get {
+                return ResourceManager.GetString("ui0114", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 编号 的本地化字符串。
+        /// </summary>
+        public static string ui0115 {
+            get {
+                return ResourceManager.GetString("ui0115", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 文本 的本地化字符串。
+        /// </summary>
+        public static string ui0116 {
+            get {
+                return ResourceManager.GetString("ui0116", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 分类 的本地化字符串。
+        /// </summary>
+        public static string ui0117 {
+            get {
+                return ResourceManager.GetString("ui0117", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 译文 的本地化字符串。
+        /// </summary>
+        public static string ui0118 {
+            get {
+                return ResourceManager.GetString("ui0118", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择一个标签后在此输入译文 的本地化字符串。
+        /// </summary>
+        public static string ui0119 {
+            get {
+                return ResourceManager.GetString("ui0119", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上传 的本地化字符串。
+        /// </summary>
+        public static string ui0120 {
+            get {
+                return ResourceManager.GetString("ui0120", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择要上传到的项目 的本地化字符串。
+        /// </summary>
+        public static string ui0121 {
+            get {
+                return ResourceManager.GetString("ui0121", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上传文件夹 的本地化字符串。
+        /// </summary>
+        public static string ui0122 {
+            get {
+                return ResourceManager.GetString("ui0122", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上传文件 的本地化字符串。
+        /// </summary>
+        public static string ui0123 {
+            get {
+                return ResourceManager.GetString("ui0123", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 新增项目 的本地化字符串。
+        /// </summary>
+        public static string ui0124 {
+            get {
+                return ResourceManager.GetString("ui0124", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择项目后上传文件 的本地化字符串。
+        /// </summary>
+        public static string ui0125 {
+            get {
+                return ResourceManager.GetString("ui0125", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 上传前会自动解析卷、番外与话数，并按规范目录写入；覆盖旧文件前会备份，可随时回退。 的本地化字符串。
+        /// </summary>
+        public static string ui0126 {
+            get {
+                return ResourceManager.GetString("ui0126", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择文件 的本地化字符串。
+        /// </summary>
+        public static string ui0127 {
+            get {
+                return ResourceManager.GetString("ui0127", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择文件夹 的本地化字符串。
+        /// </summary>
+        public static string ui0128 {
+            get {
+                return ResourceManager.GetString("ui0128", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择要协作的项目 的本地化字符串。
+        /// </summary>
+        public static string ui0129 {
+            get {
+                return ResourceManager.GetString("ui0129", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 重试 的本地化字符串。
+        /// </summary>
+        public static string ui0130 {
+            get {
+                return ResourceManager.GetString("ui0130", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 话数 / 阶段 的本地化字符串。
+        /// </summary>
+        public static string ui0131 {
+            get {
+                return ResourceManager.GetString("ui0131", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 路径 的本地化字符串。
+        /// </summary>
+        public static string ui0132 {
+            get {
+                return ResourceManager.GetString("ui0132", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 创建时间 的本地化字符串。
+        /// </summary>
+        public static string ui0133 {
+            get {
+                return ResourceManager.GetString("ui0133", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 更新时间 的本地化字符串。
+        /// </summary>
+        public static string ui0134 {
+            get {
+                return ResourceManager.GetString("ui0134", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 操作 的本地化字符串。
+        /// </summary>
+        public static string ui0135 {
+            get {
+                return ResourceManager.GetString("ui0135", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 嵌字 的本地化字符串。
+        /// </summary>
+        public static string ui0136 {
+            get {
+                return ResourceManager.GetString("ui0136", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 下载 的本地化字符串。
+        /// </summary>
+        public static string ui0137 {
+            get {
+                return ResourceManager.GetString("ui0137", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 还没有协作数据 的本地化字符串。
+        /// </summary>
+        public static string ui0138 {
+            get {
+                return ResourceManager.GetString("ui0138", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 配置服务器并选择项目后，这里会显示各话数的协作进度。 的本地化字符串。
+        /// </summary>
+        public static string ui0139 {
+            get {
+                return ResourceManager.GetString("ui0139", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 导出图片 的本地化字符串。
+        /// </summary>
+        public static string ui0140 {
+            get {
+                return ResourceManager.GetString("ui0140", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 将当前译文渲染到图片后导出。 的本地化字符串。
+        /// </summary>
+        public static string ui0141 {
+            get {
+                return ResourceManager.GetString("ui0141", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 管理图片 的本地化字符串。
+        /// </summary>
+        public static string ui0142 {
+            get {
+                return ResourceManager.GetString("ui0142", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 选择要包含在翻译文件中的图片，左右移动即可调整顺序。 的本地化字符串。
+        /// </summary>
+        public static string ui0143 {
+            get {
+                return ResourceManager.GetString("ui0143", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 添加 → 的本地化字符串。
+        /// </summary>
+        public static string ui0144 {
+            get {
+                return ResourceManager.GetString("ui0144", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 全部添加 ⇉ 的本地化字符串。
+        /// </summary>
+        public static string ui0145 {
+            get {
+                return ResourceManager.GetString("ui0145", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 ← 移除 的本地化字符串。
+        /// </summary>
+        public static string ui0146 {
+            get {
+                return ResourceManager.GetString("ui0146", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 ⇇ 全部移除 的本地化字符串。
+        /// </summary>
+        public static string ui0147 {
+            get {
+                return ResourceManager.GetString("ui0147", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 管理标签分组与当前翻译文件的备注。 的本地化字符串。
+        /// </summary>
+        public static string ui0148 {
+            get {
+                return ResourceManager.GetString("ui0148", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 关于 LabelPlus Next 的本地化字符串。
+        /// </summary>
+        public static string ui0149 {
+            get {
+                return ResourceManager.GetString("ui0149", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 版本 的本地化字符串。
+        /// </summary>
+        public static string ui0150 {
+            get {
+                return ResourceManager.GetString("ui0150", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 作者 的本地化字符串。
+        /// </summary>
+        public static string ui0151 {
+            get {
+                return ResourceManager.GetString("ui0151", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 项目链接 的本地化字符串。
+        /// </summary>
+        public static string ui0152 {
+            get {
+                return ResourceManager.GetString("ui0152", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 特别鸣谢 的本地化字符串。
+        /// </summary>
+        public static string ui0153 {
+            get {
+                return ResourceManager.GetString("ui0153", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 Avalonia · Ursa · Semi.Avalonia 及所有开源贡献者 的本地化字符串。
+        /// </summary>
+        public static string ui0154 {
+            get {
+                return ResourceManager.GetString("ui0154", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 展开 的本地化字符串。
+        /// </summary>
+        public static string ui0155 {
+            get {
+                return ResourceManager.GetString("ui0155", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 已经是最新版本 {0} 的本地化字符串。
+        /// </summary>
+        public static string ui0156 {
+            get {
+                return ResourceManager.GetString("ui0156", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 设置已加载 的本地化字符串。
+        /// </summary>
+        public static string ui0157 {
+            get {
+                return ResourceManager.GetString("ui0157", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 保存成功 的本地化字符串。
+        /// </summary>
+        public static string ui0158 {
+            get {
+                return ResourceManager.GetString("ui0158", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 请填写 BaseUrl 的本地化字符串。
+        /// </summary>
+        public static string ui0159 {
+            get {
+                return ResourceManager.GetString("ui0159", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 请填写 Manifest 路径 的本地化字符串。
+        /// </summary>
+        public static string ui0160 {
+            get {
+                return ResourceManager.GetString("ui0160", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 未配置用户名/密码，将无法通过 API 下载 的本地化字符串。
+        /// </summary>
+        public static string ui0161 {
+            get {
+                return ResourceManager.GetString("ui0161", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 API 下载验证成功 的本地化字符串。
+        /// </summary>
+        public static string ui0162 {
+            get {
+                return ResourceManager.GetString("ui0162", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 API 下载验证失败：清单缺少 projects 的本地化字符串。
+        /// </summary>
+        public static string ui0163 {
+            get {
+                return ResourceManager.GetString("ui0163", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 正在验证清单... 的本地化字符串。
+        /// </summary>
+        public static string ui0164 {
+            get {
+                return ResourceManager.GetString("ui0164", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 清单为空 的本地化字符串。
+        /// </summary>
+        public static string ui0165 {
+            get {
+                return ResourceManager.GetString("ui0165", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 清单格式错误 的本地化字符串。
+        /// </summary>
+        public static string ui0166 {
+            get {
+                return ResourceManager.GetString("ui0166", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 服务验证成功 的本地化字符串。
+        /// </summary>
+        public static string ui0167 {
+            get {
+                return ResourceManager.GetString("ui0167", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 验证失败：请求超时 的本地化字符串。
+        /// </summary>
+        public static string ui0168 {
+            get {
+                return ResourceManager.GetString("ui0168", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 正在检查更新，请稍候... 的本地化字符串。
+        /// </summary>
+        public static string ui0169 {
+            get {
+                return ResourceManager.GetString("ui0169", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 正在检查更新... 的本地化字符串。
+        /// </summary>
+        public static string ui0170 {
+            get {
+                return ResourceManager.GetString("ui0170", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 未配置更新服务器 的本地化字符串。
+        /// </summary>
+        public static string ui0171 {
+            get {
+                return ResourceManager.GetString("ui0171", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 已取消更新 的本地化字符串。
+        /// </summary>
+        public static string ui0172 {
+            get {
+                return ResourceManager.GetString("ui0172", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 登录更新服务器失败 的本地化字符串。
+        /// </summary>
+        public static string ui0173 {
+            get {
+                return ResourceManager.GetString("ui0173", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 获取清单失败 的本地化字符串。
+        /// </summary>
+        public static string ui0174 {
+            get {
+                return ResourceManager.GetString("ui0174", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 下载更新程序失败（下载或校验未通过） 的本地化字符串。
+        /// </summary>
+        public static string ui0175 {
+            get {
+                return ResourceManager.GetString("ui0175", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 未找到更新程序，无法启动客户端更新 的本地化字符串。
+        /// </summary>
+        public static string ui0176 {
+            get {
+                return ResourceManager.GetString("ui0176", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 启动更新程序... 的本地化字符串。
+        /// </summary>
+        public static string ui0177 {
+            get {
+                return ResourceManager.GetString("ui0177", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 启动更新程序失败 的本地化字符串。
+        /// </summary>
+        public static string ui0178 {
+            get {
+                return ResourceManager.GetString("ui0178", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 检查更新失败: {0} 的本地化字符串。
+        /// </summary>
+        public static string ui0179 {
+            get {
+                return ResourceManager.GetString("ui0179", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 {0} 个项目 的本地化字符串。
+        /// </summary>
+        public static string ui0180 {
+            get {
+                return ResourceManager.GetString("ui0180", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 {0} 个标签 的本地化字符串。
+        /// </summary>
+        public static string ui0181 {
+            get {
+                return ResourceManager.GetString("ui0181", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 {0} 个 的本地化字符串。
+        /// </summary>
+        public static string ui0182 {
+            get {
+                return ResourceManager.GetString("ui0182", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 选择项目以预览 的本地化字符串。
+        /// </summary>
+        public static string ui0183 {
+            get {
+                return ResourceManager.GetString("ui0183", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 校对工作流正在开发中，敬请期待。 的本地化字符串。
+        /// </summary>
+        public static string ui0184 {
+            get {
+                return ResourceManager.GetString("ui0184", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 交付工作流正在开发中，敬请期待。 的本地化字符串。
+        /// </summary>
+        public static string ui0185 {
+            get {
+                return ResourceManager.GetString("ui0185", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 欢迎 的本地化字符串。
+        /// </summary>
+        public static string ui0186 {
+            get {
+                return ResourceManager.GetString("ui0186", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 当前译文有未保存的更改，是否保存？ 的本地化字符串。
+        /// </summary>
+        public static string ui0187 {
+            get {
+                return ResourceManager.GetString("ui0187", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 关闭确认 的本地化字符串。
+        /// </summary>
+        public static string ui0188 {
+            get {
+                return ResourceManager.GetString("ui0188", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 还原 的本地化字符串。
+        /// </summary>
+        public static string ui0189 {
+            get {
+                return ResourceManager.GetString("ui0189", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 最大化 的本地化字符串。
+        /// </summary>
+        public static string ui0190 {
+            get {
+                return ResourceManager.GetString("ui0190", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 程序发生未处理错误，已生成日志压缩包。 的本地化字符串。
+        /// </summary>
+        public static string ui0191 {
+            get {
+                return ResourceManager.GetString("ui0191", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 报告文件: {0} 的本地化字符串。
+        /// </summary>
+        public static string ui0192 {
+            get {
+                return ResourceManager.GetString("ui0192", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 应用将退出。请将该压缩包反馈给开发者。 的本地化字符串。
+        /// </summary>
+        public static string ui0193 {
+            get {
+                return ResourceManager.GetString("ui0193", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 退出 的本地化字符串。
+        /// </summary>
+        public static string ui0194 {
+            get {
+                return ResourceManager.GetString("ui0194", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 发生错误 的本地化字符串。
+        /// </summary>
+        public static string ui0195 {
+            get {
+                return ResourceManager.GetString("ui0195", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 更新检查完成 的本地化字符串。
+        /// </summary>
+        public static string ui0196 {
+            get {
+                return ResourceManager.GetString("ui0196", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 更新 的本地化字符串。
+        /// </summary>
+        public static string ui0197 {
+            get {
+                return ResourceManager.GetString("ui0197", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 更新检查失败 的本地化字符串。
+        /// </summary>
+        public static string ui0198 {
+            get {
+                return ResourceManager.GetString("ui0198", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 确认移除项目: {0}? 的本地化字符串。
+        /// </summary>
+        public static string ui0199 {
+            get {
+                return ResourceManager.GetString("ui0199", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 确认 的本地化字符串。
+        /// </summary>
+        public static string ui0200 {
+            get {
+                return ResourceManager.GetString("ui0200", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 文件 {0} 仍包含标签，移到忽略将丢失这些标签，是否继续？ 的本地化字符串。
+        /// </summary>
+        public static string ui0201 {
+            get {
+                return ResourceManager.GetString("ui0201", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 下列被移出包含的文件仍有标签，将丢失这些标签：{0}{1}。是否继续？ 的本地化字符串。
+        /// </summary>
+        public static string ui0202 {
+            get {
+                return ResourceManager.GetString("ui0202", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 确认删除当前标签? 的本地化字符串。
+        /// </summary>
+        public static string ui0203 {
+            get {
+                return ResourceManager.GetString("ui0203", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 删除 的本地化字符串。
+        /// </summary>
+        public static string ui0204 {
+            get {
+                return ResourceManager.GetString("ui0204", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 版本: {0} 的本地化字符串。
+        /// </summary>
+        public static string ui0205 {
+            get {
+                return ResourceManager.GetString("ui0205", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 检测到与远端存在相同话数，是否继续? 的本地化字符串。
+        /// </summary>
+        public static string ui0206 {
+            get {
+                return ResourceManager.GetString("ui0206", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 提示 的本地化字符串。
+        /// </summary>
+        public static string ui0207 {
+            get {
+                return ResourceManager.GetString("ui0207", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 发现 {0} 个自动保存备份，可在对应项目 bak 文件夹中恢复。 的本地化字符串。
+        /// </summary>
+        public static string ui0208 {
+            get {
+                return ResourceManager.GetString("ui0208", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 常见类型 的本地化字符串。
+        /// </summary>
+        public static string ui0209 {
+            get {
+                return ResourceManager.GetString("ui0209", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 压缩包 的本地化字符串。
+        /// </summary>
+        public static string ui0210 {
+            get {
+                return ResourceManager.GetString("ui0210", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 文本 的本地化字符串。
+        /// </summary>
+        public static string ui0211 {
+            get {
+                return ResourceManager.GetString("ui0211", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 图片 的本地化字符串。
+        /// </summary>
+        public static string ui0212 {
+            get {
+                return ResourceManager.GetString("ui0212", resourceCulture);
             }
         }
     }

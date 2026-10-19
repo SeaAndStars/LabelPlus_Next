@@ -12,6 +12,8 @@ using NLog.Targets;
 using NLog.Targets.Wrappers;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.DependencyInjection;
+using Antelcat.I18N.Avalonia;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.Services;
 using Avalonia.Threading;
 using System.IO.Compression;
@@ -95,6 +97,10 @@ public class App : Application
             Services = sc.BuildServiceProvider();
         }
 
+        // Apply the saved language before any view is created so the first paint
+        // already uses the selected culture.
+        ApplySavedLanguage();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
 #if !DEBUG
@@ -158,6 +164,22 @@ public class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void ApplySavedLanguage()
+    {
+        try
+        {
+            // Run the async loader on the thread pool so it cannot capture the UI
+            // SynchronizationContext and deadlock while we block before startup.
+            var settings = Task.Run(() => Services.GetRequiredService<ISettingsService>().LoadAsync())
+                .GetAwaiter().GetResult();
+            LocalizationService.Apply(settings.Language);
+        }
+        catch (Exception ex)
+        {
+            GLogger.Warn(ex, "Failed to apply saved language");
+        }
     }
 
 #if !DEBUG
@@ -792,21 +814,21 @@ public class App : Application
 
         var lifetime = ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 10 };
-        panel.Children.Add(new TextBlock { Text = "程序发生未处理错误，已生成日志压缩包。", FontWeight = Avalonia.Media.FontWeight.Bold });
-        if (!string.IsNullOrEmpty(zipPath)) panel.Children.Add(new TextBlock { Text = $"报告文件: {zipPath}", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = "应用将退出。请将该压缩包反馈给开发者。", FontSize = 12 });
+        panel.Children.Add(new TextBlock { Text = I18NExtension.Translate(LangKeys.ui0191) ?? "程序发生未处理错误，已生成日志压缩包。", FontWeight = Avalonia.Media.FontWeight.Bold });
+        if (!string.IsNullOrEmpty(zipPath)) panel.Children.Add(new TextBlock { Text = string.Format(I18NExtension.Translate(LangKeys.ui0192) ?? "报告文件: {0}", zipPath), TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = I18NExtension.Translate(LangKeys.ui0193) ?? "应用将退出。请将该压缩包反馈给开发者。", FontSize = 12 });
         var detailsBox = new TextBox { Text = dump, IsReadOnly = true, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Height = 240, FontFamily = new Avalonia.Media.FontFamily("Consolas,Monospace") };
         panel.Children.Add(new ScrollViewer { Content = detailsBox, Height = 260 });
-        var btnExit = new Button { Content = "退出", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Width = 120 };
+        var btnExit = new Button { Content = I18NExtension.Translate(LangKeys.ui0194) ?? "退出", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Width = 120 };
         btnExit.Click += (_, __) => { try { LogManager.Flush(TimeSpan.FromSeconds(2)); LogManager.Shutdown(); } catch (Exception flushEx) { GLogger.Warn(flushEx, "Flush on exit button failed"); } ExitAction(1); };
         panel.Children.Add(btnExit);
         var crashRoot = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-        crashRoot.Children.Add(new CustomControls.ChromeTitleBar { Title = "发生错误" });
+        crashRoot.Children.Add(new CustomControls.ChromeTitleBar { Title = I18NExtension.Translate(LangKeys.ui0195) ?? "发生错误" });
         Grid.SetRow(panel, 1);
         crashRoot.Children.Add(panel);
         var win = new UrsaWindow
         {
-            Title = "发生错误",
+            Title = I18NExtension.Translate(LangKeys.ui0195) ?? "发生错误",
             Width = 780,
             Height = 554,
             CanResize = true,
@@ -886,10 +908,12 @@ public class App : Application
             var settingsVm = Services.GetRequiredService<SettingsViewModel>();
             await settingsVm.LoadAsync();
             await settingsVm.CheckAndUpdateOnStartupAsync();
-            var message = string.IsNullOrWhiteSpace(settingsVm.Status) ? "更新检查完成" : settingsVm.Status;
+            var message = string.IsNullOrWhiteSpace(settingsVm.Status)
+                ? (I18NExtension.Translate(LangKeys.ui0196) ?? "更新检查完成")
+                : settingsVm.Status;
             if (manager is UrsaWindowNotificationManager mgr)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => mgr.Show(new UrsaNotification("更新", message), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
+                await Dispatcher.UIThread.InvokeAsync(() => mgr.Show(new UrsaNotification(I18NExtension.Translate(LangKeys.ui0197) ?? "更新", message), showIcon: true, showClose: true, type: NotificationType.Information, classes: ["Light"]));
             }
             else
             {
@@ -1246,6 +1270,6 @@ public class App : Application
     private static async Task ShowUpdateErrorAsync(UrsaWindowNotificationManager? manager, string message)
     {
         if (manager is not UrsaWindowNotificationManager mgr) return;
-        await Dispatcher.UIThread.InvokeAsync(() => mgr.Show(new UrsaNotification("更新检查失败", message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
+        await Dispatcher.UIThread.InvokeAsync(() => mgr.Show(new UrsaNotification(I18NExtension.Translate(LangKeys.ui0198) ?? "更新检查失败", message), showIcon: true, showClose: true, type: NotificationType.Warning, classes: ["Light"]));
     }
 }

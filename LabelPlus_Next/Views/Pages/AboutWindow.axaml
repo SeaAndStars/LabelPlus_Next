@@ -1,10 +1,11 @@
 <u:UrsaWindow
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Pages.AboutWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:u="https://irihi.tech/ursa"
-    Title="关于 LabelPlus Next"
+    Title="{I18N {x:Static lang:LangKeys.ui0149}}"
     WindowStartupLocation="CenterOwner"
     Width="520"
     Height="654"
@@ -13,7 +14,7 @@
     ExtendClientAreaToDecorationsHint="False"
     IsTitleBarVisible="False">
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="关于 LabelPlus Next" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0149}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel HorizontalAlignment="Center" Spacing="8">
@@ -21,7 +22,7 @@
                 Width="72"
                 Height="72"
                 RenderOptions.BitmapInterpolationMode="HighQuality"
-                Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                Source="{DynamicResource AppLogoSource}" />
             <TextBlock
                 HorizontalAlignment="Center"
                 Classes="lp-page-title"
@@ -30,15 +31,15 @@
                 x:Name="VersionText"
                 HorizontalAlignment="Center"
                 Classes="lp-subtle"
-                Text="版本" />
+                Text="{I18N {x:Static lang:LangKeys.ui0150}}" />
         </StackPanel>
 
         <Border Grid.Row="1" Classes="lp-card">
             <StackPanel Spacing="12">
                 <Grid ColumnDefinitions="88,*" RowDefinitions="Auto,Auto" RowSpacing="10">
-                    <TextBlock Classes="lp-label" Text="作者" />
+                    <TextBlock Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0151}}" />
                     <TextBlock Grid.Column="1" Text="SeaStar" />
-                    <TextBlock Grid.Row="1" Classes="lp-label" Text="项目链接" />
+                    <TextBlock Grid.Row="1" Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0152}}" />
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="1"
@@ -51,7 +52,7 @@
                 </Grid>
 
                 <Separator />
-                <TextBlock Classes="lp-section-title" Text="特别鸣谢" />
+                <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.ui0153}}" />
                 <Image
                     Height="140"
                     HorizontalAlignment="Center"
@@ -61,7 +62,7 @@
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="lp-subtle"
-                    Text="Avalonia · Ursa · Semi.Avalonia 及所有开源贡献者" />
+                    Text="{I18N {x:Static lang:LangKeys.ui0154}}" />
             </StackPanel>
         </Border>
 
@@ -69,7 +70,7 @@
             Grid.Row="2"
             Classes="lp-primary"
             Click="OnCloseClick"
-            Content="关闭"
+            Content="{I18N {x:Static lang:LangKeys.ui0028}}"
             HorizontalAlignment="Right"
             MinWidth="96" />
     </Grid>

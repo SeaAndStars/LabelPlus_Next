@@ -72,7 +72,7 @@
                                 <MenuItem Command="{Binding SaveAsCommandCommand}"
                                           Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
                                 <MenuItem Header="-" />
-                                <MenuItem Command="{Binding OpenTranslationFolderCommand}" Header="打开翻译文件夹">
+                                <MenuItem Command="{Binding OpenTranslationFolderCommand}" Header="{I18N {x:Static lang:LangKeys.ui0100}}">
                                     <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconFolder}" /></MenuItem.Icon>
                                 </MenuItem>
                             </MenuFlyout>
@@ -91,16 +91,7 @@
                     <Button Classes="lp-flat" Click="OnAboutClick" Content="{I18N {x:Static lang:LangKeys.helpAToolStripMenuItem}}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconLanguage}" Foreground="{DynamicResource LpSubtleText}"
-                              ToolTip.Tip="{I18N {x:Static lang:LangKeys.languageblock}}" />
-                    <ComboBox
-                        Name="LangComboBox"
-                        MinWidth="110"
-                        VerticalAlignment="Center"
-                        ItemsSource="{Binding LangList}"
-                        SelectedItem="default"
-                        SelectionChanged="LangComboBox_OnSelectionChanged" />
-                    <u:ThemeToggleButton IsThreeState="True" ToolTip.Tip="切换主题" />
+                    <u:ThemeToggleButton IsThreeState="True" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0101}}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -153,11 +144,11 @@
                                     Click="ZoomOut_OnClick"
                                     Content="−"
                                     FontSize="14"
-                                    ToolTip.Tip="缩小" />
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0102}}" />
                                 <Button
                                     Classes="lp-zoom-value"
                                     Click="ZoomReset_OnClick"
-                                    ToolTip.Tip="重置为 100%">
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0103}}">
                                     <TextBlock
                                         FontSize="12"
                                         FontWeight="SemiBold"
@@ -168,21 +159,21 @@
                                     Click="ZoomIn_OnClick"
                                     Content="+"
                                     FontSize="14"
-                                    ToolTip.Tip="放大" />
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0104}}" />
                             </StackPanel>
                         </Border>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronLeft}"
-                                          Click="PrevImage_OnClick" ToolTip.Tip="上一张" />
+                                          Click="PrevImage_OnClick" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0024}}" />
                             <ComboBox
                                 Name="ImageFileNamesComboBox"
                                 MinWidth="180"
                                 MaxWidth="320"
                                 ItemsSource="{Binding ImageFileNames}"
-                                PlaceholderText="选择图片"
+                                PlaceholderText="{I18N {x:Static lang:LangKeys.ui0105}}"
                                 SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
                             <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronRight}"
-                                          Click="NextImage_OnClick" ToolTip.Tip="下一张" />
+                                          Click="NextImage_OnClick" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0025}}" />
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -201,10 +192,10 @@
                                     Classes="lp-cat-chip inner"
                                     Classes.active="{Binding SelectedLabel.CategoryString, Converter={x:Static local:StringEqualsConverter.Instance}, ConverterParameter=框内}"
                                     Click="CategoryInner_OnClick"
-                                    ToolTip.Tip="将所选标签设为框内（快捷键 1）">
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0106}}">
                                     <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
                                         <Ellipse Width="7" Height="7" Fill="{DynamicResource LpInnerDotBrush}" />
-                                        <TextBlock FontSize="12" Text="框内" />
+                                        <TextBlock FontSize="12" Text="{I18N {x:Static lang:LangKeys.ui0107}}" />
                                         <Border Classes="lp-keycap">
                                             <TextBlock Text="1" />
                                         </Border>
@@ -214,10 +205,10 @@
                                     Classes="lp-cat-chip outer"
                                     Classes.active="{Binding SelectedLabel.CategoryString, Converter={x:Static local:StringEqualsConverter.Instance}, ConverterParameter=框外}"
                                     Click="CategoryOuter_OnClick"
-                                    ToolTip.Tip="将所选标签设为框外（快捷键 2）">
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0108}}">
                                     <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
                                         <Ellipse Width="7" Height="7" Fill="{DynamicResource LpOuterDotBrush}" />
-                                        <TextBlock FontSize="12" Text="框外" />
+                                        <TextBlock FontSize="12" Text="{I18N {x:Static lang:LangKeys.ui0109}}" />
                                         <Border Classes="lp-keycap">
                                             <TextBlock Text="2" />
                                         </Border>
@@ -228,7 +219,7 @@
                                     Classes="lp-tag lp-count-tag">
                                     <TextBlock
                                         FontSize="11"
-                                        Text="{Binding CurrentLabels.Count, StringFormat={}{0} 个标签}" />
+                                        Text="{Binding CurrentLabels.Count, Converter={x:Static local:LocalizedCountConverter.Instance}, ConverterParameter=ui0181}" />
                                 </Border>
                             </StackPanel>
 
@@ -241,10 +232,10 @@
                                 <Button
                                     Classes="lp-add"
                                     Command="{Binding AddLabelCommand}"
-                                    ToolTip.Tip="添加标签">
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0110}}">
                                     <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
                                         <PathIcon Width="12" Height="12" Data="{StaticResource SemiIconPlus}" Foreground="{Binding $parent[Button].Foreground}" />
-                                        <TextBlock FontSize="12" Text="添加" />
+                                        <TextBlock FontSize="12" Text="{I18N {x:Static lang:LangKeys.ui0111}}" />
                                     </StackPanel>
                                 </Button>
 
@@ -254,13 +245,13 @@
                                             Classes="lp-icon-btn danger"
                                             Command="{Binding RemoveLabelCommand}"
                                             IsEnabled="{Binding SelectedLabel, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                            ToolTip.Tip="删除所选标签">
+                                            ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0112}}">
                                             <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconDelete}" Foreground="{Binding $parent[Button].Foreground}" />
                                         </Button>
                                         <Button
                                             Classes="lp-icon-btn"
                                             Command="{Binding UndoRemoveLabelCommand}"
-                                            ToolTip.Tip="撤销删除">
+                                            ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0113}}">
                                             <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconUndo}" Foreground="{Binding $parent[Button].Foreground}" />
                                         </Button>
                                     </StackPanel>
@@ -280,7 +271,7 @@
                                     CornerRadius="6"
                                     Foreground="{DynamicResource LpSubtleText}"
                                     FontSize="12"
-                                    ToolTip.Tip="文件设置">
+                                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0114}}">
                                     <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
                                         <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconSetting}" Foreground="{Binding $parent[Button].Foreground}" />
                                         <TextBlock FontSize="12" Foreground="{DynamicResource LpSubtleText}" Text="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
@@ -306,9 +297,9 @@
                             <dataGrid:DataGridTextColumn
                                 Width="84"
                                 Binding="{Binding Index}"
-                                Header="编号"
+                                Header="{I18N {x:Static lang:LangKeys.ui0115}}"
                                 IsReadOnly="True" />
-                            <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="文本" SortMemberPath="Text">
+                            <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="{I18N {x:Static lang:LangKeys.ui0116}}" SortMemberPath="Text">
                                 <dataGrid:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
@@ -321,7 +312,7 @@
                                     </DataTemplate>
                                 </dataGrid:DataGridTemplateColumn.CellTemplate>
                             </dataGrid:DataGridTemplateColumn>
-                            <dataGrid:DataGridTemplateColumn Width="96" Header="分类" SortMemberPath="CategoryString">
+                            <dataGrid:DataGridTemplateColumn Width="96" Header="{I18N {x:Static lang:LangKeys.ui0117}}" SortMemberPath="CategoryString">
                                 <dataGrid:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock
@@ -337,7 +328,7 @@
                     <Grid Grid.Row="3" RowDefinitions="Auto,*">
                         <StackPanel Classes="lp-pane-header" Orientation="Horizontal" Spacing="8">
                             <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconEdit}" Foreground="{DynamicResource LpSubtleText}" />
-                            <TextBlock Classes="lp-pane-title" Text="译文" />
+                            <TextBlock Classes="lp-pane-title" Text="{I18N {x:Static lang:LangKeys.ui0118}}" />
                             <TextBlock Classes="lp-subtle" VerticalAlignment="Center" FontSize="12"
                                        Text="{Binding SelectedLabel.Index, StringFormat=#{0}, FallbackValue=''}" />
                         </StackPanel>
@@ -352,7 +343,7 @@
                             VerticalContentAlignment="Top"
                             AcceptsReturn="True"
                             FontSize="20"
-                            PlaceholderText="选择一个标签后在此输入译文"
+                            PlaceholderText="{I18N {x:Static lang:LangKeys.ui0119}}"
                             Text="{Binding CurrentText, Mode=TwoWay}"
                             TextAlignment="Start"
                             TextWrapping="Wrap" />

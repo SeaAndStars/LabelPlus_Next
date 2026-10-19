@@ -3,6 +3,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Antelcat.I18N.Avalonia;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services;
@@ -47,6 +49,9 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private double labelTipFontScale = LabelOverlaySettings.DefaultLabelTipFontScale;
     [ObservableProperty] private double labelTipBackgroundOpacity = LabelOverlaySettings.DefaultLabelTipBackgroundOpacity;
 
+    [ObservableProperty] private LanguageOption? selectedLanguage;
+    public IReadOnlyList<LanguageOption> Languages => LocalizationService.Options;
+
     public event EventHandler? LabelOverlaySettingsChanged;
 
     [ObservableProperty] private string? updateNotes;
@@ -63,8 +68,12 @@ public partial class SettingsViewModel : ViewModelBase
         _settingsService = settingsService;
         VerifyHttpCommand = new AsyncRelayCommand(VerifyHttpAsync);
         CheckUpdateCommand = new AsyncRelayCommand(CheckAndUpdateOnStartupAsync);
+        SelectedLanguage = LocalizationService.Options[0];
         _ = LoadAsync();
     }
+
+    partial void OnSelectedLanguageChanged(LanguageOption? value)
+        => LocalizationService.Apply(value?.Code);
 
     public IAsyncRelayCommand VerifyHttpCommand { get; }
     public IAsyncRelayCommand CheckUpdateCommand { get; }
@@ -79,6 +88,7 @@ public partial class SettingsViewModel : ViewModelBase
             LabelIndexFontScale = s.LabelOverlay.LabelIndexFontScale;
             LabelTipFontScale = s.LabelOverlay.LabelTipFontScale;
             LabelTipBackgroundOpacity = s.LabelOverlay.LabelTipBackgroundOpacity;
+            SelectedLanguage = LocalizationService.Resolve(s.Language);
 
             // Keep VM defaults as priority; only override when settings.json has non-empty values
             var defBase = BaseUrl;
@@ -144,7 +154,7 @@ public partial class SettingsViewModel : ViewModelBase
                 await _settingsService.SaveAsync(s);
             }
 
-            Status = "设置已加载";
+            Status = I18NExtension.Translate(LangKeys.ui0157);
             Logger.Info("Settings effective: baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
         }
         catch (Exception ex)
@@ -162,6 +172,7 @@ public partial class SettingsViewModel : ViewModelBase
             Logger.Info("Saving update settings... baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
             var s = new AppSettings
             {
+                Language = SelectedLanguage?.Code ?? "default",
                 LabelOverlay = new LabelOverlaySettings
                 {
                     LabelIndexFontScale = LabelIndexFontScale,
@@ -182,7 +193,7 @@ public partial class SettingsViewModel : ViewModelBase
             await _settingsService.SaveAsync(s);
             _settings = s;
             LabelOverlaySettingsChanged?.Invoke(this, EventArgs.Empty);
-            Status = "保存成功";
+            Status = I18NExtension.Translate(LangKeys.ui0158);
             Logger.Info("Settings saved");
         }
         catch (Exception ex)
@@ -199,13 +210,13 @@ public partial class SettingsViewModel : ViewModelBase
             Logger.Info("Verify via API download... baseUrl={baseUrl}, manifestPath={manifest}", BaseUrl, ManifestPath);
             if (string.IsNullOrWhiteSpace(BaseUrl))
             {
-                Status = "请填写 BaseUrl";
+                Status = I18NExtension.Translate(LangKeys.ui0159);
                 Logger.Warn("BaseUrl is empty");
                 return;
             }
             if (string.IsNullOrWhiteSpace(ManifestPath))
             {
-                Status = "请填写 Manifest 路径";
+                Status = I18NExtension.Translate(LangKeys.ui0160);
                 Logger.Warn("ManifestPath is empty");
                 return;
             }
@@ -231,7 +242,7 @@ public partial class SettingsViewModel : ViewModelBase
             }
             else
             {
-                Status = "未配置用户名/密码，将无法通过 API 下载";
+                Status = I18NExtension.Translate(LangKeys.ui0161);
                 Logger.Warn("Username/Password not configured");
                 return;
             }
@@ -273,12 +284,12 @@ public partial class SettingsViewModel : ViewModelBase
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("projects", out _))
                 {
-                    Status = "API 下载验证成功";
+                    Status = I18NExtension.Translate(LangKeys.ui0162);
                     Logger.Info("Manifest schema valid (projects found)");
                 }
                 else
                 {
-                    Status = "API 下载验证失败：清单缺少 projects";
+                    Status = I18NExtension.Translate(LangKeys.ui0163);
                     Logger.Warn("Manifest schema invalid: projects missing");
                 }
             }
@@ -303,28 +314,28 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
-            Status = "正在验证清单...";
+            Status = I18NExtension.Translate(LangKeys.ui0164);
             Logger.Info("Verify via IUpdateService...");
             var manifest = await updateService.FetchManifestAsync(upd, ct);
             if (manifest is null)
             {
-                Status = "清单为空";
+                Status = I18NExtension.Translate(LangKeys.ui0165);
                 return;
             }
             if (manifest.Files is null)
             {
-                Status = "清单格式错误";
+                Status = I18NExtension.Translate(LangKeys.ui0166);
                 return;
             }
-            Status = "服务验证成功";
+            Status = I18NExtension.Translate(LangKeys.ui0167);
         }
         catch (TaskCanceledException)
         {
-            Status = "验证失败：请求超时";
+            Status = I18NExtension.Translate(LangKeys.ui0168);
         }
         catch (TimeoutException)
         {
-            Status = "验证失败：请求超时";
+            Status = I18NExtension.Translate(LangKeys.ui0168);
         }
         catch (JsonException jx)
         {
@@ -356,7 +367,7 @@ public partial class SettingsViewModel : ViewModelBase
     {
         if (!await _updateGate.WaitAsync(0))
         {
-            Status = "正在检查更新，请稍候...";
+            Status = I18NExtension.Translate(LangKeys.ui0169);
             return;
         }
 
@@ -365,11 +376,11 @@ public partial class SettingsViewModel : ViewModelBase
         IsUpdating = true;
         try
         {
-            Status = "正在检查更新...";
+            Status = I18NExtension.Translate(LangKeys.ui0170);
             Logger.Info("Update check started");
             if (string.IsNullOrWhiteSpace(BaseUrl) || string.IsNullOrWhiteSpace(ManifestPath))
             {
-                Status = "未配置更新服务器";
+                Status = I18NExtension.Translate(LangKeys.ui0171);
                 return;
             }
 
@@ -403,7 +414,7 @@ public partial class SettingsViewModel : ViewModelBase
             var needClient = UpdateVersion.IsNewer(clientLatest, clientLocal);
             if (!needUpdater && !needClient)
             {
-                Status = $"已经是最新版本 {clientLocal}";
+                Status = string.Format(I18NExtension.Translate(LangKeys.ui0156) ?? "Already up to date ({0})", clientLocal);
                 return;
             }
 
@@ -415,13 +426,13 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            Status = "已取消更新";
+            Status = I18NExtension.Translate(LangKeys.ui0172);
             Logger.Info("Update check cancelled");
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Update check failed");
-            Status = $"检查更新失败: {ex.Message}";
+            Status = string.Format(I18NExtension.Translate(LangKeys.ui0179) ?? "Update check failed: {0}", ex.Message);
         }
         finally
         {
@@ -438,7 +449,7 @@ public partial class SettingsViewModel : ViewModelBase
         var token = await resolver.GetTokenAsync(ct);
         if (string.IsNullOrWhiteSpace(token))
         {
-            Status = "登录更新服务器失败";
+            Status = I18NExtension.Translate(LangKeys.ui0173);
             return null;
         }
         var filePath = Uri.TryCreate(ManifestPath, UriKind.Absolute, out var abs)
@@ -447,7 +458,7 @@ public partial class SettingsViewModel : ViewModelBase
         var result = await new FileSystemApi(BaseUrl!).DownloadAsync(token, filePath, ct);
         if (result.Code != 200 || result.Content is null)
         {
-            Status = "获取清单失败";
+            Status = I18NExtension.Translate(LangKeys.ui0174);
             Logger.Warn("Manifest download failed: {code} {msg}", result.Code, result.Message);
             return null;
         }
@@ -462,7 +473,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             Logger.Warn(ex, "Manifest JSON invalid");
         }
-        Status = "清单格式错误";
+        Status = I18NExtension.Translate(LangKeys.ui0166);
         return null;
     }
 
@@ -486,7 +497,7 @@ public partial class SettingsViewModel : ViewModelBase
             }));
             if (!await UpdateDownloader.DownloadVerifiedAsync(resolver, file.Value.Url, zipPath, file.Value.Sha256, chunks: 8, progress, ct: ct))
             {
-                Status = "下载更新程序失败（下载或校验未通过）";
+                Status = I18NExtension.Translate(LangKeys.ui0175);
                 return false;
             }
 
@@ -517,14 +528,14 @@ public partial class SettingsViewModel : ViewModelBase
         var entry = ResolveUpdaterEntry(updateDir) ?? ResolveUpdaterEntry(appDir);
         if (entry is null)
         {
-            Status = "未找到更新程序，无法启动客户端更新";
+            Status = I18NExtension.Translate(LangKeys.ui0176);
             Logger.Warn("Updater entry not found");
             return;
         }
 
         try
         {
-            Status = "启动更新程序...";
+            Status = I18NExtension.Translate(LangKeys.ui0177);
             var pid = Environment.ProcessId.ToString();
             ProcessStartInfo psi;
             if (OperatingSystem.IsMacOS() && entry.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
@@ -550,7 +561,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or InvalidOperationException or PlatformNotSupportedException)
         {
-            Status = "启动更新程序失败";
+            Status = I18NExtension.Translate(LangKeys.ui0178);
             Logger.Error(ex, "Failed to start updater");
         }
     }

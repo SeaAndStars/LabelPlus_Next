@@ -1,10 +1,12 @@
 <UserControl
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Pages.UploadPage"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
+    xmlns:conv="clr-namespace:LabelPlus_Next.Converters"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
     d:DesignHeight="800"
     d:DesignWidth="960"
@@ -15,7 +17,7 @@
         <Border Classes="lp-card" Padding="16">
             <Grid ColumnDefinitions="Auto,360,*,Auto" ColumnSpacing="12">
                 <StackPanel VerticalAlignment="Center" Spacing="2">
-                    <TextBlock Classes="lp-page-title" FontSize="18" Text="上传" />
+                    <TextBlock Classes="lp-page-title" FontSize="18" Text="{I18N {x:Static lang:LangKeys.ui0120}}" />
                     <TextBlock Classes="lp-subtle" FontSize="12" Text="{Binding Status}" />
                 </StackPanel>
                 <u:AutoCompleteBox
@@ -25,17 +27,17 @@
                     ItemsSource="{Binding Suggestions}"
                     MinimumPrefixLength="0"
                     Text="{Binding SelectedProject, Mode=TwoWay}"
-                    PlaceholderText="选择要上传到的项目" />
+                    PlaceholderText="{I18N {x:Static lang:LangKeys.ui0121}}" />
                 <StackPanel
                     Grid.Column="3"
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="8">
-                    <Button Command="{Binding PickUploadFolderCommand}" Content="上传文件夹" />
-                    <Button Command="{Binding PickUploadFilesCommand}" Content="上传文件" />
-                    <Button Command="{Binding AddProjectCommand}" Content="新增项目" Classes="lp-flat" />
-                    <Button Command="{Binding RefreshCommand}" Content="刷新" Classes="lp-flat" />
-                    <Button Command="{Binding OpenSettingsCommand}" Content="设置" Classes="lp-flat" />
+                    <Button Command="{Binding PickUploadFolderCommand}" Content="{I18N {x:Static lang:LangKeys.ui0122}}" />
+                    <Button Command="{Binding PickUploadFilesCommand}" Content="{I18N {x:Static lang:LangKeys.ui0123}}" />
+                    <Button Command="{Binding AddProjectCommand}" Content="{I18N {x:Static lang:LangKeys.ui0124}}" Classes="lp-flat" />
+                    <Button Command="{Binding RefreshCommand}" Content="{I18N {x:Static lang:LangKeys.ui0015}}" Classes="lp-flat" />
+                    <Button Command="{Binding OpenSettingsCommand}" Content="{I18N {x:Static lang:LangKeys.ui0007}}" Classes="lp-flat" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -45,9 +47,9 @@
             <Border Classes="lp-card" Padding="0">
                 <Grid RowDefinitions="Auto,*">
                     <Grid Margin="14,10" ColumnDefinitions="*,Auto">
-                        <TextBlock Classes="lp-pane-title" Text="项目" />
+                        <TextBlock Classes="lp-pane-title" Text="{I18N {x:Static lang:LangKeys.ui0037}}" />
                         <TextBlock Grid.Column="1" Classes="lp-subtle" FontSize="12"
-                                   Text="{Binding Projects.Count, StringFormat={}{0} 个}" />
+                                   Text="{Binding Projects.Count, Converter={x:Static conv:LocalizedCountConverter.Instance}, ConverterParameter=ui0182}" />
                     </Grid>
                     <ListBox
                         Grid.Row="1"
@@ -82,15 +84,15 @@
                         <TextBlock
                             HorizontalAlignment="Center"
                             Classes="lp-section-title"
-                            Text="选择项目后上传文件" />
+                            Text="{I18N {x:Static lang:LangKeys.ui0125}}" />
                         <TextBlock
                             HorizontalAlignment="Center"
                             Classes="lp-subtle"
-                            Text="上传前会自动解析卷、番外与话数，并按规范目录写入；覆盖旧文件前会备份，可随时回退。"
+                            Text="{I18N {x:Static lang:LangKeys.ui0126}}"
                             TextAlignment="Center" />
                         <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="8">
-                            <Button Command="{Binding PickUploadFilesCommand}" Content="选择文件" />
-                            <Button Command="{Binding PickUploadFolderCommand}" Classes="lp-primary" Content="选择文件夹" />
+                            <Button Command="{Binding PickUploadFilesCommand}" Content="{I18N {x:Static lang:LangKeys.ui0127}}" />
+                            <Button Command="{Binding PickUploadFolderCommand}" Classes="lp-primary" Content="{I18N {x:Static lang:LangKeys.ui0128}}" />
                         </StackPanel>
                     </StackPanel>
 

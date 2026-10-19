@@ -4,7 +4,7 @@
     <Grid>
         <Border Classes="lp-card" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="40,32" MinWidth="360">
             <StackPanel Spacing="10" HorizontalAlignment="Center">
-                <Image Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" Width="56" Height="56" Opacity="0.9" />
+                <Image Source="{DynamicResource AppLogoSource}" Width="56" Height="56" Opacity="0.9" />
                 <TextBlock x:Name="Text" Classes="lp-page-title" HorizontalAlignment="Center" />
                 <TextBlock x:Name="Subtitle" Classes="lp-subtle" HorizontalAlignment="Center" TextAlignment="Center" IsVisible="False" />
             </StackPanel>

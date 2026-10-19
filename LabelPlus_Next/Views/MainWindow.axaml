@@ -1,4 +1,5 @@
 <u:UrsaWindow
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -44,10 +45,10 @@
                     <Image
                         Width="30"
                         Height="30"
-                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                        Source="{DynamicResource AppLogoSource}" />
                     <StackPanel x:Name="BrandText" VerticalAlignment="Center">
                         <TextBlock FontSize="15" FontWeight="Bold" Text="LabelPlus Next" />
-                        <TextBlock Classes="lp-subtle" FontSize="11" Text="漫画翻译工作台" />
+                        <TextBlock Classes="lp-subtle" FontSize="11" Text="{I18N {x:Static lang:LangKeys.ui0001}}" />
                     </StackPanel>
                 </StackPanel>
 
@@ -58,28 +59,28 @@
                     SelectionChanged="OnNavSelectionChanged">
 
                     <u:NavMenuItem
-                        Header="收起"
+                        Header="{I18N {x:Static lang:LangKeys.ui0002}}"
                         Tag="toggle">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconChevronLeft}" />
                         </u:NavMenuItem.Icon>
                     </u:NavMenuItem>
                     <u:NavMenuItem
-                        Header="翻译"
+                        Header="{I18N {x:Static lang:LangKeys.ui0003}}"
                         Tag="translate">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconLanguage}" />
                         </u:NavMenuItem.Icon>
                     </u:NavMenuItem>
                     <u:NavMenuItem
-                        Header="校对"
+                        Header="{I18N {x:Static lang:LangKeys.ui0004}}"
                         Tag="proof">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconTickCircle}" />
                         </u:NavMenuItem.Icon>
                     </u:NavMenuItem>
                     <u:NavMenuItem
-                        Header="协作"
+                        Header="{I18N {x:Static lang:LangKeys.ui0005}}"
                         Tag="teamwork">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconUserGroup}" />
@@ -87,7 +88,7 @@
                     </u:NavMenuItem>
                     <!-- 上传菜单项由代码在鉴权通过后动态插入，不在 XAML 中定义 -->
                     <u:NavMenuItem
-                        Header="交付"
+                        Header="{I18N {x:Static lang:LangKeys.ui0006}}"
                         Tag="deliver">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconSend}" />
@@ -101,7 +102,7 @@
                     Margin="0,0,0,10"
                     SelectionChanged="OnNavSelectionChanged">
                     <u:NavMenuItem
-                        Header="设置"
+                        Header="{I18N {x:Static lang:LangKeys.ui0007}}"
                         Tag="settings">
                         <u:NavMenuItem.Icon>
                             <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconSetting}" />

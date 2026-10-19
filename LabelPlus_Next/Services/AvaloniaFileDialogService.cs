@@ -114,10 +114,10 @@ public class AvaloniaFileDialogService : IFileDialogService
         if (topLevel is null) return null;
         var types = new List<FilePickerFileType>
         {
-            new("常见类型") { Patterns = new List<string> { "*.zip", "*.7z", "*.rar", "*.txt", "*.psd", "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
-            new("压缩包") { Patterns = new List<string> { "*.zip", "*.7z", "*.rar" } },
-            new("文本") { Patterns = new List<string> { "*.txt" } },
-            new("图片") { Patterns = new List<string> { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
+            new(UiText.T(LangKeys.ui0209, "常见类型")) { Patterns = new List<string> { "*.zip", "*.7z", "*.rar", "*.txt", "*.psd", "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
+            new(UiText.T(LangKeys.ui0210, "压缩包")) { Patterns = new List<string> { "*.zip", "*.7z", "*.rar" } },
+            new(UiText.T(LangKeys.ui0211, "文本")) { Patterns = new List<string> { "*.txt" } },
+            new(UiText.T(LangKeys.ui0212, "图片")) { Patterns = new List<string> { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.webp" } },
             new("PSD") { Patterns = new List<string> { "*.psd" } }
         };
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -209,7 +209,7 @@ public class AvaloniaFileDialogService : IFileDialogService
         var topLevel = GetSafeTop();
         if (topLevel is Window win)
         {
-            try { await MessageBox.ShowAsync(message, "提示", MessageBoxIcon.None, MessageBoxButton.OK); return; }
+            try { await MessageBox.ShowAsync(message, UiText.T(LangKeys.ui0207, "提示"), MessageBoxIcon.None, MessageBoxButton.OK); return; }
             catch (ObjectDisposedException ex)
             {
                 Logger.Warn(ex, "消息对话框所属窗口已释放，将使用无所有者模式");

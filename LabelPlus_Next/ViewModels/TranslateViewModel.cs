@@ -41,7 +41,6 @@ public partial class TranslateViewModel : ViewModelBase
         _dialogs = dialogs;
     }
     public WindowNotificationManager? NotificationManager { get; set; }
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
 
     // UI progress and status
     [ObservableProperty] private bool isBusy;

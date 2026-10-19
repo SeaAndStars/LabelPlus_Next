@@ -4,18 +4,15 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Antelcat.I18N.Avalonia;
 using Avalonia.VisualTree;
 using LabelPlus_Next.CustomControls;
 using LabelPlus_Next.Models;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.ViewModels;
-using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Ursa.Controls;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
-
-// for I18NExtension
 
 namespace LabelPlus_Next.Views.Pages;
 
@@ -282,7 +279,11 @@ public partial class TranslateView : UserControl
     {
         var vm = Vm;
         if (vm?.SelectedLabel == null || string.IsNullOrEmpty(vm.SelectedImageFile)) return;
-        var res = await MessageBox.ShowAsync("确认删除当前标签?", "删除", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+        var res = await MessageBox.ShowAsync(
+            UiText.T(LangKeys.ui0203, "确认删除当前标签?"),
+            UiText.T(LangKeys.ui0204, "删除"),
+            MessageBoxIcon.Warning,
+            MessageBoxButton.YesNo);
         if (res == MessageBoxResult.Yes) vm.RemoveLabelCommandCommand?.Execute(null);
     }
 
@@ -505,32 +506,7 @@ public partial class TranslateView : UserControl
         var dlg = new AboutWindow();
         if (TopLevel.GetTopLevel(this) is Window win) await dlg.ShowDialog(win);
     }
-    private void LangComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        try
-        {
-            if (sender is not ComboBox cb || cb.SelectedItem is not string s) return;
-            if (string.Equals(s, "default", StringComparison.OrdinalIgnoreCase))
-            {
-                I18NExtension.Culture = CultureInfo.CurrentUICulture;
-                return;
-            }
-            try
-            {
-                I18NExtension.Culture = new CultureInfo(s);
-            }
-            catch (CultureNotFoundException)
-            {
-                // Fallback to system culture, avoiding crash
-                I18NExtension.Culture = CultureInfo.CurrentUICulture;
-            }
-        }
-        catch (Exception)
-        {
-            // final fallback
-            I18NExtension.Culture = CultureInfo.CurrentUICulture;
-        }
-    }
+
     private void CategoryInner_OnClick(object? sender, RoutedEventArgs e) { Vm?.SetSelectedCategory(1); }
     private void CategoryOuter_OnClick(object? sender, RoutedEventArgs e) { Vm?.SetSelectedCategory(2); }
     private void PrevImage_OnClick(object? sender, RoutedEventArgs e) { MoveImageSelection(-1); }

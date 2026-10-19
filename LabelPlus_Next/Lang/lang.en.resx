@@ -354,4 +354,652 @@
     <data name="button_start" xml:space="preserve">
     <value>Start</value>
   </data>
+    <data name="languageSystemDefault" xml:space="preserve">
+    <value>System default</value>
+  </data>
+    <data name="settingsLanguageTitle" xml:space="preserve">
+    <value>Language</value>
+  </data>
+    <data name="settingsLanguageDescription" xml:space="preserve">
+    <value>Choose the interface language. The change applies immediately.</value>
+  </data>
+    <data name="buttonSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+    <data name="ui0001" xml:space="preserve">
+    <value>Manga Translation Workbench</value>
+  </data>
+    <data name="ui0002" xml:space="preserve">
+    <value>Collapse</value>
+  </data>
+    <data name="ui0003" xml:space="preserve">
+    <value>Translate</value>
+  </data>
+    <data name="ui0004" xml:space="preserve">
+    <value>Proofread</value>
+  </data>
+    <data name="ui0005" xml:space="preserve">
+    <value>Collaborate</value>
+  </data>
+    <data name="ui0006" xml:space="preserve">
+    <value>Deliver</value>
+  </data>
+    <data name="ui0007" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+    <data name="ui0008" xml:space="preserve">
+    <value>Recent Projects</value>
+  </data>
+    <data name="ui0009" xml:space="preserve">
+    <value>Open a recent project or create a new one to start translating.</value>
+  </data>
+    <data name="ui0010" xml:space="preserve">
+    <value>Skip and continue</value>
+  </data>
+    <data name="ui0011" xml:space="preserve">
+    <value>Open Project</value>
+  </data>
+    <data name="ui0012" xml:space="preserve">
+    <value>New Project</value>
+  </data>
+    <data name="ui0013" xml:space="preserve">
+    <value>Open Selected</value>
+  </data>
+    <data name="ui0014" xml:space="preserve">
+    <value>Remove Selected</value>
+  </data>
+    <data name="ui0015" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+    <data name="ui0016" xml:space="preserve">
+    <value>Name</value>
+  </data>
+    <data name="ui0017" xml:space="preserve">
+    <value>Translation File</value>
+  </data>
+    <data name="ui0018" xml:space="preserve">
+    <value>Last Opened</value>
+  </data>
+    <data name="ui0019" xml:space="preserve">
+    <value>No recent projects yet</value>
+  </data>
+    <data name="ui0020" xml:space="preserve">
+    <value>Click “New Project” in the top-right corner, or open a translation file from disk.</value>
+  </data>
+    <data name="ui0021" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+    <data name="ui0022" xml:space="preserve">
+    <value>Read-only · Shows labels for the current image only</value>
+  </data>
+    <data name="ui0023" xml:space="preserve">
+    <value>Select a project to preview its labels</value>
+  </data>
+    <data name="ui0024" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+    <data name="ui0025" xml:space="preserve">
+    <value>Next</value>
+  </data>
+    <data name="ui0026" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+    <data name="ui0027" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+    <data name="ui0028" xml:space="preserve">
+    <value>Close</value>
+  </data>
+    <data name="ui0029" xml:space="preserve">
+    <value>Upload Settings</value>
+  </data>
+    <data name="ui0030" xml:space="preserve">
+    <value>Configure the upload server address and account information.</value>
+  </data>
+    <data name="ui0031" xml:space="preserve">
+    <value>Server address (BaseUrl)</value>
+  </data>
+    <data name="ui0032" xml:space="preserve">
+    <value>Username</value>
+  </data>
+    <data name="ui0033" xml:space="preserve">
+    <value>Password</value>
+  </data>
+    <data name="ui0034" xml:space="preserve">
+    <value>Save and Refresh</value>
+  </data>
+    <data name="ui0035" xml:space="preserve">
+    <value>Save</value>
+  </data>
+    <data name="ui0036" xml:space="preserve">
+    <value>Confirm Chapters to Upload</value>
+  </data>
+    <data name="ui0037" xml:space="preserve">
+    <value>Project</value>
+  </data>
+    <data name="ui0038" xml:space="preserve">
+    <value>Select the chapters and files to upload. Expand a chapter to see its files.</value>
+  </data>
+    <data name="ui0039" xml:space="preserve">
+    <value>Included</value>
+  </data>
+    <data name="ui0040" xml:space="preserve">
+    <value>Status</value>
+  </data>
+    <data name="ui0041" xml:space="preserve">
+    <value>Display Name</value>
+  </data>
+    <data name="ui0042" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+    <data name="ui0043" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+    <data name="ui0044" xml:space="preserve">
+    <value>Label</value>
+  </data>
+    <data name="ui0045" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+    <data name="ui0046" xml:space="preserve">
+    <value>Files</value>
+  </data>
+    <data name="ui0047" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+    <data name="ui0048" xml:space="preserve">
+    <value>Start Upload</value>
+  </data>
+    <data name="ui0049" xml:space="preserve">
+    <value>Save Conflict Merge</value>
+  </data>
+    <data name="ui0050" xml:space="preserve">
+    <value>File:</value>
+  </data>
+    <data name="ui0051" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+    <data name="ui0052" xml:space="preserve">
+    <value>Next</value>
+  </data>
+    <data name="ui0053" xml:space="preserve">
+    <value>Use Remote</value>
+  </data>
+    <data name="ui0054" xml:space="preserve">
+    <value>Use Local</value>
+  </data>
+    <data name="ui0055" xml:space="preserve">
+    <value>Use Remote for All</value>
+  </data>
+    <data name="ui0056" xml:space="preserve">
+    <value>Use Local for All</value>
+  </data>
+    <data name="ui0057" xml:space="preserve">
+    <value>Current: Remote</value>
+  </data>
+    <data name="ui0058" xml:space="preserve">
+    <value>Current: Local</value>
+  </data>
+    <data name="ui0059" xml:space="preserve">
+    <value>Save Merge</value>
+  </data>
+    <data name="ui0060" xml:space="preserve">
+    <value>Conflicts</value>
+  </data>
+    <data name="ui0061" xml:space="preserve">
+    <value>Conflict #</value>
+  </data>
+    <data name="ui0062" xml:space="preserve">
+    <value>Use Remote</value>
+  </data>
+    <data name="ui0063" xml:space="preserve">
+    <value>Use Local</value>
+  </data>
+    <data name="ui0064" xml:space="preserve">
+    <value>Remote</value>
+  </data>
+    <data name="ui0065" xml:space="preserve">
+    <value>Local</value>
+  </data>
+    <data name="ui0066" xml:space="preserve">
+    <value>Merge Result</value>
+  </data>
+    <data name="ui0067" xml:space="preserve">
+    <value>Alt+↑/↓ navigate, Alt+L use local, Alt+R use remote</value>
+  </data>
+    <data name="ui0068" xml:space="preserve">
+    <value>Custom Update Server</value>
+  </data>
+    <data name="ui0069" xml:space="preserve">
+    <value>Configure the HTTP update source. It is used for the next update check after saving.</value>
+  </data>
+    <data name="ui0070" xml:space="preserve">
+    <value>Manifest Path</value>
+  </data>
+    <data name="ui0071" xml:space="preserve">
+    <value>Username (optional)</value>
+  </data>
+    <data name="ui0072" xml:space="preserve">
+    <value>Password (optional)</value>
+  </data>
+    <data name="ui0073" xml:space="preserve">
+    <value>Verify HTTP</value>
+  </data>
+    <data name="ui0074" xml:space="preserve">
+    <value>Save to settings.json</value>
+  </data>
+    <data name="ui0075" xml:space="preserve">
+    <value>Display preferences, updates, and developer options</value>
+  </data>
+    <data name="ui0076" xml:space="preserve">
+    <value>Label Display</value>
+  </data>
+    <data name="ui0077" xml:space="preserve">
+    <value>Adjust the visual hierarchy of labels and tooltips. Changes apply to the image viewer immediately after saving.</value>
+  </data>
+    <data name="ui0078" xml:space="preserve">
+    <value>Label Size</value>
+  </data>
+    <data name="ui0079" xml:space="preserve">
+    <value>Tooltip Text Size</value>
+  </data>
+    <data name="ui0080" xml:space="preserve">
+    <value>Tooltip Background Opacity</value>
+  </data>
+    <data name="ui0081" xml:space="preserve">
+    <value>Save Display Settings</value>
+  </data>
+    <data name="ui0082" xml:space="preserve">
+    <value>Software Update</value>
+  </data>
+    <data name="ui0083" xml:space="preserve">
+    <value>Update packages are SHA256-verified and installed in stages; failures roll back automatically.</value>
+  </data>
+    <data name="ui0084" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+    <data name="ui0085" xml:space="preserve">
+    <value>Current Client</value>
+  </data>
+    <data name="ui0086" xml:space="preserve">
+    <value>Latest Client</value>
+  </data>
+    <data name="ui0087" xml:space="preserve">
+    <value>Current Updater</value>
+  </data>
+    <data name="ui0088" xml:space="preserve">
+    <value>Latest Updater</value>
+  </data>
+    <data name="ui0089" xml:space="preserve">
+    <value>Release Notes</value>
+  </data>
+    <data name="ui0090" xml:space="preserve">
+    <value>Set Custom Update Server</value>
+  </data>
+    <data name="ui0091" xml:space="preserve">
+    <value>Developer Options</value>
+  </data>
+    <data name="ui0092" xml:space="preserve">
+    <value>Deeplink Callback</value>
+  </data>
+    <data name="ui0093" xml:space="preserve">
+    <value>When the browser opens labelplus://, the client can POST a token to this URL. For development testing only.</value>
+  </data>
+    <data name="ui0094" xml:space="preserve">
+    <value>Callback URL</value>
+  </data>
+    <data name="ui0095" xml:space="preserve">
+    <value>e.g. 'Bearer &amp;lt;token&amp;gt;' or 'Basic &amp;lt;base64&amp;gt;'; for local development testing only</value>
+  </data>
+    <data name="ui0096" xml:space="preserve">
+    <value>Allow local fallback to HTTP (development only)</value>
+  </data>
+    <data name="ui0097" xml:space="preserve">
+    <value>Save Settings</value>
+  </data>
+    <data name="ui0098" xml:space="preserve">
+    <value>Throw Unhandled Exception</value>
+  </data>
+    <data name="ui0099" xml:space="preserve">
+    <value>Used to test global exception handling</value>
+  </data>
+    <data name="ui0100" xml:space="preserve">
+    <value>Open Translation Folder</value>
+  </data>
+    <data name="ui0101" xml:space="preserve">
+    <value>Toggle Theme</value>
+  </data>
+    <data name="ui0102" xml:space="preserve">
+    <value>Zoom Out</value>
+  </data>
+    <data name="ui0103" xml:space="preserve">
+    <value>Reset to 100%</value>
+  </data>
+    <data name="ui0104" xml:space="preserve">
+    <value>Zoom In</value>
+  </data>
+    <data name="ui0105" xml:space="preserve">
+    <value>Select Image</value>
+  </data>
+    <data name="ui0106" xml:space="preserve">
+    <value>Set selected label to Inner (shortcut 1)</value>
+  </data>
+    <data name="ui0107" xml:space="preserve">
+    <value>Inner</value>
+  </data>
+    <data name="ui0108" xml:space="preserve">
+    <value>Set selected label to Outer (shortcut 2)</value>
+  </data>
+    <data name="ui0109" xml:space="preserve">
+    <value>Outer</value>
+  </data>
+    <data name="ui0110" xml:space="preserve">
+    <value>Add Label</value>
+  </data>
+    <data name="ui0111" xml:space="preserve">
+    <value>Add</value>
+  </data>
+    <data name="ui0112" xml:space="preserve">
+    <value>Delete Selected Label</value>
+  </data>
+    <data name="ui0113" xml:space="preserve">
+    <value>Undo Delete</value>
+  </data>
+    <data name="ui0114" xml:space="preserve">
+    <value>File Settings</value>
+  </data>
+    <data name="ui0115" xml:space="preserve">
+    <value>No.</value>
+  </data>
+    <data name="ui0116" xml:space="preserve">
+    <value>Text</value>
+  </data>
+    <data name="ui0117" xml:space="preserve">
+    <value>Category</value>
+  </data>
+    <data name="ui0118" xml:space="preserve">
+    <value>Translation</value>
+  </data>
+    <data name="ui0119" xml:space="preserve">
+    <value>Select a label and enter its translation here</value>
+  </data>
+    <data name="ui0120" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+    <data name="ui0121" xml:space="preserve">
+    <value>Select the project to upload to</value>
+  </data>
+    <data name="ui0122" xml:space="preserve">
+    <value>Upload Folder</value>
+  </data>
+    <data name="ui0123" xml:space="preserve">
+    <value>Upload File</value>
+  </data>
+    <data name="ui0124" xml:space="preserve">
+    <value>New Project</value>
+  </data>
+    <data name="ui0125" xml:space="preserve">
+    <value>Select a project before uploading files</value>
+  </data>
+    <data name="ui0126" xml:space="preserve">
+    <value>Volumes, extras, and chapters are parsed automatically before upload and written to the standard directory. Existing files are backed up before overwriting and can be restored at any time.</value>
+  </data>
+    <data name="ui0127" xml:space="preserve">
+    <value>Select Files</value>
+  </data>
+    <data name="ui0128" xml:space="preserve">
+    <value>Select Folder</value>
+  </data>
+    <data name="ui0129" xml:space="preserve">
+    <value>Select a project to collaborate on</value>
+  </data>
+    <data name="ui0130" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+    <data name="ui0131" xml:space="preserve">
+    <value>Chapter / Stage</value>
+  </data>
+    <data name="ui0132" xml:space="preserve">
+    <value>Path</value>
+  </data>
+    <data name="ui0133" xml:space="preserve">
+    <value>Created</value>
+  </data>
+    <data name="ui0134" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+    <data name="ui0135" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+    <data name="ui0136" xml:space="preserve">
+    <value>Typesetting</value>
+  </data>
+    <data name="ui0137" xml:space="preserve">
+    <value>Download</value>
+  </data>
+    <data name="ui0138" xml:space="preserve">
+    <value>No collaboration data yet</value>
+  </data>
+    <data name="ui0139" xml:space="preserve">
+    <value>After configuring the server and selecting a project, collaboration progress for each chapter appears here.</value>
+  </data>
+    <data name="ui0140" xml:space="preserve">
+    <value>Export Images</value>
+  </data>
+    <data name="ui0141" xml:space="preserve">
+    <value>Render the current translations onto images and export them.</value>
+  </data>
+    <data name="ui0142" xml:space="preserve">
+    <value>Manage Images</value>
+  </data>
+    <data name="ui0143" xml:space="preserve">
+    <value>Choose images to include in the translation file. Move them left or right to change the order.</value>
+  </data>
+    <data name="ui0144" xml:space="preserve">
+    <value>Add →</value>
+  </data>
+    <data name="ui0145" xml:space="preserve">
+    <value>Add All ⇉</value>
+  </data>
+    <data name="ui0146" xml:space="preserve">
+    <value>← Remove</value>
+  </data>
+    <data name="ui0147" xml:space="preserve">
+    <value>⇇ Remove All</value>
+  </data>
+    <data name="ui0148" xml:space="preserve">
+    <value>Manage label groups and notes for the current translation file.</value>
+  </data>
+    <data name="ui0149" xml:space="preserve">
+    <value>About LabelPlus Next</value>
+  </data>
+    <data name="ui0150" xml:space="preserve">
+    <value>Version</value>
+  </data>
+    <data name="ui0151" xml:space="preserve">
+    <value>Author</value>
+  </data>
+    <data name="ui0152" xml:space="preserve">
+    <value>Project Link</value>
+  </data>
+    <data name="ui0153" xml:space="preserve">
+    <value>Special Thanks</value>
+  </data>
+    <data name="ui0154" xml:space="preserve">
+    <value>Avalonia · Ursa · Semi.Avalonia and all open-source contributors</value>
+  </data>
+    <data name="ui0155" xml:space="preserve">
+    <value>Expand</value>
+  </data>
+    <data name="ui0156" xml:space="preserve">
+    <value>Already up to date ({0})</value>
+  </data>
+    <data name="ui0157" xml:space="preserve">
+    <value>Settings loaded</value>
+  </data>
+    <data name="ui0158" xml:space="preserve">
+    <value>Saved successfully</value>
+  </data>
+    <data name="ui0159" xml:space="preserve">
+    <value>Please enter BaseUrl</value>
+  </data>
+    <data name="ui0160" xml:space="preserve">
+    <value>Please enter the manifest path</value>
+  </data>
+    <data name="ui0161" xml:space="preserve">
+    <value>Username/password not configured; API download is unavailable</value>
+  </data>
+    <data name="ui0162" xml:space="preserve">
+    <value>API download verification succeeded</value>
+  </data>
+    <data name="ui0163" xml:space="preserve">
+    <value>API download verification failed: manifest is missing projects</value>
+  </data>
+    <data name="ui0164" xml:space="preserve">
+    <value>Verifying manifest...</value>
+  </data>
+    <data name="ui0165" xml:space="preserve">
+    <value>The manifest is empty</value>
+  </data>
+    <data name="ui0166" xml:space="preserve">
+    <value>Invalid manifest format</value>
+  </data>
+    <data name="ui0167" xml:space="preserve">
+    <value>Server verification succeeded</value>
+  </data>
+    <data name="ui0168" xml:space="preserve">
+    <value>Verification failed: request timed out</value>
+  </data>
+    <data name="ui0169" xml:space="preserve">
+    <value>Checking for updates, please wait...</value>
+  </data>
+    <data name="ui0170" xml:space="preserve">
+    <value>Checking for updates...</value>
+  </data>
+    <data name="ui0171" xml:space="preserve">
+    <value>Update server not configured</value>
+  </data>
+    <data name="ui0172" xml:space="preserve">
+    <value>Update cancelled</value>
+  </data>
+    <data name="ui0173" xml:space="preserve">
+    <value>Failed to sign in to the update server</value>
+  </data>
+    <data name="ui0174" xml:space="preserve">
+    <value>Failed to fetch the manifest</value>
+  </data>
+    <data name="ui0175" xml:space="preserve">
+    <value>Failed to download the updater (download or verification failed)</value>
+  </data>
+    <data name="ui0176" xml:space="preserve">
+    <value>Updater not found; cannot start the client update</value>
+  </data>
+    <data name="ui0177" xml:space="preserve">
+    <value>Starting updater...</value>
+  </data>
+    <data name="ui0178" xml:space="preserve">
+    <value>Failed to start the updater</value>
+  </data>
+    <data name="ui0179" xml:space="preserve">
+    <value>Update check failed: {0}</value>
+  </data>
+    <data name="ui0180" xml:space="preserve">
+    <value>{0} projects</value>
+  </data>
+    <data name="ui0181" xml:space="preserve">
+    <value>{0} labels</value>
+  </data>
+    <data name="ui0182" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+    <data name="ui0183" xml:space="preserve">
+    <value>Select a project to preview</value>
+  </data>
+    <data name="ui0184" xml:space="preserve">
+    <value>Proofreading workflow is under development.</value>
+  </data>
+    <data name="ui0185" xml:space="preserve">
+    <value>Delivery workflow is under development.</value>
+  </data>
+    <data name="ui0186" xml:space="preserve">
+    <value>Welcome</value>
+  </data>
+    <data name="ui0187" xml:space="preserve">
+    <value>The current translation has unsaved changes. Save them?</value>
+  </data>
+    <data name="ui0188" xml:space="preserve">
+    <value>Confirm Close</value>
+  </data>
+    <data name="ui0189" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+    <data name="ui0190" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+    <data name="ui0191" xml:space="preserve">
+    <value>An unhandled error occurred. A log archive was created.</value>
+  </data>
+    <data name="ui0192" xml:space="preserve">
+    <value>Report file: {0}</value>
+  </data>
+    <data name="ui0193" xml:space="preserve">
+    <value>The app will exit. Please send this archive to the developer.</value>
+  </data>
+    <data name="ui0194" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+    <data name="ui0195" xml:space="preserve">
+    <value>An Error Occurred</value>
+  </data>
+    <data name="ui0196" xml:space="preserve">
+    <value>Update check complete</value>
+  </data>
+    <data name="ui0197" xml:space="preserve">
+    <value>Update</value>
+  </data>
+    <data name="ui0198" xml:space="preserve">
+    <value>Update check failed</value>
+  </data>
+    <data name="ui0199" xml:space="preserve">
+    <value>Remove project "{0}"?</value>
+  </data>
+    <data name="ui0200" xml:space="preserve">
+    <value>Confirm</value>
+  </data>
+    <data name="ui0201" xml:space="preserve">
+    <value>File {0} still has labels. Moving it to ignored will lose them. Continue?</value>
+  </data>
+    <data name="ui0202" xml:space="preserve">
+    <value>The following files being removed still have labels, which will be lost: {0}{1}. Continue?</value>
+  </data>
+    <data name="ui0203" xml:space="preserve">
+    <value>Delete the current label?</value>
+  </data>
+    <data name="ui0204" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+    <data name="ui0205" xml:space="preserve">
+    <value>Version: {0}</value>
+  </data>
+    <data name="ui0206" xml:space="preserve">
+    <value>The remote project has the same chapters. Continue?</value>
+  </data>
+    <data name="ui0207" xml:space="preserve">
+    <value>Notice</value>
+  </data>
+    <data name="ui0208" xml:space="preserve">
+    <value>Found {0} autosave backups. Restore them from the bak folder of the corresponding project.</value>
+  </data>
+    <data name="ui0209" xml:space="preserve">
+    <value>Common types</value>
+  </data>
+    <data name="ui0210" xml:space="preserve">
+    <value>Archives</value>
+  </data>
+    <data name="ui0211" xml:space="preserve">
+    <value>Text</value>
+  </data>
+    <data name="ui0212" xml:space="preserve">
+    <value>Images</value>
+  </data>
 </root>

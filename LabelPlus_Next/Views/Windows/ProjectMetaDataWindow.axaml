@@ -1,11 +1,12 @@
 <u:UrsaWindow
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Windows.ProjectMetaDataWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-    Title="确认上传话数"
+    Title="{I18N {x:Static lang:LangKeys.ui0036}}"
     WindowStartupLocation="CenterOwner"
     Width="1400"
     Height="834"
@@ -14,7 +15,7 @@
     ExtendClientAreaToDecorationsHint="False"
     IsTitleBarVisible="False">
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="确认上传话数" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0036}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
         <Border Classes="lp-card" Padding="16">
@@ -22,7 +23,7 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     Classes="lp-label"
-                    Text="项目" />
+                    Text="{I18N {x:Static lang:LangKeys.ui0037}}" />
                 <TextBox
                     Grid.Column="1"
                     Height="32"
@@ -32,7 +33,7 @@
                     Margin="8,0,0,0"
                     VerticalAlignment="Center"
                     Classes="lp-subtle"
-                    Text="勾选需要上传的话数与文件，展开可查看每个话数包含的文件。" />
+                    Text="{I18N {x:Static lang:LangKeys.ui0038}}" />
             </Grid>
         </Border>
 
@@ -52,7 +53,7 @@
                 ItemsSource="{Binding MetaRows}"
                 RowHeight="42">
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Width="64" Header="包含">
+                    <DataGridTemplateColumn Width="64" Header="{I18N {x:Static lang:LangKeys.ui0039}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:MetaNode">
                                 <CheckBox
@@ -63,7 +64,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Width="2*" Header="名称">
+                    <DataGridTemplateColumn Width="2*" Header="{I18N {x:Static lang:LangKeys.ui0016}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:MetaNode">
                                 <StackPanel
@@ -93,31 +94,31 @@
                     <DataGridTextColumn
                         Width="90"
                         Binding="{Binding Status}"
-                        Header="状态" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0040}}" />
                     <DataGridTextColumn
                         Width="130"
                         Binding="{Binding Display}"
-                        Header="显示名" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0041}}" />
                     <DataGridTextColumn
                         Width="100"
                         Binding="{Binding Owner}"
-                        Header="负责人" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0042}}" />
                     <DataGridTextColumn
                         Width="110"
                         Binding="{Binding RangeDisplay}"
-                        Header="范围" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0043}}" />
                     <DataGridTextColumn
                         Width="120"
                         Binding="{Binding Tags}"
-                        Header="标签" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0044}}" />
                     <DataGridTextColumn
                         Width="2*"
                         Binding="{Binding Notes}"
-                        Header="备注" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0045}}" />
                     <DataGridTextColumn
                         Width="72"
                         Binding="{Binding LocalFileCountDisplay}"
-                        Header="文件数" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0046}}" />
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
@@ -150,13 +151,13 @@
             <Button
                 Height="32"
                 Command="{Binding CancelMetaCommand}"
-                Content="取消"
+                Content="{I18N {x:Static lang:LangKeys.ui0047}}"
                 Classes="lp-flat" />
             <Button
                 Height="32"
                 Classes="lp-primary"
                 Command="{Binding ConfirmMetaCommand}"
-                Content="开始上传"
+                Content="{I18N {x:Static lang:LangKeys.ui0048}}"
                 IsDefault="True" />
         </StackPanel>
     </Grid>
