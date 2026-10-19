@@ -1,0 +1,7 @@
+﻿services:
+  labelplus_next.apiserver:
+    image: labelplus_next.apiserver
+    build:
+      context: .
+      dockerfile: LabelPlus_Next.ApiServer/Dockerfile
+

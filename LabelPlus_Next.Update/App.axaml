@@ -1,0 +1,37 @@
+<Application
+    x:Class="LabelPlus_Next.Update.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LabelPlus_Next.Update"
+    xmlns:semi="https://irihi.tech/semi"
+    xmlns:u-semi="clr-namespace:Ursa.Themes.Semi;assembly=Ursa.Themes.Semi"
+    RequestedThemeVariant="Default">
+    <!--  "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options.  -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <semi:SemiTheme Locale="zh-CN" />
+        <u-semi:UrsaSemiTheme Locale="zh-CN" />
+        <Style Selector="Button.lp-primary">
+            <Setter Property="Background" Value="#FF0064FA" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.lp-primary:pointerover">
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+        <Style Selector="Button.lp-danger">
+            <Setter Property="Background" Value="#FFF53F3F" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.lp-danger:pointerover">
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+    </Application.Styles>
+</Application>

@@ -7,6 +7,7 @@
 //     重新生成代码，这些更改将会丢失。
 // </auto-generated>
 //------------------------------------------------------------------------------
+#pragma warning disable CS8981 // 类型名称仅包含小写 ascii 字符
 
 namespace LabelPlus_Next.Lang {
     using System;
@@ -556,7 +557,7 @@ namespace LabelPlus_Next.Lang {
         }
         
         /// <summary>
-        ///   查找类似 生成成功 脚本文件已保存在同一目录下：auto_label_for_photoshop.jsx \n 使用方法：1.直接拖进Photoshop中；或&quot;文件-脚本-浏览&quot;，选中脚本 \n2.选择图片所在目录 的本地化字符串。
+        ///   查找类似 生成成功 脚本文件已保存在同一目录下：auto_label_for_photoshop.jsx \n 使用方法：1.直接拖进Photoshop中；或"文件-脚本-浏览"，选中脚本 \n2.选择图片所在目录 的本地化字符串。
         /// </summary>
         public static string ps_output_complete {
             get {
@@ -619,7 +620,7 @@ namespace LabelPlus_Next.Lang {
         }
         
         /// <summary>
-        ///   查找类似 备注里不能以&apos;-&apos;作为单独一行 的本地化字符串。
+        ///   查找类似 备注里不能以'-'作为单独一行 的本地化字符串。
         /// </summary>
         public static string tip_setting_comment {
             get {

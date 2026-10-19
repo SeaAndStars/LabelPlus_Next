@@ -2,28 +2,58 @@
   <!-- https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Avalonia 12 is the shared version for every Avalonia package in the solution. -->
+    <AvaloniaVersion>12.1.4</AvaloniaVersion>
+    <SemiVersion>12.1.0.1</SemiVersion>
+    <UrsaVersion>2.2.0</UrsaVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- Avalonia packages -->
     <!-- Important: keep version in sync! -->
-    <PackageVersion Include="Antelcat.I18N.Avalonia" Version="1.1.2" />
-    <PackageVersion Include="Avalonia" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.iOS" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Browser" Version="11.3.2" />
-    <PackageVersion Include="Avalonia.Android" Version="11.3.2" />
+    <PackageVersion Include="Antelcat.I18N.Avalonia" Version="2.0.0-preview-2" />
+    <PackageVersion Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.HarfBuzz" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
+    <PackageVersion Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.iOS" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Browser" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Android" Version="$(AvaloniaVersion)" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageVersion Include="Irihi.Ursa" Version="1.12.0" />
-    <PackageVersion Include="Irihi.Ursa.Themes.Semi" Version="1.12.0" />
+    <PackageVersion Include="Downloader" Version="4.0.3" />
+    <PackageVersion Include="GeneralUpdate.Bowl" Version="9.1.6" />
+    <PackageVersion Include="GeneralUpdate.ClientCore" Version="9.1.6" />
+    <PackageVersion Include="GeneralUpdate.Common" Version="9.1.6" />
+    <PackageVersion Include="GeneralUpdate.Core" Version="9.1.6" />
+    <PackageVersion Include="GeneralUpdate.Differential" Version="9.1.6" />
+    <PackageVersion Include="Irihi.Ursa" Version="$(UrsaVersion)" />
+    <PackageVersion Include="Irihi.Ursa.Themes.Semi" Version="$(UrsaVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
     <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageVersion Include="NLog" Version="6.0.3" />
     <PackageVersion Include="NLog.Extensions.Logging" Version="6.0.3" />
-    <PackageVersion Include="ReactiveUI" Version="20.4.1" />
-    <PackageVersion Include="Semi.Avalonia" Version="11.2.1.9" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="Semi.Avalonia" Version="$(SemiVersion)" />
+    <PackageVersion Include="Semi.Avalonia.DataGrid" Version="$(SemiVersion)" />
+    <PackageVersion Include="System.Management" Version="9.0.9" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
+    <PackageVersion Include="WebDav.Client" Version="2.9.0" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
+    <PackageVersion Include="SharpCompress" Version="0.50.4" />
+    <!-- Config -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+    <!-- Test -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="9.0.0" />
+    <PackageVersion Include="RestSharp" Version="112.1.0" />
+    <!-- Add missing central version for Update project's logging -->
+    <PackageVersion Include="NLog.Config" Version="5.2.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
   </ItemGroup>
 </Project>

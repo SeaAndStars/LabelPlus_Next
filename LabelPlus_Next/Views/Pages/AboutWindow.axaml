@@ -1,52 +1,77 @@
-<Window
+<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Pages.AboutWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="关于"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:u="https://irihi.tech/ursa"
+    Title="关于 LabelPlus Next"
+    WindowStartupLocation="CenterOwner"
     Width="520"
-    Height="460"
-    UseLayoutRounding="True">
-    <Border Padding="16">
-        <StackPanel Spacing="12">
-            <TextBlock
-                FontSize="20"
-                FontWeight="Bold"
-                Text="LabelPlus_Next" />
-            <TextBlock x:Name="VersionText" Text="版本" />
+    Height="654"
+    UseLayoutRounding="True"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="关于 LabelPlus Next" />
 
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="作者：" />
-                <TextBlock Text="SeaStar" />
-            </StackPanel>
-
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="项目链接：" />
-                <TextBlock
-                    Classes="link"
-                    Foreground="#1E90FF"
-                    PointerPressed="OnProjectLinkPressed"
-                    Text="https://github.com/SeaAndStars/LabelPlus_Next"
-                    TextDecorations="Underline" />
-            </StackPanel>
-
-            <Separator />
-            <TextBlock FontWeight="SemiBold" Text="特别鸣谢" />
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <StackPanel HorizontalAlignment="Center" Spacing="8">
             <Image
-                Height="200"
+                Width="72"
+                Height="72"
                 RenderOptions.BitmapInterpolationMode="HighQuality"
-                Source="avares://LabelPlus_Next/Assets/20210801GreenTealogo.png"
-                Stretch="Uniform" />
-
-            <StackPanel
-                HorizontalAlignment="Right"
-                Orientation="Horizontal"
-                Spacing="8">
-                <Button
-                    Width="80"
-                    HorizontalAlignment="Right"
-                    Click="OnCloseClick"
-                    Content="关闭" />
-            </StackPanel>
+                Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Classes="lp-page-title"
+                Text="LabelPlus Next" />
+            <TextBlock
+                x:Name="VersionText"
+                HorizontalAlignment="Center"
+                Classes="lp-subtle"
+                Text="版本" />
         </StackPanel>
-    </Border>
-</Window>
+
+        <Border Grid.Row="1" Classes="lp-card">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="88,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <TextBlock Classes="lp-label" Text="作者" />
+                    <TextBlock Grid.Column="1" Text="SeaStar" />
+                    <TextBlock Grid.Row="1" Classes="lp-label" Text="项目链接" />
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Classes="link"
+                        Foreground="{DynamicResource LpPrimaryBrush}"
+                        PointerPressed="OnProjectLinkPressed"
+                        Text="https://github.com/SeaAndStars/LabelPlus_Next"
+                        TextDecorations="Underline"
+                        TextTrimming="CharacterEllipsis" />
+                </Grid>
+
+                <Separator />
+                <TextBlock Classes="lp-section-title" Text="特别鸣谢" />
+                <Image
+                    Height="140"
+                    HorizontalAlignment="Center"
+                    RenderOptions.BitmapInterpolationMode="HighQuality"
+                    Source="avares://LabelPlus_Next/Assets/20210801GreenTealogo.png"
+                    Stretch="Uniform" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Classes="lp-subtle"
+                    Text="Avalonia · Ursa · Semi.Avalonia 及所有开源贡献者" />
+            </StackPanel>
+        </Border>
+
+        <Button
+            Grid.Row="2"
+            Classes="lp-primary"
+            Click="OnCloseClick"
+            Content="关闭"
+            HorizontalAlignment="Right"
+            MinWidth="96" />
+    </Grid>
+    </Grid>
+</u:UrsaWindow>

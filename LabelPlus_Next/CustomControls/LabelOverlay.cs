@@ -1,12 +1,11 @@
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
 using LabelPlus_Next.Models;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -15,14 +14,45 @@ public class LabelOverlay : Control
     public static readonly StyledProperty<IEnumerable<LabelItem>?> LabelsProperty =
         AvaloniaProperty.Register<LabelOverlay, IEnumerable<LabelItem>?>(nameof(Labels));
 
+    public static readonly StyledProperty<double> ImageWidthProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageWidth));
+
+    public static readonly StyledProperty<double> ImageHeightProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageHeight));
+
+    // Content area of the image when Stretch != Fill (letterboxing). Values are in overlay coordinates.
+    public static readonly StyledProperty<double> ContentWidthProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentWidth));
+
+    public static readonly StyledProperty<double> ContentHeightProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentHeight));
+
+    public static readonly StyledProperty<double> ContentOffsetXProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetX));
+
+    public static readonly StyledProperty<double> ContentOffsetYProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetY));
+
+    public static readonly StyledProperty<int> HighlightIndexProperty =
+        AvaloniaProperty.Register<LabelOverlay, int>(nameof(HighlightIndex), -1);
+
+    public static readonly StyledProperty<double> LabelIndexFontScaleProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelIndexFontScale), 1.0);
+
+    public static readonly StyledProperty<double> LabelTipFontScaleProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelTipFontScale), 1.0);
+
+    public static readonly StyledProperty<double> LabelTipBackgroundOpacityProperty =
+        AvaloniaProperty.Register<LabelOverlay, double>(nameof(LabelTipBackgroundOpacity), 0.7);
+    private readonly List<INotifyPropertyChanged> _itemSubscriptions = new();
+
+    private INotifyCollectionChanged? _labelsCollectionChanged;
+
     public IEnumerable<LabelItem>? Labels
     {
         get => GetValue(LabelsProperty);
         set => SetValue(LabelsProperty, value);
     }
-
-    public static readonly StyledProperty<double> ImageWidthProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageWidth));
 
     public double ImageWidth
     {
@@ -30,34 +60,16 @@ public class LabelOverlay : Control
         set => SetValue(ImageWidthProperty, value);
     }
 
-    public static readonly StyledProperty<double> ImageHeightProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ImageHeight));
-
     public double ImageHeight
     {
         get => GetValue(ImageHeightProperty);
         set => SetValue(ImageHeightProperty, value);
     }
 
-    // Content area of the image when Stretch != Fill (letterboxing). Values are in overlay coordinates.
-    public static readonly StyledProperty<double> ContentWidthProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentWidth));
     public double ContentWidth { get => GetValue(ContentWidthProperty); set => SetValue(ContentWidthProperty, value); }
-
-    public static readonly StyledProperty<double> ContentHeightProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentHeight));
     public double ContentHeight { get => GetValue(ContentHeightProperty); set => SetValue(ContentHeightProperty, value); }
-
-    public static readonly StyledProperty<double> ContentOffsetXProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetX));
     public double ContentOffsetX { get => GetValue(ContentOffsetXProperty); set => SetValue(ContentOffsetXProperty, value); }
-
-    public static readonly StyledProperty<double> ContentOffsetYProperty =
-        AvaloniaProperty.Register<LabelOverlay, double>(nameof(ContentOffsetY));
     public double ContentOffsetY { get => GetValue(ContentOffsetYProperty); set => SetValue(ContentOffsetYProperty, value); }
-
-    public static readonly StyledProperty<int> HighlightIndexProperty =
-        AvaloniaProperty.Register<LabelOverlay, int>(nameof(HighlightIndex), -1);
 
     public int HighlightIndex
     {
@@ -65,8 +77,23 @@ public class LabelOverlay : Control
         set => SetValue(HighlightIndexProperty, value);
     }
 
-    private INotifyCollectionChanged? _labelsCollectionChanged;
-    private readonly List<INotifyPropertyChanged> _itemSubscriptions = new();
+    public double LabelIndexFontScale
+    {
+        get => GetValue(LabelIndexFontScaleProperty);
+        set => SetValue(LabelIndexFontScaleProperty, value);
+    }
+
+    public double LabelTipFontScale
+    {
+        get => GetValue(LabelTipFontScaleProperty);
+        set => SetValue(LabelTipFontScaleProperty, value);
+    }
+
+    public double LabelTipBackgroundOpacity
+    {
+        get => GetValue(LabelTipBackgroundOpacityProperty);
+        set => SetValue(LabelTipBackgroundOpacityProperty, value);
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -79,7 +106,8 @@ public class LabelOverlay : Control
             return;
         }
         if (change.Property == ImageWidthProperty || change.Property == ImageHeightProperty || change.Property == HighlightIndexProperty
-            || change.Property == ContentWidthProperty || change.Property == ContentHeightProperty || change.Property == ContentOffsetXProperty || change.Property == ContentOffsetYProperty)
+            || change.Property == ContentWidthProperty || change.Property == ContentHeightProperty || change.Property == ContentOffsetXProperty || change.Property == ContentOffsetYProperty
+            || change.Property == LabelIndexFontScaleProperty || change.Property == LabelTipFontScaleProperty || change.Property == LabelTipBackgroundOpacityProperty)
         {
             InvalidateVisual();
         }
@@ -116,10 +144,22 @@ public class LabelOverlay : Control
 
     private void OnLabelsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            // Reset carries no OldItems: resubscribe from scratch to avoid leaking handlers on cleared items
+            var labels = Labels;
+            UnsubscribeFromLabels(labels);
+            SubscribeToLabels(labels);
+            InvalidateVisual();
+            return;
+        }
         if (e.OldItems != null)
         {
             foreach (var l in e.OldItems.OfType<INotifyPropertyChanged>())
+            {
                 l.PropertyChanged -= OnLabelItemPropertyChanged;
+                _itemSubscriptions.Remove(l);
+            }
         }
         if (e.NewItems != null)
         {
@@ -134,10 +174,62 @@ public class LabelOverlay : Control
 
     private void OnLabelItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LabelItem.XPercent) || e.PropertyName == nameof(LabelItem.YPercent))
+        if (e.PropertyName is nameof(LabelItem.XPercent) or nameof(LabelItem.YPercent) or nameof(LabelItem.Category)
+            || (e.PropertyName == nameof(LabelItem.Text) && HighlightIndex >= 0))
         {
             InvalidateVisual();
         }
+    }
+
+    private static readonly Typeface IndexTypeface = new(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.Bold);
+    private static readonly IImmutableSolidColorBrush InnerBrush = Brushes.OrangeRed;
+    private static readonly IImmutableSolidColorBrush OuterBrush = Brushes.DodgerBlue;
+    private static readonly IImmutableSolidColorBrush InnerHighlightFill = new ImmutableSolidColorBrush(Colors.OrangeRed, 0.18);
+    private static readonly IImmutableSolidColorBrush OuterHighlightFill = new ImmutableSolidColorBrush(Colors.DodgerBlue, 0.18);
+
+    // Render caches: pens and index text layouts only depend on label size/font scale, not on label positions.
+    // Rebuilding them per label per frame was the dominant cost when pages have hundreds of labels.
+    private readonly Dictionary<(int Index, bool Inner), TextLayout> _indexLayouts = new();
+    private double _cachedSide = double.NaN;
+    private double _cachedIndexFontSize = double.NaN;
+    private ImmutablePen? _innerPen, _outerPen, _innerPenHi, _outerPenHi;
+
+    private void EnsureCaches(double side, double indexFontSize)
+    {
+        if (side != _cachedSide)
+        {
+            _cachedSide = side;
+            _innerPen = new ImmutablePen(InnerBrush, side / 24.0);
+            _outerPen = new ImmutablePen(OuterBrush, side / 24.0);
+            _innerPenHi = new ImmutablePen(InnerBrush, side / 14.0);
+            _outerPenHi = new ImmutablePen(OuterBrush, side / 14.0);
+        }
+        if (indexFontSize != _cachedIndexFontSize)
+        {
+            _cachedIndexFontSize = indexFontSize;
+            ClearIndexLayouts();
+        }
+    }
+
+    private TextLayout GetIndexLayout(int index, bool inner, double fontSize)
+    {
+        if (_indexLayouts.TryGetValue((index, inner), out var layout)) return layout;
+        layout = new TextLayout(index.ToString(), IndexTypeface, fontSize, inner ? InnerBrush : OuterBrush, TextAlignment.Left, TextWrapping.NoWrap, TextTrimming.None);
+        _indexLayouts[(index, inner)] = layout;
+        return layout;
+    }
+
+    private void ClearIndexLayouts()
+    {
+        foreach (var l in _indexLayouts.Values) l.Dispose();
+        _indexLayouts.Clear();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        ClearIndexLayouts();
+        _cachedIndexFontSize = double.NaN;
     }
 
     public override void Render(DrawingContext context)
@@ -153,96 +245,80 @@ public class LabelOverlay : Control
         if (cw <= 0 || ch <= 0)
             return;
 
-        double side = LabelSideLength(cw, ch);
-        var innerBrush = Brushes.OrangeRed;
-        var outerBrush = Brushes.DodgerBlue;
-        double radius = side / 4.0;
+        var side = LabelSideLength(cw, ch);
+        var radius = side / 4.0;
+        var indexFontSize = side / 1.15 * Math.Clamp(LabelIndexFontScale, 0.5, 2.5);
+        EnsureCaches(side, indexFontSize);
 
-        int i = 0;
+        var i = 0;
         foreach (var label in Labels)
         {
             i++;
+            var highlighted = i - 1 == HighlightIndex;
+            var inner = label.Category == 1;
             // Local coordinates in content space [0,cw]x[0,ch]
-            double x = label.XPercent * cw;
-            double y = label.YPercent * ch;
+            var rect = GetLabelRect(label.XPercent * cw, label.YPercent * ch, side);
 
-            var rect = GetLabelRect(x, y, side);
-            var brush = label.Category == 1 ? innerBrush : outerBrush;
-            var penThickness = (i - 1) == HighlightIndex ? side / 5.0 : side / 10.0;
-            var pen = new Pen(brush, penThickness);
+            if (highlighted)
+                context.FillRectangle(inner ? InnerHighlightFill : OuterHighlightFill, rect);
 
-            var rrect = new RoundedRect(rect, radius, radius);
+            var pen = highlighted ? (inner ? _innerPenHi : _outerPenHi) : (inner ? _innerPen : _outerPen);
+            context.DrawRectangle(null, pen, new RoundedRect(rect, radius, radius));
 
-            if ((i - 1) == HighlightIndex)
-            {
-                if (brush is ISolidColorBrush scb)
-                    context.FillRectangle(new SolidColorBrush(scb.Color, 0.18), rrect.Rect);
-                else
-                    context.FillRectangle(brush, rrect.Rect);
-            }
+            // Index number centered inside rect
+            var layout = GetIndexLayout(i, inner, indexFontSize);
+            var textW = layout.Width > 0 ? layout.Width : indexFontSize;
+            var textH = layout.Height > 0 ? layout.Height : indexFontSize;
+            layout.Draw(context, new Point(rect.X + (rect.Width - textW) / 2, rect.Y + (rect.Height - textH) / 2));
 
-            context.DrawRectangle(null, pen, rrect);
-
-            // 居中显示加粗编号（使用更粗字体）
-            var head = i.ToString();
-            var boldTf = new Typeface(Typeface.Default.FontFamily, FontStyle.Normal, FontWeight.Bold);
-            var indexFontSize = side / 1.6; // 稍微增大字号
-            var layout = new TextLayout(head, boldTf, indexFontSize, brush, TextAlignment.Center, TextWrapping.NoWrap, maxWidth: rect.Width);
-            var yTop = rect.Y + (rect.Height - indexFontSize) / 2;
-            layout.Draw(context, new Avalonia.Point(rect.X, yTop));
-
-            // 悬浮显示 label text（在高亮时显示）
-            if ((i - 1) == HighlightIndex && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
-            {
-                var maxTipWidth = System.Math.Min(cw * 0.6, 480);
-                var tipFontSize = side / 2.2;
-                var tipLayout = new TextLayout(
-                    tip,
-                    Typeface.Default,
-                    tipFontSize,
-                    Brushes.White,
-                    TextAlignment.Left,
-                    TextWrapping.Wrap,
-                    TextTrimming.None,
-                    null,
-                    FlowDirection.LeftToRight,
-                    maxWidth: maxTipWidth);
-
-                double textW = 0, textH = 0;
-                foreach (var r in tipLayout.HitTestTextRange(0, tip.Length))
-                {
-                    textW = System.Math.Max(textW, r.Right);
-                    textH = System.Math.Max(textH, r.Bottom);
-                }
-                if (textW <= 0) textW = maxTipWidth;
-                if (textH <= 0) textH = tipFontSize;
-
-                var padH = 6;
-                var padW = 8;
-                var bgW = textW + padW * 2;
-                var bgH = textH + padH * 2;
-
-                double tipX = rect.X;
-                double tipY = rect.Y - bgH - 4;
-                // Clamp to content bounds [0,cw]x[0,ch]
-                if (tipX + bgW > cw)
-                    tipX = System.Math.Max(0, cw - bgW - 1);
-                if (tipX < 0) tipX = 0;
-                if (tipY < 0)
-                    tipY = rect.Bottom + 4;
-                if (tipY + bgH > ch)
-                    tipY = System.Math.Max(0, rect.Y - bgH - 4);
-
-                var bg = new SolidColorBrush(Colors.Black, 0.7);
-                var bgRect = new Rect(tipX, tipY, bgW, bgH);
-                context.FillRectangle(bg, bgRect);
-                tipLayout.Draw(context, new Avalonia.Point(tipX + padW, tipY + padH));
-            }
+            // Tip text for highlighted label
+            if (highlighted && label.Text is string tip && !string.IsNullOrWhiteSpace(tip))
+                DrawTip(context, tip, rect, side, cw, ch);
         }
     }
 
+    private void DrawTip(DrawingContext context, string tip, Rect rect, double side, double cw, double ch)
+    {
+        var maxTipWidth = Math.Min(cw * 0.6, 480);
+        var tipFontSize = side / 2.2 * Math.Clamp(LabelTipFontScale, 0.5, 2.5);
+        using var tipLayout = new TextLayout(
+            tip,
+            Typeface.Default,
+            tipFontSize,
+            Brushes.White,
+            TextAlignment.Left,
+            TextWrapping.Wrap,
+            TextTrimming.None,
+            null,
+            FlowDirection.LeftToRight,
+            maxTipWidth);
+
+        var tW = tipLayout.Width > 0 ? tipLayout.Width : maxTipWidth;
+        var tH = tipLayout.Height > 0 ? tipLayout.Height : tipFontSize;
+
+        const double padH = 6;
+        const double padW = 8;
+        var bgW = tW + padW * 2;
+        var bgH = tH + padH * 2;
+
+        var tipX = rect.X;
+        var tipY = rect.Y - bgH - 4;
+        // Clamp to content bounds [0,cw]x[0,ch]
+        if (tipX + bgW > cw)
+            tipX = Math.Max(0, cw - bgW - 1);
+        if (tipX < 0) tipX = 0;
+        if (tipY < 0)
+            tipY = rect.Bottom + 4;
+        if (tipY + bgH > ch)
+            tipY = Math.Max(0, rect.Y - bgH - 4);
+
+        var bg = new ImmutableSolidColorBrush(Colors.Black, Math.Clamp(LabelTipBackgroundOpacity, 0.0, 1.0));
+        context.FillRectangle(bg, new Rect(tipX, tipY, bgW, bgH));
+        tipLayout.Draw(context, new Point(tipX + padW, tipY + padH));
+    }
+
     internal static double LabelSideLength(double w, double h)
-        => System.Math.Min(w, h) * 0.035;
+        => Math.Min(w, h) * 0.035;
 
     internal static Rect GetLabelRect(double x, double y, double side)
     {

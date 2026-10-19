@@ -1,4 +1,3 @@
-﻿using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
@@ -6,10 +5,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using LabelPlus_Next.Models;
-using System;
-using System.Linq;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using LabelPlus_Next.Models;
+using NLog;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -23,79 +22,84 @@ public class PicViewer : TemplatedControl
     public const string PART_Image = "PART_Image";
     public const string PART_Overlay = "PART_Overlay";
     public const string PC_Moving = ":moving";
-
-    private Image? _image;
-    private LabelOverlay? _overlay;
-    private Point? _lastClickPoint;
-    private Point? _lastLocation;
-    private bool _handlersHooked;
-    private bool _panning;
-
-    // Track whether a left press in label mode should add a label on release (i.e., treated as click, not drag)
-    private bool _pendingAddLabelLeft;
-    private Point _pressOverlayPos;
     private const double ClickThreshold = 4.0; // pixels
 
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
     public static readonly StyledProperty<Control?> OverlayerProperty = AvaloniaProperty.Register<PicViewer, Control?>(nameof(Overlayer));
-    public Control? Overlayer { get => GetValue(OverlayerProperty); set => SetValue(OverlayerProperty, value); }
 
     public static readonly StyledProperty<IImage?> SourceProperty = Image.SourceProperty.AddOwner<PicViewer>();
-    public IImage? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
 
-    public static readonly StyledProperty<System.Collections.Generic.IEnumerable<LabelItem>?> LabelsProperty =
-        AvaloniaProperty.Register<PicViewer, System.Collections.Generic.IEnumerable<LabelItem>?>(nameof(Labels));
-    public System.Collections.Generic.IEnumerable<LabelItem>? Labels { get => GetValue(LabelsProperty); set => SetValue(LabelsProperty, value); }
+    public static readonly StyledProperty<IEnumerable<LabelItem>?> LabelsProperty =
+        AvaloniaProperty.Register<PicViewer, IEnumerable<LabelItem>?>(nameof(Labels));
 
     public static readonly StyledProperty<int> HighlightIndexProperty = AvaloniaProperty.Register<PicViewer, int>(nameof(HighlightIndex), -1);
-    public int HighlightIndex { get => GetValue(HighlightIndexProperty); set => SetValue(HighlightIndexProperty, value); }
 
     public static readonly StyledProperty<LabelItem?> SelectedLabelProperty = AvaloniaProperty.Register<PicViewer, LabelItem?>(nameof(SelectedLabel));
-    public LabelItem? SelectedLabel { get => GetValue(SelectedLabelProperty); set => SetValue(SelectedLabelProperty, value); }
 
-    public static readonly StyledProperty<ViewerMode> ModeProperty = AvaloniaProperty.Register<PicViewer, ViewerMode>(nameof(Mode), defaultValue: ViewerMode.Browse);
-    public ViewerMode Mode { get => GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
+    public static readonly StyledProperty<ViewerMode> ModeProperty = AvaloniaProperty.Register<PicViewer, ViewerMode>(nameof(Mode));
+    public static readonly DirectProperty<PicViewer, double> ScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(Scale), o => o.Scale, (o, v) => o.Scale = v, 1);
 
-    // Event to request adding a label at clicked position (percent coords in content space)
-    public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
+    public static readonly DirectProperty<PicViewer, double> MinScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(MinScale), o => o.MinScale, (o, v) => o.MinScale = v, 0.1);
+    public static readonly DirectProperty<PicViewer, double> TranslateXProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(TranslateX), o => o.TranslateX, (o, v) => o.TranslateX = v);
+    public static readonly DirectProperty<PicViewer, double> TranslateYProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(TranslateY), o => o.TranslateY, (o, v) => o.TranslateY = v);
 
-    private double _scale = 1;
-    public static readonly DirectProperty<PicViewer, double> ScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(Scale), o => o.Scale, (o, v) => o.Scale = v, unsetValue: 1);
-    public double Scale { get => _scale; set => SetAndRaise(ScaleProperty, ref _scale, value); }
+    public static readonly StyledProperty<double> SmallChangeProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(SmallChange), 1);
 
-    public static readonly DirectProperty<PicViewer, double> MinScaleProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(MinScale), o => o.MinScale, (o, v) => o.MinScale = v, unsetValue: 0.1);
-    public double MinScale { get => _minScale; set => SetAndRaise(MinScaleProperty, ref _minScale, value); }
-    private double _minScale = 1;
-
-    private double _translateX;
-    public static readonly DirectProperty<PicViewer, double> TranslateXProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(TranslateX), o => o.TranslateX, (o, v) => o.TranslateX = v, unsetValue: 0);
-    public double TranslateX { get => _translateX; set => SetAndRaise(TranslateXProperty, ref _translateX, value); }
-
-    private double _translateY;
-    public static readonly DirectProperty<PicViewer, double> TranslateYProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(TranslateY), o => o.TranslateY, (o, v) => o.TranslateY = v, unsetValue: 0);
-    public double TranslateY { get => _translateY; set => SetAndRaise(TranslateYProperty, ref _translateY, value); }
-
-    public static readonly StyledProperty<double> SmallChangeProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(SmallChange), defaultValue: 1);
-    public double SmallChange { get => GetValue(SmallChangeProperty); set => SetValue(SmallChangeProperty, value); }
-
-    public static readonly StyledProperty<double> LargeChangeProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(LargeChange), defaultValue: 10);
-    public double LargeChange { get => GetValue(LargeChangeProperty); set => SetValue(LargeChangeProperty, value); }
+    public static readonly StyledProperty<double> LargeChangeProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(LargeChange), 10);
 
     public static readonly StyledProperty<Stretch> StretchProperty = Image.StretchProperty.AddOwner<PicViewer>(new StyledPropertyMetadata<Stretch>(Stretch.Uniform));
-    public Stretch Stretch { get => GetValue(StretchProperty); set => SetValue(StretchProperty, value); }
-
-    private double _sourceMinScale = 0.1;
-
-    // Content geometry (image drawn area inside Image bounds for Stretch Uniform, etc.)
-    private double _contentWidth, _contentHeight, _contentOffsetX, _contentOffsetY;
     public static readonly DirectProperty<PicViewer, double> ContentWidthProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(ContentWidth), o => o.ContentWidth, (o, v) => o.ContentWidth = v);
     public static readonly DirectProperty<PicViewer, double> ContentHeightProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(ContentHeight), o => o.ContentHeight, (o, v) => o.ContentHeight = v);
     public static readonly DirectProperty<PicViewer, double> ContentOffsetXProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(ContentOffsetX), o => o.ContentOffsetX, (o, v) => o.ContentOffsetX = v);
     public static readonly DirectProperty<PicViewer, double> ContentOffsetYProperty = AvaloniaProperty.RegisterDirect<PicViewer, double>(nameof(ContentOffsetY), o => o.ContentOffsetY, (o, v) => o.ContentOffsetY = v);
 
-    public double ContentWidth { get => _contentWidth; private set => SetAndRaise(ContentWidthProperty, ref _contentWidth, value); }
-    public double ContentHeight { get => _contentHeight; private set => SetAndRaise(ContentHeightProperty, ref _contentHeight, value); }
-    public double ContentOffsetX { get => _contentOffsetX; private set => SetAndRaise(ContentOffsetXProperty, ref _contentOffsetX, value); }
-    public double ContentOffsetY { get => _contentOffsetY; private set => SetAndRaise(ContentOffsetYProperty, ref _contentOffsetY, value); }
+    // NEW: read-only property to disable label editing/dragging
+    public static readonly StyledProperty<bool> IsReadOnlyProperty = AvaloniaProperty.Register<PicViewer, bool>(nameof(IsReadOnly), false);
+    public static readonly StyledProperty<double> LabelIndexFontScaleProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(LabelIndexFontScale), 1d);
+    public static readonly StyledProperty<double> LabelTipFontScaleProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(LabelTipFontScale), 1d);
+    public static readonly StyledProperty<double> LabelTipBackgroundOpacityProperty = AvaloniaProperty.Register<PicViewer, double>(nameof(LabelTipBackgroundOpacity), 0.7d);
+
+    private readonly double _sourceMinScale = 0.1;
+
+    // Content geometry (image drawn area inside Image bounds for Stretch Uniform, etc.)
+    private double _contentWidth, _contentHeight, _contentOffsetX, _contentOffsetY;
+
+    private int _draggingLabelIndex = -1;
+    private bool _handlersHooked;
+
+    private Image? _image;
+    private Point? _lastClickPoint;
+    private Point? _lastLocation;
+    private double _minScale = 1;
+    private LabelOverlay? _overlay;
+    private bool _panning;
+
+    // Track whether a left press in label mode should add a label on release (i.e., treated as click, not drag)
+    private bool _pendingAddLabelLeft;
+    private Point _pressOverlayPos;
+
+    private double _scale = 1;
+
+    private double _translateX;
+
+    private double _translateY;
+
+    // Event args for AddLabelRequested
+    public sealed class AddLabelRequestedEventArgs : EventArgs
+    {
+        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
+        {
+            XPercent = xPercent;
+            YPercent = yPercent;
+            Category = category;
+        }
+        public double XPercent { get; }
+        public double YPercent { get; }
+        public int Category { get; }
+    }
+
+    public event EventHandler<AddLabelRequestedEventArgs>? AddLabelRequested;
 
     static PicViewer()
     {
@@ -110,6 +114,34 @@ public class PicViewer : TemplatedControl
         SelectedLabelProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnSelectedLabelChanged(e));
         LabelsProperty.Changed.AddClassHandler<PicViewer>((o, e) => o.OnLabelsChanged(e));
     }
+    public Control? Overlayer { get => GetValue(OverlayerProperty); set => SetValue(OverlayerProperty, value); }
+    public IImage? Source { get => GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
+    public IEnumerable<LabelItem>? Labels { get => GetValue(LabelsProperty); set => SetValue(LabelsProperty, value); }
+    public int HighlightIndex { get => GetValue(HighlightIndexProperty); set => SetValue(HighlightIndexProperty, value); }
+    public LabelItem? SelectedLabel { get => GetValue(SelectedLabelProperty); set => SetValue(SelectedLabelProperty, value); }
+    public ViewerMode Mode { get => GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
+    public double Scale { get => _scale; set => SetAndRaise(ScaleProperty, ref _scale, value); }
+    public double MinScale { get => _minScale; set => SetAndRaise(MinScaleProperty, ref _minScale, value); }
+    public double TranslateX { get => _translateX; set => SetAndRaise(TranslateXProperty, ref _translateX, value); }
+    public double TranslateY { get => _translateY; set => SetAndRaise(TranslateYProperty, ref _translateY, value); }
+    public double SmallChange { get => GetValue(SmallChangeProperty); set => SetValue(SmallChangeProperty, value); }
+    public double LargeChange { get => GetValue(LargeChangeProperty); set => SetValue(LargeChangeProperty, value); }
+    public Stretch Stretch { get => GetValue(StretchProperty); set => SetValue(StretchProperty, value); }
+
+    public bool IsReadOnly
+    {
+        get => GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public double LabelIndexFontScale { get => GetValue(LabelIndexFontScaleProperty); set => SetValue(LabelIndexFontScaleProperty, value); }
+    public double LabelTipFontScale { get => GetValue(LabelTipFontScaleProperty); set => SetValue(LabelTipFontScaleProperty, value); }
+    public double LabelTipBackgroundOpacity { get => GetValue(LabelTipBackgroundOpacityProperty); set => SetValue(LabelTipBackgroundOpacityProperty, value); }
+
+    public double ContentWidth { get => _contentWidth; private set => SetAndRaise(ContentWidthProperty, ref _contentWidth, value); }
+    public double ContentHeight { get => _contentHeight; private set => SetAndRaise(ContentHeightProperty, ref _contentHeight, value); }
+    public double ContentOffsetX { get => _contentOffsetX; private set => SetAndRaise(ContentOffsetXProperty, ref _contentOffsetX, value); }
+    public double ContentOffsetY { get => _contentOffsetY; private set => SetAndRaise(ContentOffsetYProperty, ref _contentOffsetY, value); }
 
     private void RecomputeContentGeometry()
     {
@@ -127,9 +159,9 @@ public class PicViewer : TemplatedControl
             return;
         }
         var src = Source.Size;
-        double sx = bounds.Width / src.Width;
-        double sy = bounds.Height / src.Height;
-        double s = Stretch switch
+        var sx = bounds.Width / src.Width;
+        var sy = bounds.Height / src.Height;
+        var s = Stretch switch
         {
             Stretch.None => 1,
             Stretch.Fill => Math.Min(sx, sy),
@@ -173,6 +205,7 @@ public class PicViewer : TemplatedControl
     private void OnSourceChanged(AvaloniaPropertyChangedEventArgs args)
     {
         RecomputeContentGeometry();
+        // Do not auto-center on source change; host view controls centering behavior.
     }
 
     private void OnStretchChanged(AvaloniaPropertyChangedEventArgs args)
@@ -191,16 +224,7 @@ public class PicViewer : TemplatedControl
     private void OnSelectedLabelChanged(AvaloniaPropertyChangedEventArgs _)
     {
         UpdateHighlightFromSelection();
-        // Try center on the newly selected label
-        if (SelectedLabel is { })
-        {
-            // Post to UI thread to ensure geometry is up-to-date
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (SelectedLabel is { } l)
-                    CenterOnPercent(l.XPercent, l.YPercent);
-            });
-        }
+        // Do not auto-center on selection changes to avoid unexpected jumps.
     }
 
     private void OnLabelsChanged(AvaloniaPropertyChangedEventArgs _)
@@ -210,7 +234,7 @@ public class PicViewer : TemplatedControl
 
     private void UpdateHighlightFromSelection()
     {
-        int idx = -1;
+        var idx = -1;
         if (Labels is { } labels && SelectedLabel is { } sel)
         {
             var list = labels.ToList();
@@ -273,18 +297,23 @@ public class PicViewer : TemplatedControl
         e.Handled = true;
     }
 
+    private static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
+
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
 
         // Crosshair in Label mode or when holding Ctrl in Browse mode
+        // Reuse a single cursor instance: allocating a native cursor on every move event is wasteful
         if (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0)
-            Cursor = new Cursor(StandardCursorType.Cross);
-        else if (!_panning)
+        {
+            if (!ReferenceEquals(Cursor, CrossCursor)) Cursor = CrossCursor;
+        }
+        else if (!_panning && Cursor is not null)
             Cursor = null;
 
         // If we have a pending left press in label mode, start panning only when movement exceeds threshold
-        if (!_panning && _pendingAddLabelLeft && _overlay is { })
+        if (!_panning && _pendingAddLabelLeft && _overlay is not null)
         {
             var pt = e.GetCurrentPoint(this);
             if (pt.Properties.IsLeftButtonPressed)
@@ -311,8 +340,8 @@ public class PicViewer : TemplatedControl
             return;
         }
 
-        // Hover highlight only
-        if (_draggingLabelIndex < 0 && Labels is { } labelsHover && _overlay is { })
+        // Hover highlight only (allowed when not read-only)
+        if (!IsReadOnly && _draggingLabelIndex < 0 && Labels is { } labelsHover && _overlay is not null)
         {
             var list = labelsHover.ToList();
             var cw = ContentWidth;
@@ -320,8 +349,8 @@ public class PicViewer : TemplatedControl
             var side = LabelOverlay.LabelSideLength(cw, ch);
             var pos = e.GetPosition(_overlay);
 
-            int hit = -1;
-            for (int idx = 0; idx < list.Count; idx++)
+            var hit = -1;
+            for (var idx = 0; idx < list.Count; idx++)
             {
                 var label = list[idx];
                 var centerX = label.XPercent * cw;
@@ -340,8 +369,7 @@ public class PicViewer : TemplatedControl
             }
         }
 
-        // Dragging updates
-        if (_draggingLabelIndex >= 0 && Labels is { } labels && _overlay is { })
+        if (!IsReadOnly && _draggingLabelIndex >= 0 && Labels is { } labels && _overlay is not null)
         {
             var pos = e.GetPosition(_overlay);
             var cw = ContentWidth;
@@ -356,7 +384,7 @@ public class PicViewer : TemplatedControl
                 var item = list[_draggingLabelIndex];
                 item.XPercent = (float)nx;
                 item.YPercent = (float)ny;
-                HighlightIndex = _draggingLabelIndex; // keep highlight while dragging
+                HighlightIndex = _draggingLabelIndex;
                 _overlay?.InvalidateVisual();
             }
         }
@@ -369,7 +397,7 @@ public class PicViewer : TemplatedControl
         var cw = ContentWidth;
         var ch = ContentHeight;
         var side = LabelOverlay.LabelSideLength(cw, ch);
-        for (int idx = 0; idx < list.Count; idx++)
+        for (var idx = 0; idx < list.Count; idx++)
         {
             var label = list[idx];
             var centerX = label.XPercent * cw;
@@ -385,7 +413,7 @@ public class PicViewer : TemplatedControl
         base.OnPointerPressed(e);
 
         var ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
-        var isLabelMode = Mode == ViewerMode.Label || ctrl; // in Label mode or holding Ctrl
+        var isLabelMode = !IsReadOnly && (Mode == ViewerMode.Label || ctrl); // in Label mode or holding Ctrl
 
         var pt = e.GetCurrentPoint(this);
         var isLeft = pt.Properties.IsLeftButtonPressed;
@@ -393,13 +421,13 @@ public class PicViewer : TemplatedControl
         if (!isLeft && !isRight)
             return;
 
-        if (_overlay is { })
+        if (_overlay is not null)
         {
             var posOverlay = e.GetPosition(_overlay);
             // In label mode, prefer dragging when clicking an existing label
             if (isLabelMode)
             {
-                int hit = HitTestLabelIndex(posOverlay);
+                var hit = HitTestLabelIndex(posOverlay);
                 if (hit >= 0)
                 {
                     e.Pointer.Capture(this);
@@ -447,10 +475,10 @@ public class PicViewer : TemplatedControl
             return;
 
         // Try start dragging if hit in non-label mode
-        if (_overlay is { })
+        if (_overlay is not null)
         {
             var pos = e.GetPosition(_overlay);
-            int hit = HitTestLabelIndex(pos);
+            var hit = HitTestLabelIndex(pos);
             if (hit >= 0)
             {
                 e.Pointer.Capture(this);
@@ -479,7 +507,7 @@ public class PicViewer : TemplatedControl
         base.OnPointerReleased(e);
 
         // If this was a pending left-click in label mode with no drag, add a label (category 1) at release position
-        if (_pendingAddLabelLeft && _overlay is { } && (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0))
+        if (!IsReadOnly && _pendingAddLabelLeft && _overlay is not null && (Mode == ViewerMode.Label || (e.KeyModifiers & KeyModifiers.Control) != 0))
         {
             var cw = ContentWidth;
             var ch = ContentHeight;
@@ -510,7 +538,7 @@ public class PicViewer : TemplatedControl
         _draggingLabelIndex = -1;
 
         // Clear hover highlight when interaction ends unless still hovering
-        if (_overlay is { })
+        if (_overlay is not null)
         {
             var pos = e.GetPosition(_overlay);
             var cw = ContentWidth;
@@ -520,32 +548,21 @@ public class PicViewer : TemplatedControl
             if (Labels is { } labels)
             {
                 var list = labels.ToList();
-                for (int idx = 0; idx < list.Count; idx++)
+                for (var idx = 0; idx < list.Count; idx++)
                 {
                     var centerX = list[idx].XPercent * cw;
                     var centerY = list[idx].YPercent * ch;
                     var rect = LabelOverlay.GetLabelRect(centerX, centerY, side);
-                    if (rect.Contains(pos)) { hit = idx; break; }
+                    if (rect.Contains(pos))
+                    {
+                        hit = idx;
+                        break;
+                    }
                 }
             }
             HighlightIndex = hit;
         }
         _overlay?.InvalidateVisual();
-    }
-
-    private int _draggingLabelIndex = -1;
-
-    public class AddLabelRequestedEventArgs : EventArgs
-    {
-        public double XPercent { get; }
-        public double YPercent { get; }
-        public int Category { get; }
-        public AddLabelRequestedEventArgs(double xPercent, double yPercent, int category)
-        {
-            XPercent = xPercent;
-            YPercent = yPercent;
-            Category = category;
-        }
     }
 
     // Center view so that the given content percent (0..1) is in the middle of the control
@@ -558,14 +575,54 @@ public class PicViewer : TemplatedControl
         var ch = ContentHeight;
         if (cw <= 0 || ch <= 0) return;
 
-        // Target point in control coords (content offset + percent within content)
+        // target in image content coordinates (before transforms)
         var targetX = ContentOffsetX + xPercent * cw;
         var targetY = ContentOffsetY + yPercent * ch;
+
+        // Desired screen point (viewport center)
         var centerX = Bounds.Width / 2.0;
         var centerY = Bounds.Height / 2.0;
 
-        TranslateX = centerX - targetX;
-        TranslateY = centerY - targetY;
+        // Try to leverage the actual visual transform chain when available
+        try
+        {
+            // Build a point in image's local space; then find where it lands in the PicViewer (this)
+            var pLocal = new Point(targetX, targetY);
+            var m = _image.TransformToVisual(this);
+            if (m != null)
+            {
+                var pScreen = m.Value.Transform(pLocal);
+                var dx = centerX - pScreen.X;
+                var dy = centerY - pScreen.Y;
+                // Adjust pan by the delta so that the point moves to the center, but never
+                // pull the image away from the viewport when it already fits (Avalonia 12
+                // keeps the content centered via layout offsets).
+                ApplyCenteringDelta(dx, dy);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "Failed to transform image point using visual chain; falling back to manual centering.");
+        }
+
+        // Fallback: assume transforms order is Translate then Scale (pre-scale translate)
+        var s = Math.Max(Scale, 0.0001);
+        var fallbackX = centerX / s - targetX;
+        var fallbackY = centerY / s - targetY;
+        ApplyCenteringDelta(fallbackX - TranslateX, fallbackY - TranslateY);
+    }
+
+    private void ApplyCenteringDelta(double dx, double dy)
+    {
+        // When the scaled content is smaller than the viewport it must stay centered,
+        // otherwise centering on a label near an edge introduces a large blank band.
+        var scaledWidth = ContentWidth * Math.Max(Scale, 0.0001);
+        var scaledHeight = ContentHeight * Math.Max(Scale, 0.0001);
+        var maxX = Math.Max(0d, (scaledWidth - Bounds.Width) / 2d);
+        var maxY = Math.Max(0d, (scaledHeight - Bounds.Height) / 2d);
+        TranslateX = Math.Clamp(TranslateX + dx, -maxX, maxX);
+        TranslateY = Math.Clamp(TranslateY + dy, -maxY, maxY);
     }
 
     public void CenterOnLabel(LabelItem? item)
@@ -573,4 +630,13 @@ public class PicViewer : TemplatedControl
         if (item is null) return;
         CenterOnPercent(item.XPercent, item.YPercent);
     }
+
+    /// <summary>Zoom in by one step (matches the mouse-wheel step).</summary>
+    public void ZoomIn() => Scale = Math.Min(Scale * 1.1, 8.0);
+
+    /// <summary>Zoom out by one step, never below the viewer's minimum scale.</summary>
+    public void ZoomOut() => Scale = Math.Max(Scale / 1.1, _sourceMinScale);
+
+    /// <summary>Reset to the default fit scale.</summary>
+    public void ResetZoom() => Scale = 1.0;
 }

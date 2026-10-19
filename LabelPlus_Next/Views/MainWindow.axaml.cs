@@ -1,449 +1,457 @@
 using System;
-using System.Collections.Generic;
-using System.Globalization;
+using System.Collections;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using LabelPlus_Next.ViewModels;
-using LabelPlus_Next.CustomControls;
-using LabelPlus_Next.Lang;
-using System.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Controls.Primitives;
+using Avalonia.Media;
+using Avalonia.Threading;
+using LabelPlus_Next.Animations;
 using LabelPlus_Next.Services;
-using LabelPlus_Next.Views.Pages; // add for AboutWindow
-using LabelPlus_Next.Views.Pages; // add for ImageManager
-using Ursa.Controls; // for MessageBox and enums
-using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
+using LabelPlus_Next.Services.Api;
+using LabelPlus_Next.ViewModels;
+using LabelPlus_Next.Views.Pages;
+using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
+using Ursa.Controls;
+using NLog;
 
-namespace LabelPlus_Next.Views
+namespace LabelPlus_Next.Views;
+
+public partial class MainWindow : UrsaWindow
 {
-    public partial class MainWindow : Window
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+    public static MainWindow? Instance { get; private set; }
+    private readonly NavMenu? _menuFooter;
+    private readonly NavMenu? _menuMain;
+    private readonly ContentControl? _navHost;
+    private readonly SettingsViewModel _settingsVm;
+    private bool _didStartupCheck;
+    private bool _navCollapsed;
+    private TranslateView? _translateView;
+    private TeamWorkPage? _teamWorkPage;
+    private UploadPage? _uploadPage;
+    private SettingsPage? _settingsPage; // embedded settings
+    private SimpleTextPage? _proofPage;
+    private SimpleTextPage? _deliverPage;
+    private bool _uploadMenuInserted;
+    private bool _closeConfirmed;
+    private string? _lastContentTag;
+
+    private static readonly TimeSpan UploadPermCacheTtl = TimeSpan.FromHours(24);
+
+    private sealed class ApiAuthConfig
     {
-        private ComboBox? langComboBox;
-        private PicViewer? picViewerControl;
-        private DataGrid? labelsGrid;
-        private INotifyPropertyChanged? vmNotify;
-        private bool _isCloseConfirmed; // guard to allow second Close after prompt
+        [JsonProperty("baseUrl")] public string? BaseUrl { get; set; }
+        [JsonProperty("token")] public string? Token { get; set; }
+        [JsonProperty("username")] public string? Username { get; set; }
+        [JsonProperty("password")] public string? Password { get; set; }
+    }
 
-        public MainWindow()
+    public MainWindow()
+    {
+        InitializeComponent();
+        Instance = this;
+        try { App.Services.GetRequiredService<ITopLevelProvider>().TopLevel = this; }
+        catch (ObjectDisposedException ex)
         {
-            InitializeComponent();
-            langComboBox = this.FindControl<ComboBox>("LangComboBox");
-            picViewerControl = this.FindControl<PicViewer>("Pic");
-            labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
-            if (DataContext is MainWindowViewModel mvm)
+            Logger.Warn(ex, "Service provider disposed before setting TopLevel");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn(ex, "ITopLevelProvider not available during MainWindow startup");
+        }
+        _navHost = this.FindControl<ContentControl>("NavContent");
+        _menuMain = this.FindControl<NavMenu>("NavMenuMain");
+        _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
+        _settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
+        _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
+        UpdateToggleItemVisual();
+        SetContent("translate");
+        SelectMenuItemByTag(_menuMain, "translate");
+        ClearMenuSelection(_menuFooter);
+        Opened += OnOpened;
+    }
+
+    #region Upload menu permission cache helpers
+    private static string GetPermCachePath()
+    {
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, "upload.perm");
+    }
+
+    private static bool TryReadUploadPermCache(out bool hasPerm)
+    {
+        hasPerm = false;
+        try
+        {
+            var path = GetPermCachePath();
+            if (!File.Exists(path)) return false;
+            string txt;
+            if (OperatingSystem.IsWindows())
             {
-                mvm.InitializeServices(new AvaloniaFileDialogService(this));
+                var enc = File.ReadAllBytes(path);
+                var data = System.Security.Cryptography.ProtectedData.Unprotect(enc, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                txt = Encoding.UTF8.GetString(data);
             }
-            if (labelsGrid is not null)
+            else txt = File.ReadAllText(path).Trim();
+            if (!txt.Contains('|')) { hasPerm = txt == "1"; if (hasPerm) SaveUploadPermCache(true); return hasPerm; }
+            var parts = txt.Split('|');
+            if (parts.Length < 2) return false;
+            hasPerm = parts[0] == "1";
+            if (!long.TryParse(parts[1], out var ts)) return false;
+            var written = DateTimeOffset.FromUnixTimeSeconds(ts);
+            if (DateTimeOffset.UtcNow - written <= UploadPermCacheTtl) return hasPerm;
+            try { File.Delete(path); }
+            catch (IOException ex)
             {
-                labelsGrid.SelectionChanged += LabelsGridOnSelectionChanged;
+                Logger.Warn(ex, "Failed to delete expired upload permission cache {path}", path);
             }
-            if (picViewerControl is not null)
+            catch (UnauthorizedAccessException ex)
             {
-                picViewerControl.AddLabelRequested += OnAddLabelRequested;
+                Logger.Warn(ex, "Access denied deleting upload permission cache {path}", path);
             }
-
-            this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel, handledEventsToo: false);
-
-            this.DataContextChanged += OnDataContextChanged;
-            if (DataContext is INotifyPropertyChanged npc)
-            {
-                HookViewModel(npc);
-            }
-
-            this.Closing += OnWindowClosing;
-
-            this.Focus();
+            hasPerm = false;
+            return false;
         }
-
-        private void EnsureNotificationManager(MainWindowViewModel vm)
+        catch (IOException ex)
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel is null) return;
-            if (vm.NotificationManager is not null) return; // already set
-
-            vm.NotificationManager = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
-                ? manager
-                : new WindowNotificationManager(topLevel);
-
-            vm.NotificationManager.Position = Avalonia.Controls.Notifications.NotificationPosition.TopRight;
-            vm.NotificationManager.MaxItems = 5;
-            try
-            {
-                var type = vm.NotificationManager.GetType();
-                var topmostProp = type.GetProperty("Topmost");
-                topmostProp?.SetValue(vm.NotificationManager, true);
-                var zIndexProp = type.GetProperty("ZIndex");
-                if (zIndexProp != null && zIndexProp.PropertyType == typeof(int))
-                    zIndexProp.SetValue(vm.NotificationManager, 10000);
-            }
-            catch { }
+            Logger.Warn(ex, "Failed to read upload permission cache");
+            return false;
         }
-
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        catch (UnauthorizedAccessException ex)
         {
-            base.OnAttachedToVisualTree(e);
-            if (DataContext is MainWindowViewModel vm)
-            {
-                EnsureNotificationManager(vm);
-            }
+            Logger.Warn(ex, "Access denied reading upload permission cache");
+            return false;
         }
-
-        private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
+        catch (System.Security.Cryptography.CryptographicException ex)
         {
-            if (e is null || e.Handled) return;
-            ProcessKeyGesture(e);
+            Logger.Warn(ex, "Upload permission cache decryption failed");
+            return false;
         }
-
-        private async void FileSetting_OnClick(object? sender, RoutedEventArgs e)
+        catch (FormatException ex)
         {
-            if (DataContext is not MainWindowViewModel mvm) return;
-            var (groups, notes) = mvm.GetFileSettings();
-            var dlg = new LabelPlus_Next.Views.Pages.FileSettings
-            {
-                DataContext = new FileSettingsViewModel { GroupList = groups, Notes = notes },
-                Width = 600,
-                Height = 350
-            };
-            var result = await dlg.ShowDialog<bool?>(this);
-            if (result == true)
-            {
-                if (dlg.DataContext is FileSettingsViewModel fvm)
-                {
-                    await mvm.SaveFileSettingsAsync(fvm.GroupList, fvm.Notes);
-                }
-            }
-        }
-
-        private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
-        {
-            var vm = DataContext as MainWindowViewModel;
-            if (vm is null)
-                return;
-
-            // If we've already confirmed, allow closing to proceed
-            if (_isCloseConfirmed)
-            {
-                _isCloseConfirmed = false;
-                return;
-            }
-
-            if (vm.HasUnsavedChanges)
-            {
-                // Cancel now to keep the window alive while awaiting the dialog
-                e.Cancel = true;
-
-                var res = await MessageBox.ShowAsync("�Ƿ񱣴����?", "ȷ�Ϲر�", MessageBoxIcon.Question, MessageBoxButton.YesNoCancel);
-                if (res == MessageBoxResult.Cancel)
-                {
-                    return; // keep window open
-                }
-                if (res == MessageBoxResult.Yes && !string.IsNullOrEmpty(vm.OpenTranslationFilePath))
-                {
-                    await vm.FileSave(vm.OpenTranslationFilePath);
-                }
-
-                // Allow closing on the next attempt
-                _isCloseConfirmed = true;
-                Close();
-            }
-        }
-
-        private void ProcessKeyGesture(KeyEventArgs e)
-        {
-            // Don't handle global shortcuts while editing text
-            if (this.FocusManager?.GetFocusedElement() is TextBox || this.FocusManager?.GetFocusedElement() is LabeledTextBox)
-            {
-                return;
-            }
-
-            var vm = ViewModel;
-
-            // Quick access to viewer
-            var pic = picViewerControl ?? this.FindControl<PicViewer>("Pic");
-
-            // Global single key modes
-            if (e.KeyModifiers == KeyModifiers.None)
-            {
-                switch (e.Key)
-                {
-                    case Key.Q: // ���
-                        if (pic != null) pic.Mode = ViewerMode.Browse;
-                        e.Handled = true;
-                        return;
-                    case Key.W: // ��ע
-                        if (pic != null) pic.Mode = ViewerMode.Label;
-                        e.Handled = true;
-                        return;
-                    case Key.E: // ¼��
-                        if (pic != null) pic.Mode = ViewerMode.Input;
-                        e.Handled = true;
-                        return;
-                    case Key.R: // ��Ч
-                        if (pic != null) pic.Mode = ViewerMode.Check;
-                        e.Handled = true;
-                        return;
-                    case Key.D1:
-                    case Key.NumPad1:
-                        vm?.SetSelectedCategory(1);
-                        e.Handled = true;
-                        return;
-                    case Key.D2:
-                    case Key.NumPad2:
-                        vm?.SetSelectedCategory(2);
-                        e.Handled = true;
-                        return;
-                }
-            }
-
-            // Ctrl+Shift shortcuts
-            if ((e.KeyModifiers & KeyModifiers.Control) != 0 )
-            {
-                switch (e.Key)
-                {
-                    case Key.Up:
-                        MoveSelection(-1);
-                        e.Handled = true;
-                        return;
-                    case Key.Down:
-                        MoveSelection(1);
-                        e.Handled = true;
-                        return;
-                    case Key.Left:
-                        MoveImageSelection(-1);
-                        e.Handled = true;
-                        return;
-                    case Key.Right:
-                        MoveImageSelection(1);
-                        e.Handled = true;
-                        return;
-                }
-            }
-
-            // Ctrl shortcuts
-            if ((e.KeyModifiers & KeyModifiers.Control) != 0)
-            {
-                if (e.Key == Key.N) // �½�����
-                {
-                    (vm?.NewTranslationCommandCommand as IAsyncRelayCommand)?.Execute(null);
-                    e.Handled = true;
-                    return;
-                }
-                if (e.Key == Key.Q) // �˳�Ӧ��
-                {
-                    Close();
-                    e.Handled = true;
-                    return;
-                }
-
-                if (e.Key == Key.Up)
-                {
-                    MoveSelection(-1);
-                    e.Handled = true;
-                    return;
-                }
-                else if (e.Key == Key.Down)
-                {
-                    MoveSelection(1);
-                    e.Handled = true;
-                    return;
-                }
-                else if (e.Key == Key.Z)
-                {
-                    (vm?.UndoRemoveLabelCommandCommand as IAsyncRelayCommand)?.Execute(null);
-                    e.Handled = true;
-                    return;
-                }
-                else if (e.Key == Key.O)
-                {
-                    (vm?.OpenTranslationFileCommandCommand as IAsyncRelayCommand)?.Execute(null);
-                    e.Handled = true;
-                    return;
-                }
-                else if (e.Key == Key.S)
-                {
-                    if ((e.KeyModifiers & KeyModifiers.Shift) != 0)
-                        (vm?.SaveAsCommandCommand as IAsyncRelayCommand)?.Execute(null);
-                    else
-                        (vm?.SaveCurrentCommandCommand as IAsyncRelayCommand)?.Execute(null);
-                    e.Handled = true;
-                    return;
-                }
-            }
-            else if (e.Key == Key.Delete)
-            {
-                _ = ConfirmDeleteAsync();
-                e.Handled = true;
-                return;
-            }
-        }
-
-        private async Task ConfirmDeleteAsync()
-        {
-            var vm = ViewModel;
-            if (vm?.SelectedLabel == null || string.IsNullOrEmpty(vm.SelectedImageFile)) return;
-            var res = await MessageBox.ShowAsync("ȷ��ɾ����ѡ��ǩ?", "ɾ��", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
-            if (res == MessageBoxResult.Yes)
-            {
-                (vm?.RemoveLabelCommandCommand as IAsyncRelayCommand)?.Execute(null);
-            }
-        }
-
-        private async void OnAddLabelRequested(object? sender, PicViewer.AddLabelRequestedEventArgs e)
-        {
-            if (ViewModel is null) return;
-            await ViewModel.AddLabelAtAsync((float)e.XPercent, (float)e.YPercent, e.Category);
-        }
-
-        private void OnDataContextChanged(object? sender, EventArgs e)
-        {
-            if (vmNotify is not null)
-            {
-                vmNotify.PropertyChanged -= VmOnPropertyChanged;
-                vmNotify = null;
-            }
-            if (DataContext is INotifyPropertyChanged npc)
-            {
-                HookViewModel(npc);
-            }
-            // Ensure dialog service is available after DataContext changes
-            if (DataContext is MainWindowViewModel mvm)
-            {
-                mvm.InitializeServices(new AvaloniaFileDialogService(this));
-                EnsureNotificationManager(mvm);
-            }
-        }
-
-        private void HookViewModel(INotifyPropertyChanged npc)
-        {
-            vmNotify = npc;
-            vmNotify.PropertyChanged += VmOnPropertyChanged;
-        }
-
-        private void VmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(MainWindowViewModel.SelectedLabel))
-            {
-                ScrollSelectedIntoView();
-            }
-        }
-
-        private void LabelsGridOnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-        {
-            ScrollSelectedIntoView();
-        }
-
-        private void ScrollSelectedIntoView()
-        {
-            if (labelsGrid?.SelectedItem is { } item)
-            {
-                try { labelsGrid.ScrollIntoView(item, null); } catch { }
-            }
-        }
-
-        private MainWindowViewModel ViewModel => DataContext as MainWindowViewModel;
-
-        private void LangComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (sender is not ComboBox comboBox || comboBox.SelectedItem is not string selectedLang)
-                    return;
-                I18NExtension.Culture = new CultureInfo(selectedLang);
-            }
-            catch (CultureNotFoundException)
-            {
-                I18NExtension.Culture = CultureInfo.CurrentUICulture;
-            }
-        }
-
-        private void MoveSelection(int delta)
-        {
-            var vm = DataContext as MainWindowViewModel;
-            if (vm == null || vm.CurrentLabels == null || vm.CurrentLabels.Count == 0)
-                return;
-            var idx = vm.SelectedLabel != null ? vm.CurrentLabels.IndexOf(vm.SelectedLabel) : -1;
-            var newIdx = idx < 0 ? 0 : Math.Clamp(idx + delta, 0, vm.CurrentLabels.Count - 1);
-            vm.SelectedLabel = vm.CurrentLabels[newIdx];
-            vm.CurrentText = vm.SelectedLabel?.Text;
-            ScrollSelectedIntoView();
-        }
-
-        private void MoveImageSelection(int delta)
-        {
-            var vm = DataContext as MainWindowViewModel;
-            if (vm == null || vm.ImageFileNames == null || vm.ImageFileNames.Count == 0)
-                return;
-            var list = vm.ImageFileNames;
-            var idx = vm.SelectedImageFile != null ? list.IndexOf(vm.SelectedImageFile) : -1;
-            var newIdx = idx < 0 ? 0 : Math.Clamp(idx + delta, 0, list.Count - 1);
-            vm.SelectedImageFile = list[newIdx];
-        }
-
-        private void BrowseMode_OnClick(object? sender, RoutedEventArgs e)
-        {
-            var pic = this.FindControl<PicViewer>("Pic");
-            if (pic != null)
-                pic.Mode = ViewerMode.Browse;
-        }
-
-        private void LabelMode_OnClick(object? sender, RoutedEventArgs e)
-        {
-            var pic = this.FindControl<PicViewer>("Pic");
-            if (pic != null)
-                pic.Mode = ViewerMode.Label;
-        }
-
-        private void Imagine_manager_OnClick(object? sender, RoutedEventArgs e)
-        {
-            // Simply open ImageManager window
-            var dlg = new ImageManager
-            {
-                DataContext = new ImageManagerViewModel()
-            };
-            dlg.Show(this);
-        }
-
-        // File menu Exit handler to match Ctrl+Q
-        private void ExitMenuItem_OnClick(object? sender, RoutedEventArgs e)
-        {
-            Close();
-        }
-
-        private void CategoryInner_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (DataContext is MainWindowViewModel vm)
-            {
-                vm.SetSelectedCategory(1);
-            }
-        }
-
-        private void CategoryOuter_OnClick(object? sender, RoutedEventArgs e)
-        {
-            if (DataContext is MainWindowViewModel vm)
-            {
-                vm.SetSelectedCategory(2);
-            }
-        }
-
-        private void PrevImage_OnClick(object? sender, RoutedEventArgs e)
-        {
-            MoveImageSelection(-1);
-        }
-
-        private void NextImage_OnClick(object? sender, RoutedEventArgs e)
-        {
-            MoveImageSelection(1);
-        }
-
-        private async void OnAboutClick(object? sender, RoutedEventArgs e)
-        {
-            var dlg = new AboutWindow();
-            await dlg.ShowDialog(this);
+            Logger.Warn(ex, "Upload permission cache had invalid format");
+            return false;
         }
     }
+
+    private static void SaveUploadPermCache(bool hasPerm)
+    {
+        try
+        {
+            var path = GetPermCachePath();
+            if (!hasPerm) { if (File.Exists(path)) File.Delete(path); return; }
+            var payload = $"1|{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            if (OperatingSystem.IsWindows())
+            {
+                var data = Encoding.UTF8.GetBytes(payload);
+                var enc = System.Security.Cryptography.ProtectedData.Protect(data, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                File.WriteAllBytes(path, enc);
+            }
+            else
+            {
+                File.WriteAllText(path, payload);
+                try { File.SetAttributes(path, FileAttributes.ReadOnly); }
+                catch (IOException ex)
+                {
+                    Logger.Warn(ex, "Failed to mark upload permission cache as read-only {path}", path);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Logger.Warn(ex, "Access denied marking upload permission cache as read-only {path}", path);
+                }
+            }
+        }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to persist upload permission cache");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied persisting upload permission cache");
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            Logger.Warn(ex, "Encryption error when saving upload permission cache");
+        }
+    }
+    #endregion
+
+    #region Menu / Navigation
+    private void InsertUploadMenuIfAbsent()
+    {
+        if (_uploadMenuInserted || _menuMain is null) return;
+        var uploadItem = new NavMenuItem { Header = "上传", Icon = CreateIcon("SemiIconUpload"), Tag = "upload" };
+        var items = _menuMain.Items;
+        var insertIndex = -1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if ((items[i] as Control)?.Tag as string == "deliver") { insertIndex = i; break; }
+        }
+        if (insertIndex >= 0) items.Insert(insertIndex, uploadItem); else items.Add(uploadItem);
+        _uploadMenuInserted = true;
+    }
+
+    private async Task TryInsertUploadMenuAsync()
+    {
+        if (_uploadMenuInserted || _menuMain is null) return;
+        if (TryReadUploadPermCache(out var cached) && cached) { InsertUploadMenuIfAbsent(); return; }
+        try
+        {
+            var cfgPath = Path.Combine(AppContext.BaseDirectory, "upload.json");
+            if (!File.Exists(cfgPath)) return;
+            var cfg = JsonConvert.DeserializeObject<ApiAuthConfig>(await File.ReadAllTextAsync(cfgPath));
+            if (cfg is null || string.IsNullOrWhiteSpace(cfg.BaseUrl)) return;
+            var auth = new AuthApi(cfg.BaseUrl);
+            ApiResponse<MeData>? me = null;
+            if (!string.IsNullOrWhiteSpace(cfg.Token)) me = await auth.GetMeAsync(cfg.Token);
+            else if (!string.IsNullOrWhiteSpace(cfg.Username) && !string.IsNullOrWhiteSpace(cfg.Password)) me = await auth.GetMeAsync(cfg.Username, cfg.Password);
+            else return;
+            if (me is { Code: 200, Data: not null } && me.Data.Permission > 265) { SaveUploadPermCache(true); InsertUploadMenuIfAbsent(); }
+            else SaveUploadPermCache(false);
+        }
+        catch (IOException ex)
+        {
+            Logger.Warn(ex, "Failed to read upload auth config");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Warn(ex, "Access denied reading upload auth config");
+        }
+        catch (JsonException ex)
+        {
+            Logger.Warn(ex, "Upload auth config contained invalid JSON");
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.Warn(ex, "Failed to query upload permission via API");
+        }
+        catch (TaskCanceledException ex)
+        {
+            Logger.Warn(ex, "Upload permission query timed out");
+        }
+    }
+
+    private void ToggleNavCollapse()
+    {
+        _navCollapsed = !_navCollapsed;
+        if (_menuMain is not null) _menuMain.IsHorizontalCollapsed = _navCollapsed;
+        if (_menuFooter is not null) _menuFooter.IsHorizontalCollapsed = _navCollapsed;
+        if (this.FindControl<Control>("BrandText") is { } brandText) brandText.IsVisible = !_navCollapsed;
+        UpdateToggleItemVisual();
+    }
+
+    private void UpdateToggleItemVisual()
+    {
+        if (_menuMain?.Items is not IEnumerable items) return;
+        var first = items.Cast<object>().OfType<NavMenuItem>().FirstOrDefault();
+        if (first is NavMenuItem nmi)
+        {
+            nmi.Header = _navCollapsed ? "展开" : "收起";
+            nmi.Icon = CreateIcon(_navCollapsed ? "SemiIconChevronRight" : "SemiIconChevronLeft");
+        }
+    }
+
+    // Theme geometry icons follow the menu foreground, so they stay legible in both light and dark themes
+    // (NavMenuItem renders a bare Geometry as text, so it must be wrapped in a PathIcon)
+    private PathIcon CreateIcon(string resourceKey) => new()
+    {
+        Width = 16,
+        Height = 16,
+        Data = this.TryFindResource(resourceKey, ActualThemeVariant, out var res) ? res as Geometry : null
+    };
+
+    private void OnNavSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems is not { Count: > 0 }) return;
+        if (e.AddedItems[0] is not Control ctrl) return;
+        var tag = NormalizeTag(ctrl.Tag as string);
+        System.Diagnostics.Debug.WriteLine($"[Nav] change -> {tag}");
+        if (tag == "toggle")
+        {
+            ToggleNavCollapse();
+            if (sender is NavMenu menu)
+            {
+                var previous = e.RemovedItems is { Count: > 0 } ? e.RemovedItems[0] : null;
+                menu.SelectedItem = previous;
+            }
+            return;
+        }
+        if (tag == "settings")
+        {
+            SetContent(tag);
+            if (sender == _menuMain) ClearMenuSelection(_menuFooter); else ClearMenuSelection(_menuMain);
+            return;
+        }
+        if (sender == _menuMain) ClearMenuSelection(_menuFooter); else ClearMenuSelection(_menuMain);
+        SetContent(tag);
+    }
+
+    private static void ClearMenuSelection(NavMenu? menu)
+    {
+        if (menu is null) return;
+        menu.SelectedItem = null;
+    }
+
+    private static void SelectMenuItemByTag(NavMenu? menu, string tag)
+    {
+        if (menu?.Items is not IEnumerable items) return;
+        var match = items.Cast<object>().OfType<Control>().FirstOrDefault(c => string.Equals((c.Tag as string)?.Trim(), tag, StringComparison.OrdinalIgnoreCase));
+        if (match != null) menu.SelectedItem = match;
+    }
+
+    private static string? NormalizeTag(string? tag) => string.IsNullOrWhiteSpace(tag) ? null : tag.Trim().ToLowerInvariant();
+
+    private void SetContent(string? tag)
+    {
+        var host = _navHost; if (host is null) return;
+        var t = NormalizeTag(tag);
+        if (t is null) return;
+        System.Diagnostics.Debug.WriteLine($"[Nav] SetContent {t}");
+        Control? page = t switch
+        {
+            "translate" => _translateView ??= new TranslateView { DataContext = App.Services.GetRequiredService<TranslateViewModel>() },
+            "teamwork" => _teamWorkPage ??= new TeamWorkPage { DataContext = App.Services.GetRequiredService<TeamWorkViewModel>() },
+            "proof" => _proofPage ??= new SimpleTextPage("校对", "校对工作流正在开发中，敬请期待。"),
+            "upload" => _uploadPage ??= new UploadPage { DataContext = App.Services.GetRequiredService<UploadViewModel>() },
+            "deliver" => _deliverPage ??= new SimpleTextPage("交付", "交付工作流正在开发中，敬请期待。"),
+            "settings" => _settingsPage ??= new SettingsPage { DataContext = _settingsVm },
+            _ => string.IsNullOrEmpty(_lastContentTag) ? new SimpleTextPage("欢迎") : null
+        };
+        _lastContentTag = t;
+        if (page is null || ReferenceEquals(host.Content, page)) return;
+        host.Content = page;
+        PageTransition.PlayEnter(page);
+    }
+    #endregion
+
+    #region Open lifecycle
+    private void OnOpened(object? sender, EventArgs e)
+    {
+        if (_didStartupCheck) return;
+        _didStartupCheck = true;
+        try { App.Services.GetRequiredService<ITopLevelProvider>().TopLevel = this; }
+        catch (ObjectDisposedException ex)
+        {
+            Logger.Warn(ex, "Service provider disposed before setting TopLevel during window open lifecycle");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.Warn(ex, "ITopLevelProvider not available when handling window open event");
+        }
+        _ = TryInsertUploadMenuAsync();
+    }
+    #endregion
+
+    #region Update helpers
+    public async Task<bool> TryAutoSaveBeforeUpdateAsync()
+    {
+        TranslateViewModel? tvm = null;
+        string? path = null;
+        bool hasUnsaved = false;
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            tvm = _translateView?.DataContext as TranslateViewModel;
+            path = tvm?.OpenTranslationFilePath;
+            hasUnsaved = tvm?.HasUnsavedChanges ?? false;
+        }
+        else
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                tvm = _translateView?.DataContext as TranslateViewModel;
+                path = tvm?.OpenTranslationFilePath;
+                hasUnsaved = tvm?.HasUnsavedChanges ?? false;
+            });
+        }
+
+        if (tvm is null || string.IsNullOrWhiteSpace(path) || !hasUnsaved)
+        {
+            Logger.Debug("Auto-save before update skipped: no active translation with unsaved changes.");
+            return false;
+        }
+
+        try
+        {
+            await tvm.FileSave(path).ConfigureAwait(false);
+            Logger.Info("Auto-saved translation file before update: {file}", path);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "Auto-save before update failed for {file}", path);
+            return false;
+        }
+    }
+    #endregion
+
+    #region Translate open helpers
+    public void OpenTranslateWithFile(string path)
+    {
+        if (_navHost is null) return;
+        SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm) _ = tvm.LoadTranslationFile(path).ConfigureAwait(false);
+    }
+
+    public void OpenTranslateWithFile(string path, CollaborationSession? session)
+    {
+        if (_navHost is null) return;
+        SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm)
+        {
+            if (session is not null) tvm.Collab = session;
+            _ = tvm.LoadTranslationFile(path).ConfigureAwait(false);
+        }
+    }
+
+    public async Task OpenTranslateWithFileAsync(string path)
+    {
+        if (_navHost is null) return; SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm) await tvm.LoadTranslationFile(path).ConfigureAwait(false);
+    }
+
+    public async Task OpenTranslateWithFileAsync(string path, CollaborationSession? session)
+    {
+        if (_navHost is null) return; SetContent("translate");
+        if (_translateView?.DataContext is TranslateViewModel tvm)
+        {
+            if (session is not null) tvm.Collab = session;
+            await tvm.LoadTranslationFile(path).ConfigureAwait(false);
+        }
+    }
+    #endregion
+
+    #region Closing / Save prompt
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (_closeConfirmed) { base.OnClosing(e); return; }
+        if (_translateView?.DataContext is TranslateViewModel tvm && tvm.HasUnsavedChanges)
+        {
+            e.Cancel = true;
+            _ = PromptSaveAndCloseAsync(tvm);
+            return;
+        }
+        base.OnClosing(e);
+    }
+
+    private async Task PromptSaveAndCloseAsync(TranslateViewModel tvm)
+    {
+        var res = await MessageBox.ShowAsync("当前译文有未保存的更改，是否保存？", "关闭确认", MessageBoxIcon.Warning, MessageBoxButton.YesNoCancel);
+        if (res == MessageBoxResult.Cancel) return;
+        if (res == MessageBoxResult.Yes)
+        {
+            if (!string.IsNullOrEmpty(tvm.OpenTranslationFilePath)) await tvm.FileSave(tvm.OpenTranslationFilePath);
+            else await tvm.SaveAsCommand();
+        }
+        _closeConfirmed = true;
+        await Dispatcher.UIThread.InvokeAsync(Close);
+    }
+    #endregion
 }

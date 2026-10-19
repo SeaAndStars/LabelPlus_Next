@@ -1,0 +1,246 @@
+<UserControl
+    x:Class="LabelPlus_Next.Views.Pages.TeamWorkPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conv="clr-namespace:LabelPlus_Next.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    x:Name="Root"
+    d:DesignHeight="600"
+    d:DesignWidth="1400"
+    x:DataType="vm:TeamWorkViewModel"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <conv:BoolToDoubleConverter x:Key="BoolToRowHeight" />
+    </UserControl.Resources>
+
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+        <!--  Project picker  -->
+        <Border Classes="lp-card" Padding="16">
+            <Grid ColumnDefinitions="Auto,320,Auto,Auto,Auto,*" ColumnSpacing="10">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Classes="lp-label"
+                    Text="项目" />
+                <u:AutoCompleteBox
+                    Grid.Column="1"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    ItemsSource="{Binding Suggestions}"
+                    MinimumPrefixLength="0"
+                    PlaceholderText="选择要协作的项目"
+                    Text="{Binding SelectedProject, Mode=TwoWay}" />
+                <Button
+                    Grid.Column="2"
+                    Height="32"
+                    Command="{Binding RefreshCommand}"
+                    Content="刷新"
+                    Classes="lp-flat" />
+                <Button
+                    Grid.Column="3"
+                    Height="32"
+                    Command="{Binding OpenSettingsCommand}"
+                    Content="设置"
+                    Classes="lp-flat" />
+                <StackPanel
+                    Grid.Column="4"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="6">
+                    <TextBlock Classes="lp-label" Text="状态" />
+                    <TextBlock
+                        MaxWidth="420"
+                        VerticalAlignment="Center"
+                        Classes="lp-subtle"
+                        Text="{Binding Status}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  Progress  -->
+        <Border
+            Grid.Row="1"
+            Classes="lp-card"
+            Padding="16"
+            IsVisible="{Binding IsBusy}">
+            <Grid ColumnDefinitions="240,Auto,Auto,Auto,*" ColumnSpacing="10">
+                <ProgressBar
+                    Height="6"
+                    VerticalAlignment="Center"
+                    IsIndeterminate="{Binding IsBusy}"
+                    Maximum="100"
+                    Minimum="0"
+                    Value="{Binding Progress}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Classes="lp-subtle"
+                    Text="{Binding ProgressText}" />
+                <Button
+                    Grid.Column="2"
+                    Height="30"
+                    Command="{Binding CancelCommand}"
+                    Content="取消"
+                    Classes="lp-flat" />
+                <Button
+                    Grid.Column="3"
+                    Height="30"
+                    Command="{Binding RetryCommand}"
+                    Content="重试"
+                    Classes="lp-flat" />
+            </Grid>
+        </Border>
+
+        <!--  Episode tree table  -->
+        <Border
+            Grid.Row="2"
+            Classes="lp-card"
+            Padding="0">
+            <Grid>
+            <DataGrid
+                x:Name="EpisodesGrid"
+                Background="Transparent"
+                BorderThickness="0"
+                CanUserReorderColumns="False"
+                CanUserResizeColumns="True"
+                CanUserSortColumns="False"
+                Classes="lp-grid"
+                GridLinesVisibility="None"
+                IsReadOnly="True"
+                ItemsSource="{Binding TreeRows}"
+                RowHeight="44">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="2*" Header="话数 / 阶段">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:NodeItem">
+                                <StackPanel
+                                    Margin="{Binding IndentMargin}"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Spacing="6">
+                                    <Button
+                                        Width="20"
+                                        Height="20"
+                                        Padding="0"
+                                        VerticalAlignment="Center"
+                                        Classes="lp-tree-toggle"
+                                        Command="{Binding ToggleCommand}"
+                                        Content="{Binding ChevronGlyph}"
+                                        FontSize="13"
+                                        IsVisible="{Binding HasChildren}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Width="90" Header="状态">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:NodeItem">
+                                <Border
+                                    Padding="8,2"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Classes="lp-tag">
+                                    <TextBlock FontSize="12" Text="{Binding Status}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Width="2*" Header="路径">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:NodeItem">
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Text="{Binding Path}"
+                                    TextTrimming="CharacterEllipsis"
+                                    ToolTip.Tip="{Binding Path}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding Owner}"
+                        Header="负责人" />
+                    <DataGridTextColumn
+                        Width="150"
+                        Binding="{Binding CreatedAt}"
+                        Header="创建时间" />
+                    <DataGridTextColumn
+                        Width="150"
+                        Binding="{Binding UpdatedAt}"
+                        Header="更新时间" />
+                    <DataGridTextColumn
+                        Width="72"
+                        Binding="{Binding FileCountText}"
+                        Header="文件数" />
+
+                    <DataGridTemplateColumn Width="Auto" Header="操作">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:NodeItem">
+                                <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
+                                    <Button
+                                        Height="26"
+                                        Padding="10,0"
+                                        Classes="lp-flat"
+                                        Command="{Binding TranslateCommand}"
+                                        CommandParameter="{Binding Episode}"
+                                        Content="翻译"
+                                        FontSize="12"
+                                        IsVisible="{Binding IsEpisodeRoot}" />
+                                    <Button
+                                        Height="26"
+                                        Padding="10,0"
+                                        Classes="lp-flat"
+                                        Command="{Binding ProofCommand}"
+                                        CommandParameter="{Binding Episode}"
+                                        Content="校对"
+                                        FontSize="12"
+                                        IsVisible="{Binding IsEpisodeRoot}" />
+                                    <Button
+                                        Height="26"
+                                        Padding="10,0"
+                                        Classes="lp-flat"
+                                        Command="{Binding TypesetCommand}"
+                                        CommandParameter="{Binding Episode}"
+                                        Content="嵌字"
+                                        FontSize="12"
+                                        IsVisible="{Binding IsEpisodeRoot}" />
+                                    <Button
+                                        Height="26"
+                                        Padding="10,0"
+                                        Classes="lp-flat"
+                                        Command="{Binding DownloadCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="下载"
+                                        FontSize="12"
+                                        IsVisible="{Binding !IsEpisodeRoot}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                IsHitTestVisible="False"
+                IsVisible="{Binding IsTreeEmpty}"
+                Spacing="8">
+                <PathIcon Width="32" Height="32" Data="{StaticResource SemiIconUserGroup}"
+                          Foreground="{DynamicResource LpSubtleText}" />
+                <TextBlock HorizontalAlignment="Center" Classes="lp-section-title" Text="还没有协作数据" />
+                <TextBlock HorizontalAlignment="Center" Classes="lp-subtle" Text="配置服务器并选择项目后，这里会显示各话数的协作进度。" />
+            </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

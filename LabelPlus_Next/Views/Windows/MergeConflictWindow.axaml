@@ -1,0 +1,177 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.Windows.MergeConflictWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    Title="保存冲突合并"
+    WindowStartupLocation="CenterOwner"
+    Width="1320"
+    Height="794"
+    x:DataType="vm:MergeConflictViewModel"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
+    mc:Ignorable="d">
+    <Design.DataContext>
+        <vm:MergeConflictViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="保存冲突合并" />
+
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+        <!--  Header  -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="2">
+                <TextBlock Classes="lp-page-title" Text="保存冲突合并" />
+                <TextBlock Classes="lp-subtle" TextTrimming="CharacterEllipsis">
+                    <Run Text="文件：" />
+                    <Run Text="{Binding FileName}" />
+                </TextBlock>
+            </StackPanel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                <Button Command="{Binding PrevConflictCommand}" Content="上一处" Classes="lp-flat" />
+                <Button Command="{Binding NextConflictCommand}" Content="下一处" Classes="lp-flat" />
+                <TextBlock VerticalAlignment="Center" Classes="lp-subtle" Text="{Binding ConflictStatus}" />
+            </StackPanel>
+        </Grid>
+
+        <!--  Action bar  -->
+        <Border Grid.Row="1" Classes="lp-card" Padding="10">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Command="{Binding UseRemoteCommand}" Content="采用远端" />
+                <Button Command="{Binding UseLocalCommand}" Content="采用本地" />
+                <Button Command="{Binding AcceptAllRemoteCommand}" Content="全部用远端" />
+                <Button Command="{Binding AcceptAllLocalCommand}" Content="全部用本地" />
+                <Button Command="{Binding AcceptCurrentRemoteCommand}" Content="当前用远端" />
+                <Button Command="{Binding AcceptCurrentLocalCommand}" Content="当前用本地" />
+                <Rectangle Width="1" Height="20" Margin="4,0" Fill="{DynamicResource LpCardBorderBrush}" />
+                <Button Command="{Binding CancelCommand}" Content="取消" />
+                <Button Classes="lp-primary" Command="{Binding SaveMergedCommand}" Content="保存合并" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="3*,1.8*" ColumnSpacing="12">
+            <!--  Conflict list  -->
+            <Border Classes="lp-card" Padding="0">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Margin="14,10" Classes="lp-pane-title" Text="冲突列表" />
+                    <ListBox
+                        Grid.Row="1"
+                        BorderThickness="0"
+                        ItemsSource="{Binding Conflicts}"
+                        SelectedIndex="{Binding SelectedConflictIndex, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MergeConflictViewModel+ConflictItem">
+                                <Border
+                                    Margin="8"
+                                    Padding="12"
+                                    Background="{DynamicResource LpCanvasBrush}"
+                                    CornerRadius="8">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                                            <TextBlock VerticalAlignment="Center" Text="冲突 #" />
+                                            <TextBlock Grid.Column="1" FontWeight="Bold" Text="{Binding Index}" />
+                                            <TextBlock
+                                                Grid.Column="2"
+                                                MaxWidth="420"
+                                                VerticalAlignment="Center"
+                                                Text="{Binding Summary}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                                                <Button
+                                                    Command="{Binding ChooseRemoteSelfCommand}"
+                                                    Content="用远端"
+                                                    Classes="lp-flat"
+                                                    FontSize="12"
+                                                    Height="26" />
+                                                <Button
+                                                    Command="{Binding ChooseLocalSelfCommand}"
+                                                    Content="用本地"
+                                                    Classes="lp-flat"
+                                                    FontSize="12"
+                                                    Height="26" />
+                                                <TextBlock VerticalAlignment="Center" Classes="lp-subtle" Text="{Binding Choice}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="远端" />
+                                                <Border
+                                                    Height="110"
+                                                    Background="{DynamicResource LpSurfaceBrush}"
+                                                    BorderBrush="{DynamicResource LpCardBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6">
+                                                    <ScrollViewer Padding="8">
+                                                        <TextBlock
+                                                            FontFamily="Consolas, Cascadia Mono, Courier New"
+                                                            FontSize="12"
+                                                            Text="{Binding Remote}"
+                                                            TextWrapping="Wrap" />
+                                                    </ScrollViewer>
+                                                </Border>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontWeight="SemiBold" Text="本地" />
+                                                <Border
+                                                    Height="110"
+                                                    Background="{DynamicResource LpSurfaceBrush}"
+                                                    BorderBrush="{DynamicResource LpCardBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6">
+                                                    <ScrollViewer Padding="8">
+                                                        <TextBlock
+                                                            FontFamily="Consolas, Cascadia Mono, Courier New"
+                                                            FontSize="12"
+                                                            Text="{Binding Local}"
+                                                            TextWrapping="Wrap" />
+                                                    </ScrollViewer>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!--  Merged result  -->
+            <Border Grid.Column="1" Classes="lp-card" Padding="0">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Classes="lp-pane-header" Spacing="2">
+                        <TextBlock Classes="lp-pane-title" Text="合并结果" />
+                        <TextBlock Classes="lp-subtle" FontSize="12" Text="Alt+↑/↓ 导航，Alt+L 用本地，Alt+R 用远端" />
+                    </StackPanel>
+                    <Grid Grid.Row="1">
+                        <Grid.KeyBindings>
+                            <KeyBinding Command="{Binding NextConflictCommand}" Gesture="Alt+Down" />
+                            <KeyBinding Command="{Binding PrevConflictCommand}" Gesture="Alt+Up" />
+                            <KeyBinding Command="{Binding AcceptCurrentRemoteCommand}" Gesture="Alt+R" />
+                            <KeyBinding Command="{Binding AcceptCurrentLocalCommand}" Gesture="Alt+L" />
+                        </Grid.KeyBindings>
+                        <ScrollViewer
+                            x:Name="MergedScroll"
+                            Padding="12"
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Auto">
+                            <TextBlock
+                                x:Name="MergedTextBlock"
+                                FontFamily="Consolas, Cascadia Mono, Courier New"
+                                FontSize="12"
+                                Text="{Binding MergedText}"
+                                TextWrapping="Wrap" />
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+    </Grid>
+</u:UrsaWindow>

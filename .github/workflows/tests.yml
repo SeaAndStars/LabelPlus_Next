@@ -1,0 +1,114 @@
+name: CI - Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: dotnet test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+
+      - name: .NET Info
+        run: dotnet --info
+
+      - name: Restore
+        run: dotnet restore LabelPlus_Next.sln
+
+  # Skip building the whole solution to avoid platform-specific Desktop host failing on non-Windows runners
+  # dotnet test below will build required projects for the test project
+
+      - name: Install tools (reportgenerator, dotnet-coverage)
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          dotnet tool install -g dotnet-coverage
+
+      - name: Test + Coverage (dotnet-coverage)
+        shell: bash
+        run: |
+          set -e
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet-coverage collect \
+            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --filter \"FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests\" --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
+            -f cobertura \
+            -o TestResults/Coverage/coverage.cobertura.xml
+
+      - name: Generate coverage report (Markdown + HTML)
+        shell: bash
+        run: |
+          set -e
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator -reports:TestResults/Coverage/coverage.cobertura.xml -targetdir:coveragereport -reporttypes:"MarkdownSummary;Html"
+          echo "## Code Coverage (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+          if [ -f coveragereport/Summary.md ]; then
+            cat coveragereport/Summary.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            TestResults/**/*.trx
+            LabelPlus_Next.Test/TestResults/**/*.trx
+          if-no-files-found: ignore
+
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary-${{ matrix.os }}
+          path: coveragereport/Summary.md
+          if-no-files-found: ignore
+
+  pr-comment:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Compose PR comment
+        id: compose
+        shell: bash
+        run: |
+          set -e
+          outfile=PR_Comment.md
+          echo "# 测试结果与覆盖率" > "$outfile"
+          for os in ubuntu-latest windows-latest macos-latest; do
+            f="artifacts/coverage-summary-$os/Summary.md"
+            if [ -f "$f" ]; then
+              echo "\n## $os" >> "$outfile"
+              cat "$f" >> "$outfile"
+            fi
+          done
+          echo "comment_path=$outfile" >> $GITHUB_OUTPUT
+
+      - name: Post sticky PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: ${{ steps.compose.outputs.comment_path }}

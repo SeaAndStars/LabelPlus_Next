@@ -1,0 +1,109 @@
+<UserControl
+    x:Class="LabelPlus_Next.Views.Pages.UploadPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    d:DesignHeight="800"
+    d:DesignWidth="960"
+    x:DataType="vm:UploadViewModel"
+    mc:Ignorable="d">
+    <Grid Margin="20" RowDefinitions="Auto,*" RowSpacing="12">
+        <!--  Header / project picker  -->
+        <Border Classes="lp-card" Padding="16">
+            <Grid ColumnDefinitions="Auto,360,*,Auto" ColumnSpacing="12">
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Classes="lp-page-title" FontSize="18" Text="上传" />
+                    <TextBlock Classes="lp-subtle" FontSize="12" Text="{Binding Status}" />
+                </StackPanel>
+                <u:AutoCompleteBox
+                    Grid.Column="1"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    ItemsSource="{Binding Suggestions}"
+                    MinimumPrefixLength="0"
+                    Text="{Binding SelectedProject, Mode=TwoWay}"
+                    PlaceholderText="选择要上传到的项目" />
+                <StackPanel
+                    Grid.Column="3"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button Command="{Binding PickUploadFolderCommand}" Content="上传文件夹" />
+                    <Button Command="{Binding PickUploadFilesCommand}" Content="上传文件" />
+                    <Button Command="{Binding AddProjectCommand}" Content="新增项目" Classes="lp-flat" />
+                    <Button Command="{Binding RefreshCommand}" Content="刷新" Classes="lp-flat" />
+                    <Button Command="{Binding OpenSettingsCommand}" Content="设置" Classes="lp-flat" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="12">
+            <!--  Projects  -->
+            <Border Classes="lp-card" Padding="0">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Margin="14,10" ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="lp-pane-title" Text="项目" />
+                        <TextBlock Grid.Column="1" Classes="lp-subtle" FontSize="12"
+                                   Text="{Binding Projects.Count, StringFormat={}{0} 个}" />
+                    </Grid>
+                    <ListBox
+                        Grid.Row="1"
+                        BorderThickness="0"
+                        ItemsSource="{Binding Projects}"
+                        SelectedItem="{Binding SelectedProject, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock
+                                    Padding="6,4"
+                                    Text="{Binding}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!--  Upload guidance  -->
+            <Border Grid.Column="1" Classes="lp-card">
+                <Grid RowDefinitions="*,Auto" RowSpacing="16">
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="460"
+                        Spacing="12">
+                        <PathIcon
+                            Width="40"
+                            Height="40"
+                            Data="{StaticResource SemiIconSend}"
+                            Foreground="{DynamicResource LpPrimaryBrush}" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Classes="lp-section-title"
+                            Text="选择项目后上传文件" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Classes="lp-subtle"
+                            Text="上传前会自动解析卷、番外与话数，并按规范目录写入；覆盖旧文件前会备份，可随时回退。"
+                            TextAlignment="Center" />
+                        <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                            <Button Command="{Binding PickUploadFilesCommand}" Content="选择文件" />
+                            <Button Command="{Binding PickUploadFolderCommand}" Classes="lp-primary" Content="选择文件夹" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Spacing="8">
+                        <TextBlock Classes="lp-subtle" FontSize="12" Text="{Binding CurrentUploadingPath}" TextTrimming="CharacterEllipsis" />
+                        <ProgressBar
+                            Height="6"
+                            Maximum="{Binding UploadTotal}"
+                            Minimum="0"
+                            Value="{Binding UploadCompleted}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

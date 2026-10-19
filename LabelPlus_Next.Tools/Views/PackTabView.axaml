@@ -1,0 +1,82 @@
+﻿<UserControl
+    x:Class="LabelPlus_Next.Tools.Views.PackTabView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:LabelPlus_Next.Tools.ViewModels"
+    x:DataType="vm:PackWindowViewModel"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <vm:PackWindowViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12">
+            <TextBlock Text="选择要打包的目录 (内含 Client.version.json / settings.json)；留空表示自动构建多平台" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Width="600" Text="{Binding SelectedFolder}" />
+                <Button Content="浏览目录" Click="OnBrowseFolderClick" />
+            </StackPanel>
+
+            <TextBlock Text="或指定解决方案 .sln（可选，用于先 restore/build 整个解决方案）"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Width="600" Text="{Binding SolutionPath}" />
+                <Button Content="浏览解决方案" Click="OnBrowseSolutionClick" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="Project:" />
+                <TextBlock Text="{Binding Project}" />
+                <TextBlock Text="Version:" Margin="24 0 0 0" />
+                <TextBlock Text="{Binding Version}" />
+            </StackPanel>
+
+            <!-- Publish options -->
+            <Border BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="目标平台 (RID)" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <CheckBox Content="win-x64" IsChecked="{Binding WinX64}"/>
+                        <CheckBox Content="win-arm64" IsChecked="{Binding WinArm64}"/>
+                        <CheckBox Content="linux-x64" IsChecked="{Binding LinuxX64}"/>
+                        <CheckBox Content="linux-arm64" IsChecked="{Binding LinuxArm64}"/>
+                        <CheckBox Content="osx-x64" IsChecked="{Binding OsxX64}"/>
+                        <CheckBox Content="osx-arm64" IsChecked="{Binding OsxArm64}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="发布选项" FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <CheckBox Content="SelfContained" IsChecked="{Binding SelfContained}"/>
+                        <CheckBox Content="SingleFile" IsChecked="{Binding SingleFile}"/>
+                        <CheckBox Content="PublishTrimmed" IsChecked="{Binding PublishTrimmed}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="生成并上传" Command="{Binding BuildAndUploadCommand}" />
+                <TextBlock Text="{Binding Status}" />
+            </StackPanel>
+
+            <!-- Progress -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding CurrentTask}" />
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding CurrentProgress}" Height="10" />
+            </StackPanel>
+
+            <StackPanel>
+                <TextBlock Text="Zip:" />
+                <TextBlock TextWrapping="Wrap" Text="{Binding ZipPath}" />
+                <TextBlock Text="Manifest:" Margin="0 8 0 0" />
+                <TextBlock TextWrapping="Wrap" Text="{Binding ManifestPath}" />
+                <TextBlock Text="URL:" Margin="0 8 0 0" />
+                <TextBlock TextWrapping="Wrap" Text="{Binding ManifestUrl}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

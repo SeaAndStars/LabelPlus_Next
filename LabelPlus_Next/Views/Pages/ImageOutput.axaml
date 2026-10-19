@@ -1,84 +1,85 @@
-﻿<Window
-    Height="250"
-    Title="Image Output"
-    Width="300"
-    d:DesignHeight="250"
-    d:DesignWidth="300"
-    mc:Ignorable="d"
+<u:UrsaWindow
     x:Class="LabelPlus_Next.Views.Pages.ImageOutput"
     xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:lang1="clr-namespace:LabelPlus_Next.Lang"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:u="https://irihi.tech/ursa"
+    Title="导出图片"
+    WindowStartupLocation="CenterOwner"
+    Width="400"
+    Height="394"
+    d:DesignHeight="394"
+    d:DesignWidth="400"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
+    mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="导出图片" />
 
-    <Grid
-        ColumnDefinitions="5* 1* 5*"
-        RowDefinitions="5* 15* 10* 10* 10*"
-        ShowGridLines="False">
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <StackPanel Spacing="2">
+            <TextBlock Classes="lp-page-title" Text="导出图片" />
+            <TextBlock Classes="lp-subtle" Text="将当前译文渲染到图片后导出。" />
+        </StackPanel>
 
-        <TextBlock
-            FontSize="15"
-            Grid.Column="0"
-            Grid.Row="1 "
-            Text="{I18N {x:Static lang1:LangKeys.labelOutputFormat}}" />
-        <Grid
-            ColumnDefinitions="* *"
-            Grid.Column="2"
-            Grid.Row="1"
-            RowDefinitions="* *"
-            ShowGridLines="False">
-            <RadioButton
-                Content="PNG"
-                FontSize="15"
-                HorizontalAlignment="Left"
-                IsChecked="True" />
-            <RadioButton
-                Content="JPG"
-                FontSize="15"
-                Grid.Column="1"
-                Grid.Row="0"
-                HorizontalAlignment="Left" />
-            <CheckBox
-                Content="{I18N {x:Static lang1:LangKeys.checkBoxJumpNoNum}}"
-                FontSize="14"
-                Grid.Column="0"
-                Grid.ColumnSpan="2"
-                Grid.Row="1" />
+        <Border Grid.Row="1" Classes="lp-card">
+            <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="14">
+                <TextBlock
+                    Grid.Row="0"
+                    VerticalAlignment="Center"
+                    Text="{I18N {x:Static lang1:LangKeys.labelOutputFormat}}" />
+                <StackPanel
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="16">
+                    <RadioButton
+                        Content="PNG"
+                        IsChecked="True" />
+                    <RadioButton Content="JPG" />
+                </StackPanel>
 
-        </Grid>
-        <TextBlock
-            FontSize="15"
-            Grid.Column="0"
-            Grid.Row="2"
-            HorizontalAlignment="Left"
-            Margin="0,15,0,0"
-            Text="{I18N {x:Static lang1:LangKeys.labelZoom}}" />
-        <MaskedTextBox
-            FontSize="15"
-            Grid.Column="2"
-            Grid.Row="2"
-            Mask="0.00"
-            Text="1.00" />
+                <TextBlock
+                    Grid.Row="1"
+                    VerticalAlignment="Center"
+                    Text="{I18N {x:Static lang1:LangKeys.labelZoom}}" />
+                <MaskedTextBox
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    HorizontalAlignment="Left"
+                    Width="120"
+                    Mask="0.00"
+                    Text="1.00" />
 
-        <Button
-            Content="{I18N {x:Static lang1:LangKeys.button_start}}"
-            Grid.Column="0"
-            Grid.Row="3"
-            MinWidth="100" />
-        <Button
-            Content="{I18N {x:Static lang1:LangKeys.buttonAbort}}"
-            Foreground="Red"
-            Grid.Column="2"
-            Grid.Row="3"
-            MinWidth="100" />
+                <CheckBox
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    Content="{I18N {x:Static lang1:LangKeys.checkBoxJumpNoNum}}" />
+            </Grid>
+        </Border>
 
-        <ProgressBar
-            Grid.Column="0"
-            Grid.ColumnSpan="3"
-            Grid.Row="4"
-            MaxWidth="200"
-            Name="ProgressBar"
-            ShowProgressText="True" />
+        <StackPanel Grid.Row="2" Spacing="10">
+            <ProgressBar
+                x:Name="ProgressBar"
+                Height="6"
+                MaxWidth="360"
+                HorizontalAlignment="Stretch"
+                ShowProgressText="True" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                <Button
+                    Classes="lp-danger"
+                    Content="{I18N {x:Static lang1:LangKeys.buttonAbort}}"
+                    MinWidth="96" />
+                <Button
+                    Classes="lp-primary"
+                    Content="{I18N {x:Static lang1:LangKeys.button_start}}"
+                    MinWidth="96" />
+            </StackPanel>
+        </StackPanel>
     </Grid>
-</Window>
+    </Grid>
+</u:UrsaWindow>

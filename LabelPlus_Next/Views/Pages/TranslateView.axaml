@@ -1,0 +1,364 @@
+<UserControl
+    x:Class="LabelPlus_Next.Views.Pages.TranslateView"
+    xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
+    xmlns:customControls="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dataGrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:local="clr-namespace:LabelPlus_Next.Converters"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+    d:DesignHeight="650"
+    d:DesignWidth="1000"
+    x:DataType="viewModels:TranslateViewModel"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <local:CategoryToColorConverter x:Key="CategoryToColorConverter" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Remove hover highlight and blue focus border for the bottom-right TextBox -->
+        <Style Selector="TextBox#LabelTextBox">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox#LabelTextBox:pointerover">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox#LabelTextBox:focus">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox#LabelTextBox:focus:pointerover">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+
+        <!-- 拖拽插入位置高亮：为 DataGrid 行添加上/下边框提示 -->
+        <Style Selector="dataGrid|DataGrid dataGrid|DataGridRow.drop-before">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="BorderThickness" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="dataGrid|DataGrid dataGrid|DataGridRow.drop-after">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*" RowSpacing="10">
+        <!--  顶部应用栏  -->
+        <Border Classes="lp-card lp-bar">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button Classes="lp-flat" Content="{I18N {x:Static lang:LangKeys.fileToolStripMenuItem}}">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                <MenuItem Command="{Binding NewTranslationCommandCommand}"
+                                          Header="{I18N {x:Static lang:LangKeys.newToolStripMenuItem}}">
+                                    <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconFile}" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Command="{Binding OpenTranslationFileCommandCommand}"
+                                          Header="{I18N {x:Static lang:LangKeys.openToolStripMenuItem}}">
+                                    <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconFolderOpen}" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="-" />
+                                <MenuItem Command="{Binding SaveCurrentCommandCommand}"
+                                          Header="{I18N {x:Static lang:LangKeys.saveProjectSToolStripMenuItem}}">
+                                    <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconSave}" /></MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Command="{Binding SaveAsCommandCommand}"
+                                          Header="{I18N {x:Static lang:LangKeys.saveAsDToolStripMenuItem}}" />
+                                <MenuItem Header="-" />
+                                <MenuItem Command="{Binding OpenTranslationFolderCommand}" Header="打开翻译文件夹">
+                                    <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconFolder}" /></MenuItem.Icon>
+                                </MenuItem>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Button Classes="lp-flat" Click="Imagine_manager_OnClick" Content="{I18N {x:Static lang:LangKeys.imageToolStripMenuItem}}" />
+                    <Button Classes="lp-flat" Content="{I18N {x:Static lang:LangKeys.outputPToolStripMenuItem}}">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                <MenuItem Header="{I18N {x:Static lang:LangKeys.outputAllToolStripMenuItem}}">
+                                    <MenuItem.Icon><PathIcon Data="{StaticResource SemiIconExport}" /></MenuItem.Icon>
+                                </MenuItem>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Button Classes="lp-flat" Click="OnAboutClick" Content="{I18N {x:Static lang:LangKeys.helpAToolStripMenuItem}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconLanguage}" Foreground="{DynamicResource LpSubtleText}"
+                              ToolTip.Tip="{I18N {x:Static lang:LangKeys.languageblock}}" />
+                    <ComboBox
+                        Name="LangComboBox"
+                        MinWidth="110"
+                        VerticalAlignment="Center"
+                        ItemsSource="{Binding LangList}"
+                        SelectedItem="default"
+                        SelectionChanged="LangComboBox_OnSelectionChanged" />
+                    <u:ThemeToggleButton IsThreeState="True" ToolTip.Tip="切换主题" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  主内容：图片 | 标签，可拖动中间分隔调整宽度  -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,10,*">
+            <!--  图片区域  -->
+            <Border Classes="lp-card lp-pane">
+                <Grid Name="PictureView" RowDefinitions="Auto,*,Auto">
+                    <Grid Classes="lp-pane-header" ColumnDefinitions="Auto,*">
+                        <!--  模式切换（分段控件）  -->
+                        <Border Classes="lp-segment" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Browse}"
+                                             Content="{I18N {x:Static lang:LangKeys.toolStripButton_BrowseMode}}" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Label}"
+                                             Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditLabelMode}}" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Input}"
+                                             Content="{I18N {x:Static lang:LangKeys.toolStripButton_InputMode}}" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}"
+                                             IsChecked="{Binding #Pic.Mode, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Check}"
+                                             Content="{I18N {x:Static lang:LangKeys.toolStripButton_CheckMode}}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="1" Classes="lp-canvas">
+                        <customControls:PicViewer
+                            x:Name="Pic"
+                            Labels="{Binding CurrentLabels}"
+                            RenderOptions.BitmapInterpolationMode="HighQuality"
+                            SelectedLabel="{Binding SelectedLabel, Mode=TwoWay}"
+                            Source="{Binding PicImageSource, Mode=TwoWay}" />
+                    </Border>
+
+                    <Grid Grid.Row="2" Classes="lp-pane-footer" ColumnDefinitions="Auto,*,Auto">
+                        <Border Classes="lp-zoom-box">
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="0">
+                                <PathIcon
+                                    Width="13"
+                                    Height="13"
+                                    Margin="7,0,3,0"
+                                    Data="{StaticResource SemiIconSearch}"
+                                    Foreground="{DynamicResource LpSubtleText}" />
+                                <Button
+                                    Classes="lp-icon-btn"
+                                    Click="ZoomOut_OnClick"
+                                    Content="−"
+                                    FontSize="14"
+                                    ToolTip.Tip="缩小" />
+                                <Button
+                                    Classes="lp-zoom-value"
+                                    Click="ZoomReset_OnClick"
+                                    ToolTip.Tip="重置为 100%">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding #Pic.Scale, StringFormat={}{0:P0}}" />
+                                </Button>
+                                <Button
+                                    Classes="lp-icon-btn"
+                                    Click="ZoomIn_OnClick"
+                                    Content="+"
+                                    FontSize="14"
+                                    ToolTip.Tip="放大" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronLeft}"
+                                          Click="PrevImage_OnClick" ToolTip.Tip="上一张" />
+                            <ComboBox
+                                Name="ImageFileNamesComboBox"
+                                MinWidth="180"
+                                MaxWidth="320"
+                                ItemsSource="{Binding ImageFileNames}"
+                                PlaceholderText="选择图片"
+                                SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
+                            <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronRight}"
+                                          Click="NextImage_OnClick" ToolTip.Tip="下一张" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Classes="lp-splitter" ResizeDirection="Columns" />
+
+            <!--  标签列表 + 文本  -->
+            <Border Grid.Column="2" Classes="lp-card lp-pane">
+                <Grid Name="LabelView" RowDefinitions="Auto,*,10,*">
+                    <Border BorderBrush="{DynamicResource LpCardBorderBrush}" BorderThickness="0,0,0,1">
+                        <Grid Margin="14,8" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <!--  分类图例：点击即可将所选标签设为对应分类  -->
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
+                                <Button
+                                    Classes="lp-cat-chip inner"
+                                    Classes.active="{Binding SelectedLabel.CategoryString, Converter={x:Static local:StringEqualsConverter.Instance}, ConverterParameter=框内}"
+                                    Click="CategoryInner_OnClick"
+                                    ToolTip.Tip="将所选标签设为框内（快捷键 1）">
+                                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource LpInnerDotBrush}" />
+                                        <TextBlock FontSize="12" Text="框内" />
+                                        <Border Classes="lp-keycap">
+                                            <TextBlock Text="1" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Classes="lp-cat-chip outer"
+                                    Classes.active="{Binding SelectedLabel.CategoryString, Converter={x:Static local:StringEqualsConverter.Instance}, ConverterParameter=框外}"
+                                    Click="CategoryOuter_OnClick"
+                                    ToolTip.Tip="将所选标签设为框外（快捷键 2）">
+                                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource LpOuterDotBrush}" />
+                                        <TextBlock FontSize="12" Text="框外" />
+                                        <Border Classes="lp-keycap">
+                                            <TextBlock Text="2" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+                                <Border
+                                    VerticalAlignment="Center"
+                                    Classes="lp-tag lp-count-tag">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Text="{Binding CurrentLabels.Count, StringFormat={}{0} 个标签}" />
+                                </Border>
+                            </StackPanel>
+
+                            <!--  操作：添加、删除、撤销、文件设置  -->
+                            <StackPanel
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="6">
+                                <Button
+                                    Classes="lp-add"
+                                    Command="{Binding AddLabelCommand}"
+                                    ToolTip.Tip="添加标签">
+                                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
+                                        <PathIcon Width="12" Height="12" Data="{StaticResource SemiIconPlus}" Foreground="{Binding $parent[Button].Foreground}" />
+                                        <TextBlock FontSize="12" Text="添加" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Border Classes="lp-icon-group">
+                                    <StackPanel Orientation="Horizontal" Spacing="0">
+                                        <Button
+                                            Classes="lp-icon-btn danger"
+                                            Command="{Binding RemoveLabelCommand}"
+                                            IsEnabled="{Binding SelectedLabel, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                            ToolTip.Tip="删除所选标签">
+                                            <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconDelete}" Foreground="{Binding $parent[Button].Foreground}" />
+                                        </Button>
+                                        <Button
+                                            Classes="lp-icon-btn"
+                                            Command="{Binding UndoRemoveLabelCommand}"
+                                            ToolTip.Tip="撤销删除">
+                                            <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconUndo}" Foreground="{Binding $parent[Button].Foreground}" />
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+
+                                <Rectangle
+                                    Width="1"
+                                    Height="16"
+                                    Margin="2,0"
+                                    Fill="{DynamicResource LpCardBorderBrush}" />
+
+                                <Button
+                                    Height="28"
+                                    Padding="8,0"
+                                    Classes="lp-flat"
+                                    Click="FileSetting_OnClick"
+                                    CornerRadius="6"
+                                    Foreground="{DynamicResource LpSubtleText}"
+                                    FontSize="12"
+                                    ToolTip.Tip="文件设置">
+                                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="5">
+                                        <PathIcon Width="13" Height="13" Data="{StaticResource SemiIconSetting}" Foreground="{Binding $parent[Button].Foreground}" />
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource LpSubtleText}" Text="{I18N {x:Static lang:LangKeys.toolStripButton_FileSetting}}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <dataGrid:DataGrid
+                        x:Name="LabelsGrid"
+                        Grid.Row="1"
+                        Classes="lp-grid"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        AutoGenerateColumns="False"
+                        FontSize="14"
+                        ItemsSource="{Binding CurrentLabels}"
+                        RowHeight="48"
+                        SelectedItem="{Binding SelectedLabel, Mode=TwoWay}"
+                        SelectionMode="Single"
+                        DragDrop.AllowDrop="True">
+                        <dataGrid:DataGrid.Columns>
+                            <dataGrid:DataGridTextColumn
+                                Width="84"
+                                Binding="{Binding Index}"
+                                Header="编号"
+                                IsReadOnly="True" />
+                            <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="文本" SortMemberPath="Text">
+                                <dataGrid:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            MaxLines="2"
+                                            Text="{Binding Text}"
+                                            TextTrimming="CharacterEllipsis"
+                                            TextWrapping="Wrap"
+                                            ToolTip.Tip="{Binding Text}" />
+                                    </DataTemplate>
+                                </dataGrid:DataGridTemplateColumn.CellTemplate>
+                            </dataGrid:DataGridTemplateColumn>
+                            <dataGrid:DataGridTemplateColumn Width="96" Header="分类" SortMemberPath="CategoryString">
+                                <dataGrid:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Foreground="{Binding CategoryString, Converter={StaticResource CategoryToColorConverter}}"
+                                            Text="{Binding CategoryString}" />
+                                    </DataTemplate>
+                                </dataGrid:DataGridTemplateColumn.CellTemplate>
+                            </dataGrid:DataGridTemplateColumn>
+                        </dataGrid:DataGrid.Columns>
+                    </dataGrid:DataGrid>
+                    <GridSplitter Grid.Row="2" Classes="lp-splitter" ResizeDirection="Rows" />
+                    <Grid Grid.Row="3" RowDefinitions="Auto,*">
+                        <StackPanel Classes="lp-pane-header" Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconEdit}" Foreground="{DynamicResource LpSubtleText}" />
+                            <TextBlock Classes="lp-pane-title" Text="译文" />
+                            <TextBlock Classes="lp-subtle" VerticalAlignment="Center" FontSize="12"
+                                       Text="{Binding SelectedLabel.Index, StringFormat=#{0}, FallbackValue=''}" />
+                        </StackPanel>
+                        <TextBox
+                            x:Name="LabelTextBox"
+                            Grid.Row="1"
+                            MinHeight="120"
+                            Padding="14,4,14,14"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            VerticalContentAlignment="Top"
+                            AcceptsReturn="True"
+                            FontSize="20"
+                            PlaceholderText="选择一个标签后在此输入译文"
+                            Text="{Binding CurrentText, Mode=TwoWay}"
+                            TextAlignment="Start"
+                            TextWrapping="Wrap" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

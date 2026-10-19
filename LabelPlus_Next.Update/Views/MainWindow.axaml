@@ -1,0 +1,131 @@
+﻿<u:UrsaWindow
+    x:Class="LabelPlus_Next.Update.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.Update.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="using:LabelPlus_Next.Update.ViewModels"
+    Title="LabelPlus Next 更新"
+    Width="640"
+    Height="454"
+    MinWidth="520"
+    MinHeight="414"
+    d:DesignHeight="454"
+    d:DesignWidth="640"
+    x:DataType="vm:MainWindowViewModel"
+    Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
+    WindowStartupLocation="CenterScreen"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
+    mc:Ignorable="d">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <u:UrsaWindow.Styles>
+        <!--  入场动画：卡片淡入并上移  -->
+        <Style Selector="Border.card">
+            <Style.Animations>
+                <Animation FillMode="Forward" Easing="CubicEaseOut" Duration="0:0:0.45">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="TranslateTransform.Y" Value="16" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                        <Setter Property="TranslateTransform.Y" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <!--  下载/安装进行中时图标缓慢呼吸  -->
+        <Style Selector="u|Avatar.busy">
+            <Style.Animations>
+                <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="SineEaseInOut" Duration="0:0:1.2">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="ScaleTransform.ScaleY" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.94" />
+                        <Setter Property="ScaleTransform.ScaleY" Value="0.94" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="ProgressBar">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Easing="CubicEaseOut" Property="Value" Duration="0:0:0.25" />
+                </Transitions>
+            </Setter>
+        </Style>
+    </u:UrsaWindow.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="LabelPlus Next 更新" />
+
+        <Grid Grid.Row="1" Margin="24">
+        <Border
+            Classes="card"
+            Padding="28"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            Background="{DynamicResource SemiColorBackground1}"
+            BorderBrush="{DynamicResource SemiColorBorder}"
+            BorderThickness="1"
+            CornerRadius="16">
+            <StackPanel Spacing="16">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                    <u:Avatar
+                        Width="64"
+                        Height="64"
+                        Classes.busy="{Binding IsRunning}"
+                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                        <TextBlock FontSize="20" FontWeight="SemiBold">
+                            <Run Text="LabelPlus Next " />
+                            <Run Text="{Binding Version}" />
+                        </TextBlock>
+                        <TextBlock Foreground="{DynamicResource SemiColorText2}" Text="{Binding StatusText}" />
+                    </StackPanel>
+                </Grid>
+
+                <ProgressBar
+                    Height="8"
+                    CornerRadius="4"
+                    IsIndeterminate="{Binding IsIndeterminate}"
+                    Maximum="100"
+                    Value="{Binding ProgressPercentage}" />
+
+                <Grid ColumnDefinitions="*,*,*">
+                    <TextBlock
+                        Grid.Column="0"
+                        Foreground="{DynamicResource SemiColorText2}"
+                        Text="{Binding Speed, StringFormat=速度 {0:F2} MB/s}" />
+                    <TextBlock Grid.Column="1" HorizontalAlignment="Center" Foreground="{DynamicResource SemiColorText2}">
+                        <Run Text="{Binding BytesReceivedInMB, StringFormat=\{0:F1\}}" />
+                        <Run Text="/" />
+                        <Run Text="{Binding TotalBytesToReceiveInMB, StringFormat=\{0:F1\}}" />
+                        <Run Text=" MB" />
+                    </TextBlock>
+                    <TextBlock
+                        Grid.Column="2"
+                        HorizontalAlignment="Right"
+                        Foreground="{DynamicResource SemiColorText2}"
+                        Text="{Binding Remaining, StringFormat=剩余 {0:mm\\:ss}}" />
+                </Grid>
+
+                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="lp-danger" Command="{Binding StopCommand}" Content="取消" />
+                    <Button Classes="lp-primary" Command="{Binding RestartCommand}" Content="重试" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+    </Grid>
+</u:UrsaWindow>

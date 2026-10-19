@@ -1,0 +1,173 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.MainProjects"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
+    Title="最近项目"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False"
+    Width="1500"
+    Height="844"
+    d:DesignHeight="844"
+    d:DesignWidth="1500"
+    x:DataType="vm:MainProjectsViewModel"
+    mc:Ignorable="d">
+    <u:UrsaWindow.Styles>
+        <!-- Remove per-cell focus/selection border visuals -->
+        <Style Selector="#ProjectsGrid DataGridCell:selected">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="#ProjectsGrid DataGridCell:focus">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="#ProjectsGrid DataGridCell:selected:focus">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </u:UrsaWindow.Styles>
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="最近项目" />
+
+        <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,*" RowSpacing="16">
+        <!--  欢迎头部  -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+            <Image Width="52" Height="52" Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                <TextBlock Classes="lp-page-title" Text="LabelPlus Next" />
+                <TextBlock Classes="lp-subtle" Text="打开最近的项目，或新建一个开始翻译。" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button x:Name="ContinueNoProjectButton" Classes="lp-flat" Content="跳过，直接进入" />
+                <Button Command="{Binding OpenProjectCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconFolderOpen}" />
+                        <TextBlock Text="打开项目" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="lp-primary" Command="{Binding CreateProjectCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconPlus}" />
+                        <TextBlock Text="新建项目" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="3*,2*" ColumnSpacing="16">
+            <!--  最近项目  -->
+            <Border Classes="lp-card lp-pane">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Classes="lp-pane-header" ColumnDefinitions="*,Auto">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Classes="lp-pane-title" Text="最近项目" />
+                            <TextBlock Classes="lp-subtle" VerticalAlignment="Center" FontSize="12"
+                                       Text="{Binding RecentProjects.Count, StringFormat={}{0} 个项目}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                            <Button Classes="lp-flat" Command="{Binding OpenSelectedProjectCommand}" Content="打开所选"
+                                    IsEnabled="{Binding SelectedProject, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <u:IconButton x:Name="RemoveButton" Theme="{DynamicResource BorderlessIconButton}" Classes="Danger"
+                                          Icon="{StaticResource SemiIconDelete}" ToolTip.Tip="从列表移除所选"
+                                          IsEnabled="{Binding SelectedProject, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconRefresh}"
+                                          Command="{Binding RefreshRecentCommand}" ToolTip.Tip="刷新" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1">
+                    <DataGrid
+                        x:Name="ProjectsGrid"
+                        Classes="lp-grid"
+                        AutoGenerateColumns="False"
+                        CanUserReorderColumns="False"
+                        CanUserResizeColumns="False"
+                        CanUserSortColumns="True"
+                        IsReadOnly="True"
+                        ItemsSource="{Binding RecentProjects}"
+                        SelectedItem="{Binding SelectedProject}"
+                        DoubleTapped="ProjectsGrid_OnDoubleTapped">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="名称" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="翻译文件" Width="2*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock VerticalAlignment="Center" Opacity="0.7" TextWrapping="NoWrap" Text="{Binding TranslationFile}" TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding TranslationFile}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="最近打开" Width="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock VerticalAlignment="Center" Opacity="0.7" TextWrapping="NoWrap" Text="{Binding LastOpened, StringFormat={}{0:yyyy-MM-dd HH:mm}}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LastOpened}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        IsHitTestVisible="False"
+                        IsVisible="{Binding IsRecentEmpty}"
+                        Spacing="8">
+                        <PathIcon Width="32" Height="32" Data="{StaticResource SemiIconFolderOpen}"
+                                  Foreground="{DynamicResource LpSubtleText}" />
+                        <TextBlock HorizontalAlignment="Center" Classes="lp-section-title" Text="还没有最近项目" />
+                        <TextBlock HorizontalAlignment="Center" Classes="lp-subtle"
+                                   Text="点击右上角“新建项目”，或从磁盘打开一个翻译文件。" />
+                    </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!--  预览  -->
+            <Border Grid.Column="1" Classes="lp-card lp-pane">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid Classes="lp-pane-header" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource SemiIconEyeOpened}" Foreground="{DynamicResource LpSubtleText}" />
+                        <TextBlock Grid.Column="1" Classes="lp-pane-title" Text="预览" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="lp-subtle" FontSize="12" Text="只读 · 仅显示当前图片的标签" />
+                        <TextBlock Grid.Column="3" VerticalAlignment="Center" Classes="lp-subtle" FontSize="12" Text="{Binding PreviewStatus}" />
+                    </Grid>
+                    <Border Grid.Row="1" Classes="lp-canvas">
+                        <Grid>
+                            <cc:PicViewer Source="{Binding CurrentPreviewImage}" Labels="{Binding CurrentPreviewLabels}" IsReadOnly="True" Stretch="Uniform" />
+                            <StackPanel
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsHitTestVisible="False"
+                                IsVisible="{Binding CurrentPreviewImage, Converter={x:Static ObjectConverters.IsNull}}"
+                                Spacing="8">
+                                <PathIcon Width="32" Height="32" Data="{StaticResource SemiIconEyeOpened}"
+                                          Foreground="{DynamicResource LpSubtleText}" />
+                                <TextBlock HorizontalAlignment="Center" Classes="lp-subtle" Text="选择一个项目查看标注预览" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="2" Classes="lp-pane-footer" ColumnDefinitions="Auto,*,Auto">
+                        <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronLeft}"
+                                      Command="{Binding PrevPreviewCommand}" ToolTip.Tip="上一张" />
+                        <TextBlock Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Classes="lp-subtle"
+                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding CurrentPreviewFileName, TargetNullValue=选择项目以预览, FallbackValue=选择项目以预览}" />
+                        <u:IconButton Grid.Column="2" Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronRight}"
+                                      Command="{Binding NextPreviewCommand}" ToolTip.Tip="下一张" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+    </Grid>
+</u:UrsaWindow>

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
-using NLog;
+﻿using NLog;
 
 namespace LabelPlus_Next.Models;
 
@@ -26,7 +24,7 @@ public class LabelFileManager
 
         StoreManager.Store.Clear();
         foreach (var kvp in store)
-            StoreManager.Store[kvp.Key] = kvp.Value;
+            StoreManager.Store[kvp.Key] = kvp.Value ?? new List<LabelItem>();
 
         // Loaded from disk, clear dirty state
         StoreManager.ResetDirty();

@@ -1,0 +1,164 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.Windows.ProjectMetaDataWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
+    Title="确认上传话数"
+    WindowStartupLocation="CenterOwner"
+    Width="1400"
+    Height="834"
+    x:DataType="vm:UploadViewModel"
+    WindowDecorations="BorderOnly"
+    ExtendClientAreaToDecorationsHint="False"
+    IsTitleBarVisible="False">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="确认上传话数" />
+
+        <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
+        <Border Classes="lp-card" Padding="16">
+            <Grid ColumnDefinitions="Auto,320,*" ColumnSpacing="12">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Classes="lp-label"
+                    Text="项目" />
+                <TextBox
+                    Grid.Column="1"
+                    Height="32"
+                    Text="{Binding PendingProjectName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock
+                    Grid.Column="2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    Classes="lp-subtle"
+                    Text="勾选需要上传的话数与文件，展开可查看每个话数包含的文件。" />
+            </Grid>
+        </Border>
+
+        <Border
+            Grid.Row="1"
+            Classes="lp-card"
+            Padding="0">
+            <DataGrid
+                Background="Transparent"
+                BorderThickness="0"
+                CanUserReorderColumns="False"
+                CanUserResizeColumns="True"
+                CanUserSortColumns="False"
+                Classes="lp-grid"
+                GridLinesVisibility="None"
+                IsReadOnly="True"
+                ItemsSource="{Binding MetaRows}"
+                RowHeight="42">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="64" Header="包含">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:MetaNode">
+                                <CheckBox
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsChecked="{Binding Include, Mode=TwoWay}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Width="2*" Header="名称">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:MetaNode">
+                                <StackPanel
+                                    Margin="{Binding IndentMargin}"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Spacing="6">
+                                    <Button
+                                        Width="20"
+                                        Height="20"
+                                        Padding="0"
+                                        VerticalAlignment="Center"
+                                        Classes="lp-tree-toggle"
+                                        Command="{Binding ToggleCommand}"
+                                        Content="{Binding ChevronGlyph}"
+                                        FontSize="13"
+                                        IsVisible="{Binding HasChildren}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Name}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn
+                        Width="90"
+                        Binding="{Binding Status}"
+                        Header="状态" />
+                    <DataGridTextColumn
+                        Width="130"
+                        Binding="{Binding Display}"
+                        Header="显示名" />
+                    <DataGridTextColumn
+                        Width="100"
+                        Binding="{Binding Owner}"
+                        Header="负责人" />
+                    <DataGridTextColumn
+                        Width="110"
+                        Binding="{Binding RangeDisplay}"
+                        Header="范围" />
+                    <DataGridTextColumn
+                        Width="120"
+                        Binding="{Binding Tags}"
+                        Header="标签" />
+                    <DataGridTextColumn
+                        Width="2*"
+                        Binding="{Binding Notes}"
+                        Header="备注" />
+                    <DataGridTextColumn
+                        Width="72"
+                        Binding="{Binding LocalFileCountDisplay}"
+                        Header="文件数" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!--  Progress area  -->
+        <Border
+            Grid.Row="2"
+            Classes="lp-card"
+            Padding="16">
+            <StackPanel Spacing="8">
+                <TextBlock Classes="lp-subtle" Text="{Binding Status}" />
+                <ProgressBar
+                    Height="6"
+                    Maximum="{Binding UploadTotal}"
+                    Minimum="0"
+                    Value="{Binding UploadCompleted}" />
+                <TextBlock
+                    FontSize="12"
+                    Foreground="{DynamicResource LpSubtleText}"
+                    Text="{Binding CurrentUploadingPath}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel
+            Grid.Row="3"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                Height="32"
+                Command="{Binding CancelMetaCommand}"
+                Content="取消"
+                Classes="lp-flat" />
+            <Button
+                Height="32"
+                Classes="lp-primary"
+                Command="{Binding ConfirmMetaCommand}"
+                Content="开始上传"
+                IsDefault="True" />
+        </StackPanel>
+    </Grid>
+    </Grid>
+</u:UrsaWindow>
