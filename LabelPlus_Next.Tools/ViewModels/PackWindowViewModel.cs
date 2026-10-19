@@ -337,12 +337,11 @@ public partial class PackWindowViewModel : ObservableObject
                 if (putRes.Count == 0 || putRes[0].Code != 200)
                 {
                     var code = putRes.Count > 0 ? putRes[0].Code : -1;
-                    var message = putRes.Count > 0 ? putRes[0].Message : null;
                     var sizeMb = zipInfo.Length / 1024d / 1024d;
-                    Logger.Warn("Pack zip upload failed: code={code}, message={message}, size={size} bytes", code, message, zipInfo.Length);
+                    Logger.Warn("Pack zip upload failed: code={code}, size={size} bytes", code, zipInfo.Length);
                     Status = code == 413
                         ? $"上传失败: 413 文件过大（{sizeMb:F1} MB）。请提高 OpenList/反向代理的上传上限，或减小打包体积"
-                        : $"上传失败: {code}{(string.IsNullOrWhiteSpace(message) ? string.Empty : $" {message}")}";
+                        : $"上传失败: {code}";
                     return;
                 }
 
@@ -506,12 +505,11 @@ public partial class PackWindowViewModel : ObservableObject
                 if (put.Count == 0 || put[0].Code != 200)
                 {
                     var code = put.Count > 0 ? put[0].Code : -1;
-                    var message = put.Count > 0 ? put[0].Message : null;
                     var sizeMb = a.Size / 1024d / 1024d;
-                    Logger.Warn("Pack artifact upload failed: file={file}, code={code}, message={message}, size={size} bytes", name, code, message, a.Size);
+                    Logger.Warn("Pack artifact upload failed: file={file}, code={code}, size={size} bytes", name, code, a.Size);
                     Status = code == 413
                         ? $"上传失败: 413 文件过大（{name}, {sizeMb:F1} MB）。请提高 OpenList/反向代理的上传上限，或减小打包体积"
-                        : $"上传失败: {name} ({code}){(string.IsNullOrWhiteSpace(message) ? string.Empty : $" {message}")}";
+                        : $"上传失败: {name} ({code})";
                     return;
                 }
                 uploaded.Add((a.Project, a.Version, new ReleaseFile { Name = name, Url = url, Size = a.Size, Sha256 = a.Sha256 }));

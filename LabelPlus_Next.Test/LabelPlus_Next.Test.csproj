@@ -1,4 +1,4 @@
-﻿<Project Sdk="MSTest.Sdk/3.6.4">
+<Project Sdk="MSTest.Sdk/3.6.4">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -12,6 +12,10 @@
         <PackageReference Include="Downloader"/>
         <PackageReference Include="RestSharp"/>
         <PackageReference Include="Newtonsoft.Json"/>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
     <ItemGroup>

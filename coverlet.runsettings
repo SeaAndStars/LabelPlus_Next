@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[LabelPlus_Next]LabelPlus_Next.Models*,[LabelPlus_Next]LabelPlus_Next.Converters*,[LabelPlus_Next]LabelPlus_Next.ViewModels*,[LabelPlus_Next]LabelPlus_Next.Services*,[LabelPlus_Next]LabelPlus_Next.Shared*,[LabelPlus_Next]LabelPlus_Next.DeeplinkClients*,[LabelPlus_Next.Tools]LabelPlus_Next.Tools.Models*,[LabelPlus_Next.Tools]LabelPlus_Next.Tools.Services*,[LabelPlus_Next.Tools]LabelPlus_Next.Tools.ViewModels*</Include>
+          <Exclude>[LabelPlus_Next]LabelPlus_Next.Services.AvaloniaFileDialogService*,[LabelPlus_Next]LabelPlus_Next.Services.BitmapCache*,[LabelPlus_Next]LabelPlus_Next.Services.TopLevelProvider*,[LabelPlus_Next]LabelPlus_Next.Services.UrlSchemeRegistrar*,[LabelPlus_Next]LabelPlus_Next.Shared.WindowChrome*,[LabelPlus_Next]LabelPlus_Next.Serialization*</Exclude>
+          <ExcludeByAttribute>ExcludeFromCodeCoverage,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+          <SkipAutoProps>true</SkipAutoProps>
+          <DeterministicReport>true</DeterministicReport>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

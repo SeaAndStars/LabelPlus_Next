@@ -38,28 +38,33 @@ jobs:
   # Skip building the whole solution to avoid platform-specific Desktop host failing on non-Windows runners
   # dotnet test below will build required projects for the test project
 
-      - name: Install tools (reportgenerator, dotnet-coverage)
-        run: |
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          dotnet tool install -g dotnet-coverage
+      - name: Install tools (reportgenerator)
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
-      - name: Test + Coverage (dotnet-coverage)
+      - name: Test + coverage (coverlet, core scope)
         shell: bash
         run: |
           set -e
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet-coverage collect \
-            "dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release --filter \"FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests\" --logger \"trx;LogFileName=test_results.trx\" --results-directory ./TestResults" \
-            -f cobertura \
-            -o TestResults/Coverage/coverage.cobertura.xml
+          dotnet test LabelPlus_Next.Test/LabelPlus_Next.Test.csproj -c Release \
+            --filter "FullyQualifiedName!~Test1&FullyQualifiedName!~AuthApiTests" \
+            --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
+            --logger "trx;LogFileName=test_results.trx" \
+            --results-directory ./TestResults
+
+          COVERAGE_FILE=$(find TestResults -name coverage.cobertura.xml | head -1)
+          LINE_RATE=$(grep -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | head -1 | grep -o '[0-9.]*')
+          echo "Core line coverage: $LINE_RATE (target 100%)"
+          echo "CORE_LINE_COVERAGE=$LINE_RATE" >> "$GITHUB_ENV"
 
       - name: Generate coverage report (Markdown + HTML)
         shell: bash
         run: |
           set -e
           export PATH="$PATH:$HOME/.dotnet/tools"
-          reportgenerator -reports:TestResults/Coverage/coverage.cobertura.xml -targetdir:coveragereport -reporttypes:"MarkdownSummary;Html"
+          reportgenerator -reports:TestResults/**/coverage.cobertura.xml -targetdir:coveragereport -reporttypes:"MarkdownSummary;Html"
           echo "## Code Coverage (${{ matrix.os }})" >> $GITHUB_STEP_SUMMARY
+          echo "Core line coverage: **$CORE_LINE_COVERAGE** (target: 100%)" >> $GITHUB_STEP_SUMMARY
           if [ -f coveragereport/Summary.md ]; then
             cat coveragereport/Summary.md >> $GITHUB_STEP_SUMMARY
           fi
