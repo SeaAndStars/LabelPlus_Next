@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -121,7 +121,15 @@ public class EdgeCoverageTests
         Assert.IsTrue(ToolsSettingsStore.DefaultPath.EndsWith("tools.settings.json", StringComparison.OrdinalIgnoreCase));
         var dirAsFile = Path.Combine(_dir, "blocked");
         Directory.CreateDirectory(dirAsFile);
-        Assert.ThrowsException<IOException>(() => ToolsSettingsStore.Save(dirAsFile, new ToolsSettings()));
+        try
+        {
+            ToolsSettingsStore.Save(dirAsFile, new ToolsSettings());
+            Assert.Fail("saving to a directory should fail");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Linux/macOS surface IOException; Windows surfaces UnauthorizedAccessException.
+        }
         Assert.AreEqual(0, Directory.GetFiles(_dir, "*.tmp").Length); // the temp file is cleaned up
     }
 
