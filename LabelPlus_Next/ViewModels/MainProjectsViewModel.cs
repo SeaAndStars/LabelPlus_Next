@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -43,12 +43,24 @@ public class MainProjectsViewModel : ViewModelBase
 
     public MainProjectsViewModel() : this(App.Services.GetRequiredService<IFileDialogService>()) { }
 
-    public MainProjectsViewModel(IFileDialogService dialogs)
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    public MainProjectsViewModel(IFileDialogService dialogs) : this(dialogs, null) { }
+
+    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath)
     {
         _dialogs = dialogs;
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
-        Directory.CreateDirectory(dir);
-        _recentStorePath = Path.Combine(dir, "recent_projects.json");
+        if (string.IsNullOrWhiteSpace(recentStorePath))
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
+            Directory.CreateDirectory(dir);
+            _recentStorePath = Path.Combine(dir, "recent_projects.json");
+        }
+        else
+        {
+            _recentStorePath = recentStorePath;
+            var dir = Path.GetDirectoryName(recentStorePath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        }
         LoadRecent();
         RecentProjects.CollectionChanged += (_, __) => OnPropertyChanged(nameof(IsRecentEmpty));
         CreateProjectCommand = new AsyncRelayCommand(CreateProjectAsync);

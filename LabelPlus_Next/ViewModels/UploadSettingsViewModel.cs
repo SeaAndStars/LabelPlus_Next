@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
@@ -15,18 +15,20 @@ public partial class UploadSettingsViewModel : ObservableObject
     [ObservableProperty] private string? password;
     [ObservableProperty] private string? username;
 
-    public UploadSettingsViewModel()
+    private readonly string _settingsPath;
+
+    public UploadSettingsViewModel() : this(null) { }
+
+    public UploadSettingsViewModel(string? settingsPath)
     {
+        _settingsPath = string.IsNullOrWhiteSpace(settingsPath)
+            ? Path.Combine(AppContext.BaseDirectory, "upload.json")
+            : settingsPath;
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         _ = LoadAsync();
     }
 
     public IAsyncRelayCommand SaveCommand { get; }
-
-    private static string SettingsPath
-    {
-        get => Path.Combine(AppContext.BaseDirectory, "upload.json");
-    }
 
     public event EventHandler? RefreshRequested;
 
@@ -34,9 +36,9 @@ public partial class UploadSettingsViewModel : ObservableObject
     {
         try
         {
-            if (File.Exists(SettingsPath))
+            if (File.Exists(_settingsPath))
             {
-                await using var fs = File.OpenRead(SettingsPath);
+                await using var fs = File.OpenRead(_settingsPath);
                 var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
                 if (s != null)
                 {
@@ -48,15 +50,15 @@ public partial class UploadSettingsViewModel : ObservableObject
         }
         catch (IOException ex)
         {
-            Logger.Warn(ex, "Failed to read upload settings from {path}", SettingsPath);
+            Logger.Warn(ex, "Failed to read upload settings from {path}", _settingsPath);
         }
         catch (UnauthorizedAccessException ex)
         {
-            Logger.Warn(ex, "Access denied reading upload settings from {path}", SettingsPath);
+            Logger.Warn(ex, "Access denied reading upload settings from {path}", _settingsPath);
         }
         catch (JsonException ex)
         {
-            Logger.Warn(ex, "Upload settings file contains invalid JSON: {path}", SettingsPath);
+            Logger.Warn(ex, "Upload settings file contains invalid JSON: {path}", _settingsPath);
         }
     }
 
@@ -65,23 +67,23 @@ public partial class UploadSettingsViewModel : ObservableObject
         try
         {
             var s = new UploadSettings { BaseUrl = BaseUrl, Username = Username, Password = Password };
-            await using var fs = File.Create(SettingsPath);
+            await using var fs = File.Create(_settingsPath);
             await JsonSerializer.SerializeAsync(fs, s, AppJsonContext.Default.UploadSettings);
             RefreshRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (IOException ex)
         {
-            Logger.Error(ex, "Failed to write upload settings to {path}", SettingsPath);
+            Logger.Error(ex, "Failed to write upload settings to {path}", _settingsPath);
             throw;
         }
         catch (UnauthorizedAccessException ex)
         {
-            Logger.Error(ex, "Access denied writing upload settings to {path}", SettingsPath);
+            Logger.Error(ex, "Access denied writing upload settings to {path}", _settingsPath);
             throw;
         }
         catch (JsonException ex)
         {
-            Logger.Error(ex, "Failed to serialize upload settings to {path}", SettingsPath);
+            Logger.Error(ex, "Failed to serialize upload settings to {path}", _settingsPath);
             throw;
         }
     }
