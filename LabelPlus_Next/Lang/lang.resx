@@ -355,4 +355,652 @@
     <data name="button_start" xml:space="preserve">
     <value>开始</value>
   </data>
+    <data name="languageSystemDefault" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+    <data name="settingsLanguageTitle" xml:space="preserve">
+    <value>语言</value>
+  </data>
+    <data name="settingsLanguageDescription" xml:space="preserve">
+    <value>选择界面语言，切换后立即生效。</value>
+  </data>
+    <data name="buttonSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+    <data name="ui0001" xml:space="preserve">
+    <value>漫画翻译工作台</value>
+  </data>
+    <data name="ui0002" xml:space="preserve">
+    <value>收起</value>
+  </data>
+    <data name="ui0003" xml:space="preserve">
+    <value>翻译</value>
+  </data>
+    <data name="ui0004" xml:space="preserve">
+    <value>校对</value>
+  </data>
+    <data name="ui0005" xml:space="preserve">
+    <value>协作</value>
+  </data>
+    <data name="ui0006" xml:space="preserve">
+    <value>交付</value>
+  </data>
+    <data name="ui0007" xml:space="preserve">
+    <value>设置</value>
+  </data>
+    <data name="ui0008" xml:space="preserve">
+    <value>最近项目</value>
+  </data>
+    <data name="ui0009" xml:space="preserve">
+    <value>打开最近的项目，或新建一个开始翻译。</value>
+  </data>
+    <data name="ui0010" xml:space="preserve">
+    <value>跳过，直接进入</value>
+  </data>
+    <data name="ui0011" xml:space="preserve">
+    <value>打开项目</value>
+  </data>
+    <data name="ui0012" xml:space="preserve">
+    <value>新建项目</value>
+  </data>
+    <data name="ui0013" xml:space="preserve">
+    <value>打开所选</value>
+  </data>
+    <data name="ui0014" xml:space="preserve">
+    <value>从列表移除所选</value>
+  </data>
+    <data name="ui0015" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+    <data name="ui0016" xml:space="preserve">
+    <value>名称</value>
+  </data>
+    <data name="ui0017" xml:space="preserve">
+    <value>翻译文件</value>
+  </data>
+    <data name="ui0018" xml:space="preserve">
+    <value>最近打开</value>
+  </data>
+    <data name="ui0019" xml:space="preserve">
+    <value>还没有最近项目</value>
+  </data>
+    <data name="ui0020" xml:space="preserve">
+    <value>点击右上角“新建项目”，或从磁盘打开一个翻译文件。</value>
+  </data>
+    <data name="ui0021" xml:space="preserve">
+    <value>预览</value>
+  </data>
+    <data name="ui0022" xml:space="preserve">
+    <value>只读 · 仅显示当前图片的标签</value>
+  </data>
+    <data name="ui0023" xml:space="preserve">
+    <value>选择一个项目查看标注预览</value>
+  </data>
+    <data name="ui0024" xml:space="preserve">
+    <value>上一张</value>
+  </data>
+    <data name="ui0025" xml:space="preserve">
+    <value>下一张</value>
+  </data>
+    <data name="ui0026" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+    <data name="ui0027" xml:space="preserve">
+    <value>最大化</value>
+  </data>
+    <data name="ui0028" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+    <data name="ui0029" xml:space="preserve">
+    <value>上传设置</value>
+  </data>
+    <data name="ui0030" xml:space="preserve">
+    <value>配置上传服务器的地址与账号信息。</value>
+  </data>
+    <data name="ui0031" xml:space="preserve">
+    <value>服务器地址 (BaseUrl)</value>
+  </data>
+    <data name="ui0032" xml:space="preserve">
+    <value>用户名</value>
+  </data>
+    <data name="ui0033" xml:space="preserve">
+    <value>密码</value>
+  </data>
+    <data name="ui0034" xml:space="preserve">
+    <value>保存并刷新</value>
+  </data>
+    <data name="ui0035" xml:space="preserve">
+    <value>保存</value>
+  </data>
+    <data name="ui0036" xml:space="preserve">
+    <value>确认上传话数</value>
+  </data>
+    <data name="ui0037" xml:space="preserve">
+    <value>项目</value>
+  </data>
+    <data name="ui0038" xml:space="preserve">
+    <value>勾选需要上传的话数与文件，展开可查看每个话数包含的文件。</value>
+  </data>
+    <data name="ui0039" xml:space="preserve">
+    <value>包含</value>
+  </data>
+    <data name="ui0040" xml:space="preserve">
+    <value>状态</value>
+  </data>
+    <data name="ui0041" xml:space="preserve">
+    <value>显示名</value>
+  </data>
+    <data name="ui0042" xml:space="preserve">
+    <value>负责人</value>
+  </data>
+    <data name="ui0043" xml:space="preserve">
+    <value>范围</value>
+  </data>
+    <data name="ui0044" xml:space="preserve">
+    <value>标签</value>
+  </data>
+    <data name="ui0045" xml:space="preserve">
+    <value>备注</value>
+  </data>
+    <data name="ui0046" xml:space="preserve">
+    <value>文件数</value>
+  </data>
+    <data name="ui0047" xml:space="preserve">
+    <value>取消</value>
+  </data>
+    <data name="ui0048" xml:space="preserve">
+    <value>开始上传</value>
+  </data>
+    <data name="ui0049" xml:space="preserve">
+    <value>保存冲突合并</value>
+  </data>
+    <data name="ui0050" xml:space="preserve">
+    <value>文件：</value>
+  </data>
+    <data name="ui0051" xml:space="preserve">
+    <value>上一处</value>
+  </data>
+    <data name="ui0052" xml:space="preserve">
+    <value>下一处</value>
+  </data>
+    <data name="ui0053" xml:space="preserve">
+    <value>采用远端</value>
+  </data>
+    <data name="ui0054" xml:space="preserve">
+    <value>采用本地</value>
+  </data>
+    <data name="ui0055" xml:space="preserve">
+    <value>全部用远端</value>
+  </data>
+    <data name="ui0056" xml:space="preserve">
+    <value>全部用本地</value>
+  </data>
+    <data name="ui0057" xml:space="preserve">
+    <value>当前用远端</value>
+  </data>
+    <data name="ui0058" xml:space="preserve">
+    <value>当前用本地</value>
+  </data>
+    <data name="ui0059" xml:space="preserve">
+    <value>保存合并</value>
+  </data>
+    <data name="ui0060" xml:space="preserve">
+    <value>冲突列表</value>
+  </data>
+    <data name="ui0061" xml:space="preserve">
+    <value>冲突 #</value>
+  </data>
+    <data name="ui0062" xml:space="preserve">
+    <value>用远端</value>
+  </data>
+    <data name="ui0063" xml:space="preserve">
+    <value>用本地</value>
+  </data>
+    <data name="ui0064" xml:space="preserve">
+    <value>远端</value>
+  </data>
+    <data name="ui0065" xml:space="preserve">
+    <value>本地</value>
+  </data>
+    <data name="ui0066" xml:space="preserve">
+    <value>合并结果</value>
+  </data>
+    <data name="ui0067" xml:space="preserve">
+    <value>Alt+↑/↓ 导航，Alt+L 用本地，Alt+R 用远端</value>
+  </data>
+    <data name="ui0068" xml:space="preserve">
+    <value>自定义更新服务器</value>
+  </data>
+    <data name="ui0069" xml:space="preserve">
+    <value>配置 HTTP 更新源，保存后立即用于下一次更新检查。</value>
+  </data>
+    <data name="ui0070" xml:space="preserve">
+    <value>Manifest 路径</value>
+  </data>
+    <data name="ui0071" xml:space="preserve">
+    <value>用户名（可选）</value>
+  </data>
+    <data name="ui0072" xml:space="preserve">
+    <value>密码（可选）</value>
+  </data>
+    <data name="ui0073" xml:space="preserve">
+    <value>验证 HTTP</value>
+  </data>
+    <data name="ui0074" xml:space="preserve">
+    <value>保存到 settings.json</value>
+  </data>
+    <data name="ui0075" xml:space="preserve">
+    <value>显示偏好、更新与开发者选项</value>
+  </data>
+    <data name="ui0076" xml:space="preserve">
+    <value>标注显示</value>
+  </data>
+    <data name="ui0077" xml:space="preserve">
+    <value>调整标号与标注提示的视觉层级，保存后立即应用到图片查看器。</value>
+  </data>
+    <data name="ui0078" xml:space="preserve">
+    <value>标号大小</value>
+  </data>
+    <data name="ui0079" xml:space="preserve">
+    <value>提示文字大小</value>
+  </data>
+    <data name="ui0080" xml:space="preserve">
+    <value>提示背景透明度</value>
+  </data>
+    <data name="ui0081" xml:space="preserve">
+    <value>保存显示设置</value>
+  </data>
+    <data name="ui0082" xml:space="preserve">
+    <value>软件更新</value>
+  </data>
+    <data name="ui0083" xml:space="preserve">
+    <value>更新包经 SHA256 校验后分阶段安装，失败会自动回滚到原版本。</value>
+  </data>
+    <data name="ui0084" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+    <data name="ui0085" xml:space="preserve">
+    <value>当前客户端</value>
+  </data>
+    <data name="ui0086" xml:space="preserve">
+    <value>最新客户端</value>
+  </data>
+    <data name="ui0087" xml:space="preserve">
+    <value>当前更新程序</value>
+  </data>
+    <data name="ui0088" xml:space="preserve">
+    <value>最新更新程序</value>
+  </data>
+    <data name="ui0089" xml:space="preserve">
+    <value>更新说明</value>
+  </data>
+    <data name="ui0090" xml:space="preserve">
+    <value>设置自定义更新服务器</value>
+  </data>
+    <data name="ui0091" xml:space="preserve">
+    <value>开发者选项</value>
+  </data>
+    <data name="ui0092" xml:space="preserve">
+    <value>Deeplink 回调</value>
+  </data>
+    <data name="ui0093" xml:space="preserve">
+    <value>当浏览器打开 labelplus:// 时，客户端可向此 URL POST token。仅用于开发环境测试。</value>
+  </data>
+    <data name="ui0094" xml:space="preserve">
+    <value>回调 URL</value>
+  </data>
+    <data name="ui0095" xml:space="preserve">
+    <value>可填写如 'Bearer &amp;lt;token&amp;gt;' 或 'Basic &amp;lt;base64&amp;gt;'，仅本地开发测试使用</value>
+  </data>
+    <data name="ui0096" xml:space="preserve">
+    <value>允许在本地回退到 http（仅开发）</value>
+  </data>
+    <data name="ui0097" xml:space="preserve">
+    <value>保存设置</value>
+  </data>
+    <data name="ui0098" xml:space="preserve">
+    <value>触发未处理异常</value>
+  </data>
+    <data name="ui0099" xml:space="preserve">
+    <value>用于测试全局异常处理</value>
+  </data>
+    <data name="ui0100" xml:space="preserve">
+    <value>打开翻译文件夹</value>
+  </data>
+    <data name="ui0101" xml:space="preserve">
+    <value>切换主题</value>
+  </data>
+    <data name="ui0102" xml:space="preserve">
+    <value>缩小</value>
+  </data>
+    <data name="ui0103" xml:space="preserve">
+    <value>重置为 100%</value>
+  </data>
+    <data name="ui0104" xml:space="preserve">
+    <value>放大</value>
+  </data>
+    <data name="ui0105" xml:space="preserve">
+    <value>选择图片</value>
+  </data>
+    <data name="ui0106" xml:space="preserve">
+    <value>将所选标签设为框内（快捷键 1）</value>
+  </data>
+    <data name="ui0107" xml:space="preserve">
+    <value>框内</value>
+  </data>
+    <data name="ui0108" xml:space="preserve">
+    <value>将所选标签设为框外（快捷键 2）</value>
+  </data>
+    <data name="ui0109" xml:space="preserve">
+    <value>框外</value>
+  </data>
+    <data name="ui0110" xml:space="preserve">
+    <value>添加标签</value>
+  </data>
+    <data name="ui0111" xml:space="preserve">
+    <value>添加</value>
+  </data>
+    <data name="ui0112" xml:space="preserve">
+    <value>删除所选标签</value>
+  </data>
+    <data name="ui0113" xml:space="preserve">
+    <value>撤销删除</value>
+  </data>
+    <data name="ui0114" xml:space="preserve">
+    <value>文件设置</value>
+  </data>
+    <data name="ui0115" xml:space="preserve">
+    <value>编号</value>
+  </data>
+    <data name="ui0116" xml:space="preserve">
+    <value>文本</value>
+  </data>
+    <data name="ui0117" xml:space="preserve">
+    <value>分类</value>
+  </data>
+    <data name="ui0118" xml:space="preserve">
+    <value>译文</value>
+  </data>
+    <data name="ui0119" xml:space="preserve">
+    <value>选择一个标签后在此输入译文</value>
+  </data>
+    <data name="ui0120" xml:space="preserve">
+    <value>上传</value>
+  </data>
+    <data name="ui0121" xml:space="preserve">
+    <value>选择要上传到的项目</value>
+  </data>
+    <data name="ui0122" xml:space="preserve">
+    <value>上传文件夹</value>
+  </data>
+    <data name="ui0123" xml:space="preserve">
+    <value>上传文件</value>
+  </data>
+    <data name="ui0124" xml:space="preserve">
+    <value>新增项目</value>
+  </data>
+    <data name="ui0125" xml:space="preserve">
+    <value>选择项目后上传文件</value>
+  </data>
+    <data name="ui0126" xml:space="preserve">
+    <value>上传前会自动解析卷、番外与话数，并按规范目录写入；覆盖旧文件前会备份，可随时回退。</value>
+  </data>
+    <data name="ui0127" xml:space="preserve">
+    <value>选择文件</value>
+  </data>
+    <data name="ui0128" xml:space="preserve">
+    <value>选择文件夹</value>
+  </data>
+    <data name="ui0129" xml:space="preserve">
+    <value>选择要协作的项目</value>
+  </data>
+    <data name="ui0130" xml:space="preserve">
+    <value>重试</value>
+  </data>
+    <data name="ui0131" xml:space="preserve">
+    <value>话数 / 阶段</value>
+  </data>
+    <data name="ui0132" xml:space="preserve">
+    <value>路径</value>
+  </data>
+    <data name="ui0133" xml:space="preserve">
+    <value>创建时间</value>
+  </data>
+    <data name="ui0134" xml:space="preserve">
+    <value>更新时间</value>
+  </data>
+    <data name="ui0135" xml:space="preserve">
+    <value>操作</value>
+  </data>
+    <data name="ui0136" xml:space="preserve">
+    <value>嵌字</value>
+  </data>
+    <data name="ui0137" xml:space="preserve">
+    <value>下载</value>
+  </data>
+    <data name="ui0138" xml:space="preserve">
+    <value>还没有协作数据</value>
+  </data>
+    <data name="ui0139" xml:space="preserve">
+    <value>配置服务器并选择项目后，这里会显示各话数的协作进度。</value>
+  </data>
+    <data name="ui0140" xml:space="preserve">
+    <value>导出图片</value>
+  </data>
+    <data name="ui0141" xml:space="preserve">
+    <value>将当前译文渲染到图片后导出。</value>
+  </data>
+    <data name="ui0142" xml:space="preserve">
+    <value>管理图片</value>
+  </data>
+    <data name="ui0143" xml:space="preserve">
+    <value>选择要包含在翻译文件中的图片，左右移动即可调整顺序。</value>
+  </data>
+    <data name="ui0144" xml:space="preserve">
+    <value>添加 →</value>
+  </data>
+    <data name="ui0145" xml:space="preserve">
+    <value>全部添加 ⇉</value>
+  </data>
+    <data name="ui0146" xml:space="preserve">
+    <value>← 移除</value>
+  </data>
+    <data name="ui0147" xml:space="preserve">
+    <value>⇇ 全部移除</value>
+  </data>
+    <data name="ui0148" xml:space="preserve">
+    <value>管理标签分组与当前翻译文件的备注。</value>
+  </data>
+    <data name="ui0149" xml:space="preserve">
+    <value>关于 LabelPlus Next</value>
+  </data>
+    <data name="ui0150" xml:space="preserve">
+    <value>版本</value>
+  </data>
+    <data name="ui0151" xml:space="preserve">
+    <value>作者</value>
+  </data>
+    <data name="ui0152" xml:space="preserve">
+    <value>项目链接</value>
+  </data>
+    <data name="ui0153" xml:space="preserve">
+    <value>特别鸣谢</value>
+  </data>
+    <data name="ui0154" xml:space="preserve">
+    <value>Avalonia · Ursa · Semi.Avalonia 及所有开源贡献者</value>
+  </data>
+    <data name="ui0155" xml:space="preserve">
+    <value>展开</value>
+  </data>
+    <data name="ui0156" xml:space="preserve">
+    <value>已经是最新版本 {0}</value>
+  </data>
+    <data name="ui0157" xml:space="preserve">
+    <value>设置已加载</value>
+  </data>
+    <data name="ui0158" xml:space="preserve">
+    <value>保存成功</value>
+  </data>
+    <data name="ui0159" xml:space="preserve">
+    <value>请填写 BaseUrl</value>
+  </data>
+    <data name="ui0160" xml:space="preserve">
+    <value>请填写 Manifest 路径</value>
+  </data>
+    <data name="ui0161" xml:space="preserve">
+    <value>未配置用户名/密码，将无法通过 API 下载</value>
+  </data>
+    <data name="ui0162" xml:space="preserve">
+    <value>API 下载验证成功</value>
+  </data>
+    <data name="ui0163" xml:space="preserve">
+    <value>API 下载验证失败：清单缺少 projects</value>
+  </data>
+    <data name="ui0164" xml:space="preserve">
+    <value>正在验证清单...</value>
+  </data>
+    <data name="ui0165" xml:space="preserve">
+    <value>清单为空</value>
+  </data>
+    <data name="ui0166" xml:space="preserve">
+    <value>清单格式错误</value>
+  </data>
+    <data name="ui0167" xml:space="preserve">
+    <value>服务验证成功</value>
+  </data>
+    <data name="ui0168" xml:space="preserve">
+    <value>验证失败：请求超时</value>
+  </data>
+    <data name="ui0169" xml:space="preserve">
+    <value>正在检查更新，请稍候...</value>
+  </data>
+    <data name="ui0170" xml:space="preserve">
+    <value>正在检查更新...</value>
+  </data>
+    <data name="ui0171" xml:space="preserve">
+    <value>未配置更新服务器</value>
+  </data>
+    <data name="ui0172" xml:space="preserve">
+    <value>已取消更新</value>
+  </data>
+    <data name="ui0173" xml:space="preserve">
+    <value>登录更新服务器失败</value>
+  </data>
+    <data name="ui0174" xml:space="preserve">
+    <value>获取清单失败</value>
+  </data>
+    <data name="ui0175" xml:space="preserve">
+    <value>下载更新程序失败（下载或校验未通过）</value>
+  </data>
+    <data name="ui0176" xml:space="preserve">
+    <value>未找到更新程序，无法启动客户端更新</value>
+  </data>
+    <data name="ui0177" xml:space="preserve">
+    <value>启动更新程序...</value>
+  </data>
+    <data name="ui0178" xml:space="preserve">
+    <value>启动更新程序失败</value>
+  </data>
+    <data name="ui0179" xml:space="preserve">
+    <value>检查更新失败: {0}</value>
+  </data>
+    <data name="ui0180" xml:space="preserve">
+    <value>{0} 个项目</value>
+  </data>
+    <data name="ui0181" xml:space="preserve">
+    <value>{0} 个标签</value>
+  </data>
+    <data name="ui0182" xml:space="preserve">
+    <value>{0} 个</value>
+  </data>
+    <data name="ui0183" xml:space="preserve">
+    <value>选择项目以预览</value>
+  </data>
+    <data name="ui0184" xml:space="preserve">
+    <value>校对工作流正在开发中，敬请期待。</value>
+  </data>
+    <data name="ui0185" xml:space="preserve">
+    <value>交付工作流正在开发中，敬请期待。</value>
+  </data>
+    <data name="ui0186" xml:space="preserve">
+    <value>欢迎</value>
+  </data>
+    <data name="ui0187" xml:space="preserve">
+    <value>当前译文有未保存的更改，是否保存？</value>
+  </data>
+    <data name="ui0188" xml:space="preserve">
+    <value>关闭确认</value>
+  </data>
+    <data name="ui0189" xml:space="preserve">
+    <value>还原</value>
+  </data>
+    <data name="ui0190" xml:space="preserve">
+    <value>最大化</value>
+  </data>
+    <data name="ui0191" xml:space="preserve">
+    <value>程序发生未处理错误，已生成日志压缩包。</value>
+  </data>
+    <data name="ui0192" xml:space="preserve">
+    <value>报告文件: {0}</value>
+  </data>
+    <data name="ui0193" xml:space="preserve">
+    <value>应用将退出。请将该压缩包反馈给开发者。</value>
+  </data>
+    <data name="ui0194" xml:space="preserve">
+    <value>退出</value>
+  </data>
+    <data name="ui0195" xml:space="preserve">
+    <value>发生错误</value>
+  </data>
+    <data name="ui0196" xml:space="preserve">
+    <value>更新检查完成</value>
+  </data>
+    <data name="ui0197" xml:space="preserve">
+    <value>更新</value>
+  </data>
+    <data name="ui0198" xml:space="preserve">
+    <value>更新检查失败</value>
+  </data>
+    <data name="ui0199" xml:space="preserve">
+    <value>确认移除项目: {0}?</value>
+  </data>
+    <data name="ui0200" xml:space="preserve">
+    <value>确认</value>
+  </data>
+    <data name="ui0201" xml:space="preserve">
+    <value>文件 {0} 仍包含标签，移到忽略将丢失这些标签，是否继续？</value>
+  </data>
+    <data name="ui0202" xml:space="preserve">
+    <value>下列被移出包含的文件仍有标签，将丢失这些标签：{0}{1}。是否继续？</value>
+  </data>
+    <data name="ui0203" xml:space="preserve">
+    <value>确认删除当前标签?</value>
+  </data>
+    <data name="ui0204" xml:space="preserve">
+    <value>删除</value>
+  </data>
+    <data name="ui0205" xml:space="preserve">
+    <value>版本: {0}</value>
+  </data>
+    <data name="ui0206" xml:space="preserve">
+    <value>检测到与远端存在相同话数，是否继续?</value>
+  </data>
+    <data name="ui0207" xml:space="preserve">
+    <value>提示</value>
+  </data>
+    <data name="ui0208" xml:space="preserve">
+    <value>发现 {0} 个自动保存备份，可在对应项目 bak 文件夹中恢复。</value>
+  </data>
+    <data name="ui0209" xml:space="preserve">
+    <value>常见类型</value>
+  </data>
+    <data name="ui0210" xml:space="preserve">
+    <value>压缩包</value>
+  </data>
+    <data name="ui0211" xml:space="preserve">
+    <value>文本</value>
+  </data>
+    <data name="ui0212" xml:space="preserve">
+    <value>图片</value>
+  </data>
 </root>

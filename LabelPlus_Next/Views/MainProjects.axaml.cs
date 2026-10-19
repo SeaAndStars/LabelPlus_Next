@@ -6,6 +6,7 @@ using Ursa.Controls;
 using Avalonia.Controls;
 using Avalonia.Input;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Lang;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -69,7 +70,11 @@ public partial class MainProjects : UrsaWindow
     {
         if (DataContext is not MainProjectsViewModel vm) return;
         if (vm.SelectedProject is null) return;
-        var res = await MessageBox.ShowAsync($"确认移除项目: {vm.SelectedProject.Name}?", "确认", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+        var res = await MessageBox.ShowAsync(
+            UiText.F(LangKeys.ui0199, "确认移除项目: {0}?", vm.SelectedProject.Name),
+            UiText.T(LangKeys.ui0200, "确认"),
+            MessageBoxIcon.Warning,
+            MessageBoxButton.YesNo);
         if (res == MessageBoxResult.Yes)
         {
             if (vm.RemoveSelectedCommand.CanExecute(null)) vm.RemoveSelectedCommand.Execute(null);

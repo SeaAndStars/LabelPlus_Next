@@ -1,4 +1,5 @@
 <UserControl
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.CustomControls.ChromeTitleBar"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -80,7 +81,7 @@
                         Width="16"
                         Height="16"
                         RenderOptions.BitmapInterpolationMode="HighQuality"
-                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                        Source="{DynamicResource AppLogoSource}" />
                     <TextBlock
                         x:Name="TitleText"
                         VerticalAlignment="Center"
@@ -98,7 +99,7 @@
                 <Button
                     Classes="caption"
                     Click="OnMinimizeClick"
-                    ToolTip.Tip="最小化">
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0026}}">
                     <Path
                         Width="10"
                         Height="10"
@@ -112,7 +113,7 @@
                     x:Name="MaximizeButton"
                     Classes="caption"
                     Click="OnMaximizeClick"
-                    ToolTip.Tip="最大化">
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0027}}">
                     <Panel Width="10" Height="10" IsHitTestVisible="False">
                         <Path
                             x:Name="MaximizeGlyph"
@@ -131,7 +132,7 @@
                 <Button
                     Classes="caption close"
                     Click="OnCloseClick"
-                    ToolTip.Tip="关闭">
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0028}}">
                     <Path
                         Width="10"
                         Height="10"

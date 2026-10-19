@@ -12,6 +12,19 @@
         <local:ViewLocator />
     </Application.DataTemplates>
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Bitmap x:Key="AppLogoSource">avares://LabelPlus_Next.Update/Assets/app_icon_light.png</Bitmap>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <Bitmap x:Key="AppLogoSource">avares://LabelPlus_Next.Update/Assets/app_icon_dark.png</Bitmap>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <semi:SemiTheme Locale="zh-CN" />
         <u-semi:UrsaSemiTheme Locale="zh-CN" />

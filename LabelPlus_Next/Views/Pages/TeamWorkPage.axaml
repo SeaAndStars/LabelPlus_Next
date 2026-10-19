@@ -1,4 +1,5 @@
 <UserControl
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Pages.TeamWorkPage"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -23,33 +24,33 @@
                 <TextBlock
                     VerticalAlignment="Center"
                     Classes="lp-label"
-                    Text="项目" />
+                    Text="{I18N {x:Static lang:LangKeys.ui0037}}" />
                 <u:AutoCompleteBox
                     Grid.Column="1"
                     Height="32"
                     VerticalAlignment="Center"
                     ItemsSource="{Binding Suggestions}"
                     MinimumPrefixLength="0"
-                    PlaceholderText="选择要协作的项目"
+                    PlaceholderText="{I18N {x:Static lang:LangKeys.ui0129}}"
                     Text="{Binding SelectedProject, Mode=TwoWay}" />
                 <Button
                     Grid.Column="2"
                     Height="32"
                     Command="{Binding RefreshCommand}"
-                    Content="刷新"
+                    Content="{I18N {x:Static lang:LangKeys.ui0015}}"
                     Classes="lp-flat" />
                 <Button
                     Grid.Column="3"
                     Height="32"
                     Command="{Binding OpenSettingsCommand}"
-                    Content="设置"
+                    Content="{I18N {x:Static lang:LangKeys.ui0007}}"
                     Classes="lp-flat" />
                 <StackPanel
                     Grid.Column="4"
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="6">
-                    <TextBlock Classes="lp-label" Text="状态" />
+                    <TextBlock Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0040}}" />
                     <TextBlock
                         MaxWidth="420"
                         VerticalAlignment="Center"
@@ -83,13 +84,13 @@
                     Grid.Column="2"
                     Height="30"
                     Command="{Binding CancelCommand}"
-                    Content="取消"
+                    Content="{I18N {x:Static lang:LangKeys.ui0047}}"
                     Classes="lp-flat" />
                 <Button
                     Grid.Column="3"
                     Height="30"
                     Command="{Binding RetryCommand}"
-                    Content="重试"
+                    Content="{I18N {x:Static lang:LangKeys.ui0130}}"
                     Classes="lp-flat" />
             </Grid>
         </Border>
@@ -113,7 +114,7 @@
                 ItemsSource="{Binding TreeRows}"
                 RowHeight="44">
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Width="2*" Header="话数 / 阶段">
+                    <DataGridTemplateColumn Width="2*" Header="{I18N {x:Static lang:LangKeys.ui0131}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:NodeItem">
                                 <StackPanel
@@ -141,7 +142,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Width="90" Header="状态">
+                    <DataGridTemplateColumn Width="90" Header="{I18N {x:Static lang:LangKeys.ui0040}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:NodeItem">
                                 <Border
@@ -155,7 +156,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Width="2*" Header="路径">
+                    <DataGridTemplateColumn Width="2*" Header="{I18N {x:Static lang:LangKeys.ui0132}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:NodeItem">
                                 <TextBlock
@@ -169,21 +170,21 @@
                     <DataGridTextColumn
                         Width="100"
                         Binding="{Binding Owner}"
-                        Header="负责人" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0042}}" />
                     <DataGridTextColumn
                         Width="150"
                         Binding="{Binding CreatedAt}"
-                        Header="创建时间" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0133}}" />
                     <DataGridTextColumn
                         Width="150"
                         Binding="{Binding UpdatedAt}"
-                        Header="更新时间" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0134}}" />
                     <DataGridTextColumn
                         Width="72"
                         Binding="{Binding FileCountText}"
-                        Header="文件数" />
+                        Header="{I18N {x:Static lang:LangKeys.ui0046}}" />
 
-                    <DataGridTemplateColumn Width="Auto" Header="操作">
+                    <DataGridTemplateColumn Width="Auto" Header="{I18N {x:Static lang:LangKeys.ui0135}}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:NodeItem">
                                 <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="4">
@@ -193,7 +194,7 @@
                                         Classes="lp-flat"
                                         Command="{Binding TranslateCommand}"
                                         CommandParameter="{Binding Episode}"
-                                        Content="翻译"
+                                        Content="{I18N {x:Static lang:LangKeys.ui0003}}"
                                         FontSize="12"
                                         IsVisible="{Binding IsEpisodeRoot}" />
                                     <Button
@@ -202,7 +203,7 @@
                                         Classes="lp-flat"
                                         Command="{Binding ProofCommand}"
                                         CommandParameter="{Binding Episode}"
-                                        Content="校对"
+                                        Content="{I18N {x:Static lang:LangKeys.ui0004}}"
                                         FontSize="12"
                                         IsVisible="{Binding IsEpisodeRoot}" />
                                     <Button
@@ -211,7 +212,7 @@
                                         Classes="lp-flat"
                                         Command="{Binding TypesetCommand}"
                                         CommandParameter="{Binding Episode}"
-                                        Content="嵌字"
+                                        Content="{I18N {x:Static lang:LangKeys.ui0136}}"
                                         FontSize="12"
                                         IsVisible="{Binding IsEpisodeRoot}" />
                                     <Button
@@ -220,7 +221,7 @@
                                         Classes="lp-flat"
                                         Command="{Binding DownloadCommand}"
                                         CommandParameter="{Binding}"
-                                        Content="下载"
+                                        Content="{I18N {x:Static lang:LangKeys.ui0137}}"
                                         FontSize="12"
                                         IsVisible="{Binding !IsEpisodeRoot}" />
                                 </StackPanel>
@@ -237,8 +238,8 @@
                 Spacing="8">
                 <PathIcon Width="32" Height="32" Data="{StaticResource SemiIconUserGroup}"
                           Foreground="{DynamicResource LpSubtleText}" />
-                <TextBlock HorizontalAlignment="Center" Classes="lp-section-title" Text="还没有协作数据" />
-                <TextBlock HorizontalAlignment="Center" Classes="lp-subtle" Text="配置服务器并选择项目后，这里会显示各话数的协作进度。" />
+                <TextBlock HorizontalAlignment="Center" Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.ui0138}}" />
+                <TextBlock HorizontalAlignment="Center" Classes="lp-subtle" Text="{I18N {x:Static lang:LangKeys.ui0139}}" />
             </StackPanel>
             </Grid>
         </Border>

@@ -80,7 +80,7 @@
                         Width="16"
                         Height="16"
                         RenderOptions.BitmapInterpolationMode="HighQuality"
-                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                        Source="{DynamicResource AppLogoSource}" />
                     <TextBlock
                         x:Name="TitleText"
                         VerticalAlignment="Center"

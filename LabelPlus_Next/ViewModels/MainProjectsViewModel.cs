@@ -9,6 +9,7 @@ using System.Threading; // added for Interlocked
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Lang;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -473,7 +474,7 @@ public class MainProjectsViewModel : ViewModelBase
             }
             if (candidates.Count > 0)
             {
-                PreviewStatus = $"发现 {candidates.Count} 个自动保存备份，可在对应项目 bak 文件夹中恢复。";
+                PreviewStatus = UiText.F(LangKeys.ui0208, "发现 {0} 个自动保存备份，可在对应项目 bak 文件夹中恢复。", candidates.Count);
             }
         }
         catch (IOException ex)

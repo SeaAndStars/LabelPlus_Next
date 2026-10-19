@@ -18,7 +18,8 @@
     Icon="/Assets/LabelPlus_Next_rounded_icon_transparent.ico"
     WindowStartupLocation="CenterScreen"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
 
@@ -85,7 +86,7 @@
                         Width="64"
                         Height="64"
                         Classes.busy="{Binding IsRunning}"
-                        Source="/Assets/LabelPlus_Next_rounded_icon_transparent.ico" />
+                        Source="{DynamicResource AppLogoSource}" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
                         <TextBlock FontSize="20" FontWeight="SemiBold">
                             <Run Text="LabelPlus Next " />

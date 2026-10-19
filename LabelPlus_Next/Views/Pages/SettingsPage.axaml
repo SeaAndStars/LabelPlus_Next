@@ -1,39 +1,67 @@
 <UserControl x:Class="LabelPlus_Next.Views.Pages.SettingsPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+             xmlns:models="clr-namespace:LabelPlus_Next.Models"
              xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
              x:DataType="vm:SettingsViewModel" MinHeight="350" MinWidth="600">
     <ScrollViewer>
         <StackPanel Margin="20" MinWidth="760" MaxWidth="920" HorizontalAlignment="Center" Spacing="16">
             <StackPanel Spacing="2">
-                <TextBlock Text="设置" Classes="lp-page-title" />
-                <TextBlock Text="显示偏好、更新与开发者选项" Classes="lp-subtle" />
+                <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0007}}" Classes="lp-page-title" />
+                <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0075}}" Classes="lp-subtle" />
             </StackPanel>
 
             <Border Classes="lp-card">
                 <StackPanel Spacing="12">
                     <StackPanel Spacing="3">
-                        <TextBlock Text="标注显示" Classes="lp-section-title" />
-                        <TextBlock Text="调整标号与标注提示的视觉层级，保存后立即应用到图片查看器。" Classes="lp-subtle" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageTitle}}" Classes="lp-section-title" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageDescription}}" Classes="lp-subtle" />
                     </StackPanel>
-                    <Grid ColumnDefinitions="150,*,64" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
-                        <TextBlock Grid.Row="0" Text="标号大小" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ComboBox
+                            Width="260"
+                            VerticalAlignment="Center"
+                            ItemsSource="{Binding Languages}"
+                            SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:LanguageOption">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button
+                            Classes="lp-primary"
+                            Command="{Binding SaveCommand}"
+                            Content="{I18N {x:Static lang:LangKeys.buttonSave}}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="lp-card">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0076}}" Classes="lp-section-title" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0077}}" Classes="lp-subtle" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="190,*,64" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
+                        <TextBlock Grid.Row="0" Text="{I18N {x:Static lang:LangKeys.ui0078}}" VerticalAlignment="Center" />
                         <Slider Grid.Row="0" Grid.Column="1" Minimum="0.5" Maximum="2.5" TickFrequency="0.1"
                                 IsSnapToTickEnabled="True" Value="{Binding LabelIndexFontScale, Mode=TwoWay}" />
                         <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding LabelIndexFontScale, StringFormat={}{0:0.0}x}"
                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="1" Text="提示文字大小" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="1" Text="{I18N {x:Static lang:LangKeys.ui0079}}" VerticalAlignment="Center" />
                         <Slider Grid.Row="1" Grid.Column="1" Minimum="0.5" Maximum="2.5" TickFrequency="0.1"
                                 IsSnapToTickEnabled="True" Value="{Binding LabelTipFontScale, Mode=TwoWay}" />
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding LabelTipFontScale, StringFormat={}{0:0.0}x}"
                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
-                        <TextBlock Grid.Row="2" Text="提示背景透明度" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="2" Text="{I18N {x:Static lang:LangKeys.ui0080}}" VerticalAlignment="Center" />
                         <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="1" TickFrequency="0.05"
                                 IsSnapToTickEnabled="True" Value="{Binding LabelTipBackgroundOpacity, Mode=TwoWay}" />
                         <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding LabelTipBackgroundOpacity, StringFormat={}{0:P0}}"
                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
-                    <Button Classes="lp-primary" Content="保存显示设置" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
+                    <Button Classes="lp-primary" Content="{I18N {x:Static lang:LangKeys.ui0081}}" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
 
@@ -42,24 +70,24 @@
                 <StackPanel Spacing="12">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="3">
-                            <TextBlock Text="软件更新" Classes="lp-section-title" />
-                            <TextBlock Text="更新包经 SHA256 校验后分阶段安装，失败会自动回滚到原版本。" Classes="lp-subtle" />
+                            <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0082}}" Classes="lp-section-title" />
+                            <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0083}}" Classes="lp-subtle" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <Button Content="取消" Command="{Binding CancelUpdateCommand}" IsVisible="{Binding IsUpdating}" />
-                            <Button Content="检查更新" Classes="lp-primary"
+                            <Button Content="{I18N {x:Static lang:LangKeys.ui0047}}" Command="{Binding CancelUpdateCommand}" IsVisible="{Binding IsUpdating}" />
+                            <Button Content="{I18N {x:Static lang:LangKeys.ui0084}}" Classes="lp-primary"
                                     Command="{Binding CheckUpdateCommand}" />
                         </StackPanel>
                     </Grid>
 
                     <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="6">
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="当前客户端" Classes="lp-subtle" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{I18N {x:Static lang:LangKeys.ui0085}}" Classes="lp-subtle" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentClientVersion, FallbackValue=—, TargetNullValue=—}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="最新客户端" Classes="lp-subtle" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{I18N {x:Static lang:LangKeys.ui0086}}" Classes="lp-subtle" />
                         <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LatestClientVersion, FallbackValue=—, TargetNullValue=—}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="当前更新程序" Classes="lp-subtle" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{I18N {x:Static lang:LangKeys.ui0087}}" Classes="lp-subtle" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentUpdaterVersion, FallbackValue=—, TargetNullValue=—}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="最新更新程序" Classes="lp-subtle" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="{I18N {x:Static lang:LangKeys.ui0088}}" Classes="lp-subtle" />
                         <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding LatestUpdaterVersion, FallbackValue=—, TargetNullValue=—}" FontWeight="SemiBold" />
                     </Grid>
 
@@ -70,33 +98,33 @@
                     </StackPanel>
                     <TextBlock Text="{Binding Status}" Classes="lp-subtle" />
 
-                    <Expander Header="更新说明" IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <Expander Header="{I18N {x:Static lang:LangKeys.ui0089}}" IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                         <SelectableTextBlock Text="{Binding UpdateNotes}" TextWrapping="Wrap" />
                     </Expander>
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="设置自定义更新服务器" Click="OnOpenCustomServerClick" />
+                        <Button Content="{I18N {x:Static lang:LangKeys.ui0090}}" Click="OnOpenCustomServerClick" />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
             <!-- 开发者选项 -->
             <Border Classes="lp-card">
-                <Expander Header="开发者选项">
+                <Expander Header="{I18N {x:Static lang:LangKeys.ui0091}}">
                     <StackPanel Spacing="10" Margin="0,8,0,0">
-                        <TextBlock Text="Deeplink 回调" Classes="lp-section-title" />
-                        <TextBlock Text="当浏览器打开 labelplus:// 时，客户端可向此 URL POST token。仅用于开发环境测试。" Classes="lp-subtle" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0092}}" Classes="lp-section-title" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0093}}" Classes="lp-subtle" />
                         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                            <TextBlock Text="回调 URL" VerticalAlignment="Center" />
+                            <TextBlock Text="{I18N {x:Static lang:LangKeys.ui0094}}" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1" Text="{Binding DeeplinkCallbackUrl, Mode=TwoWay}" />
                             <TextBlock Grid.Row="1" Text="Authorization" VerticalAlignment="Center" />
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DeeplinkCallbackAuth, Mode=TwoWay}"
-                                     ToolTip.Tip="可填写如 'Bearer &lt;token&gt;' 或 'Basic &lt;base64&gt;'，仅本地开发测试使用" />
+                                     ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0095}}" />
                         </Grid>
-                        <CheckBox Content="允许在本地回退到 http（仅开发）" IsChecked="{Binding AllowLocalHttpFallback, Mode=TwoWay}" />
+                        <CheckBox Content="{I18N {x:Static lang:LangKeys.ui0096}}" IsChecked="{Binding AllowLocalHttpFallback, Mode=TwoWay}" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="lp-primary" Content="保存设置" Command="{Binding SaveCommand}" />
-                            <Button Content="触发未处理异常" Classes="Danger" Click="OnThrowUnhandledClick" ToolTip.Tip="用于测试全局异常处理" />
+                            <Button Classes="lp-primary" Content="{I18N {x:Static lang:LangKeys.ui0097}}" Command="{Binding SaveCommand}" />
+                            <Button Content="{I18N {x:Static lang:LangKeys.ui0098}}" Classes="Danger" Click="OnThrowUnhandledClick" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0099}}" />
                         </StackPanel>
                     </StackPanel>
                 </Expander>

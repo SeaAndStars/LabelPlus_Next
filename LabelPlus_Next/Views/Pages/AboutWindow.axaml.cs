@@ -1,5 +1,7 @@
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using LabelPlus_Next.Lang;
+using LabelPlus_Next.Services;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -54,7 +56,7 @@ public partial class AboutWindow : UrsaWindow
 
         // Fallback: assembly version
         var ver = typeof(App).Assembly.GetName().Version?.ToString() ?? "";
-        VersionText.Text = $"版本: {ver}";
+        VersionText.Text = UiText.F(LangKeys.ui0205, "版本: {0}", ver);
     }
 
     private void OnProjectLinkPressed(object? sender, PointerPressedEventArgs e)
