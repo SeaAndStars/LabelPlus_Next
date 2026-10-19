@@ -16,6 +16,7 @@ public class PackVersionLocatorTests
     private string desktopProject = null!;
     private string mainProject = null!;
     private string updateProject = null!;
+    private string preparedFolder = null!;
     private string solution = null!;
 
     [TestInitialize]
@@ -26,18 +27,24 @@ public class PackVersionLocatorTests
         desktopProject = Path.Combine(repo, "LabelPlus_Next.Desktop");
         mainProject = Path.Combine(repo, "LabelPlus_Next");
         updateProject = Path.Combine(repo, "LabelPlus_Next.Update");
+        preparedFolder = Path.Combine(repo, "packages", "Release");
 
         Directory.CreateDirectory(desktopProject);
         Directory.CreateDirectory(mainProject);
         Directory.CreateDirectory(updateProject);
+        Directory.CreateDirectory(preparedFolder);
 
         solution = Path.Combine(repo, "LabelPlus_Next.sln");
         File.WriteAllText(solution, string.Empty);
         File.WriteAllText(Path.Combine(desktopProject, "LabelPlus_Next.Desktop.csproj"), "<Project/>");
+        File.WriteAllText(Path.Combine(mainProject, "LabelPlus_Next.csproj"), "<Project/>");
+        File.WriteAllText(Path.Combine(updateProject, "LabelPlus_Next.Update.csproj"), "<Project/>");
         File.WriteAllText(Path.Combine(mainProject, "Client.version.json"),
             "{\"project\":\"LabelPlus_Next.Desktop\",\"version\":\"1.2.3\",\"manifest\":\"https://example.test/d/Update/manifest.json\"}");
         File.WriteAllText(Path.Combine(updateProject, "Update.version.json"),
             "{\"project\":\"LabelPlus_Next.Update\",\"version\":\"1.2.3\"}");
+        File.WriteAllText(Path.Combine(preparedFolder, "Client.version.json"),
+            "{\"project\":\"LabelPlus_Next.Desktop\",\"version\":\"9.9.9\"}");
     }
 
     [TestCleanup]
@@ -141,6 +148,7 @@ public class PackVersionLocatorTests
         await vm.RefreshVersionInfoAsync();
 
         Assert.IsFalse(vm.HasLocalVersionFiles, "the desktop source folder has no version file of its own");
+        Assert.IsFalse(vm.CanPackSelectedFolder);
         Assert.AreEqual("LabelPlus_Next.Desktop", vm.Project);
         Assert.AreEqual("1.2.3", vm.Version);
         Assert.AreEqual("https://example.test/d/Update/manifest.json", vm.ManifestUrl);
@@ -175,6 +183,7 @@ public class PackVersionLocatorTests
         await vm.RefreshVersionInfoAsync();
 
         Assert.IsFalse(vm.HasLocalVersionFiles);
+        Assert.IsFalse(vm.CanPackSelectedFolder);
         Assert.IsNull(vm.Project);
         StringAssert.Contains(vm.Status, "未找到版本文件");
     }
@@ -195,7 +204,7 @@ public class PackVersionLocatorTests
     }
 
     [TestMethod]
-    public async Task ViewModel_MarksPreparedPackageFolder()
+    public async Task ViewModel_SourceProjectWithVersionFile_IsNotAPreparedPackage()
     {
         var vm = new PackWindowViewModel
         {
@@ -206,7 +215,41 @@ public class PackVersionLocatorTests
         await vm.RefreshVersionInfoAsync();
 
         Assert.IsTrue(vm.HasLocalVersionFiles);
+        Assert.IsFalse(vm.CanPackSelectedFolder, "a source project must be built, not zipped");
         Assert.AreEqual("LabelPlus_Next.Desktop", vm.Project);
         Assert.AreEqual("1.2.3", vm.Version);
+    }
+
+    [TestMethod]
+    public async Task ViewModel_UpdateSourceProject_IsNotAPreparedPackage()
+    {
+        var vm = new PackWindowViewModel
+        {
+            SelectedFolder = updateProject,
+            SolutionPath = solution
+        };
+
+        await vm.RefreshVersionInfoAsync();
+
+        Assert.IsTrue(vm.HasLocalVersionFiles);
+        Assert.IsFalse(vm.CanPackSelectedFolder);
+        Assert.AreEqual("LabelPlus_Next.Update", vm.Project);
+    }
+
+    [TestMethod]
+    public async Task ViewModel_PreparedReleaseFolder_CanBePacked()
+    {
+        var vm = new PackWindowViewModel
+        {
+            SelectedFolder = preparedFolder,
+            SolutionPath = solution
+        };
+
+        await vm.RefreshVersionInfoAsync();
+
+        Assert.IsTrue(vm.HasLocalVersionFiles);
+        Assert.IsTrue(vm.CanPackSelectedFolder);
+        Assert.AreEqual("LabelPlus_Next.Desktop", vm.Project);
+        Assert.AreEqual("9.9.9", vm.Version);
     }
 }

@@ -34,6 +34,7 @@ public class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         ConfigureLogging();
+        LogCurrentExecutable();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -152,6 +153,21 @@ public class App : Application
         {
             GLogger.Warn(zex, "打包日志失败");
             return (null, "打包日志失败: " + zex.Message);
+        }
+    }
+
+    private static void LogCurrentExecutable()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath
+                          ?? Path.Combine(AppContext.BaseDirectory, "LabelPlus_Next.Tools.exe");
+            GLogger.Info("Tools executable: {exe} (built {built:yyyy-MM-dd HH:mm:ss})",
+                exePath, File.GetLastWriteTime(exePath));
+        }
+        catch (Exception ex)
+        {
+            GLogger.Warn(ex, "无法读取可执行文件信息");
         }
     }
 

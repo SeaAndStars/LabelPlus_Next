@@ -106,6 +106,25 @@ public class ToolsSettingsTests
     }
 
     [TestMethod]
+    public void NormalizeTargetDirectory_StripsManifestFile()
+    {
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory("OneDrive2/Update/manifest.json"));
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory("/OneDrive2/Update/manifest.json/"));
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory(@"OneDrive2\Update\manifest.json"));
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory("OneDrive2/Update/data.JSON"));
+        Assert.AreEqual("", ToolsEndpoints.NormalizeTargetDirectory("manifest.json"));
+    }
+
+    [TestMethod]
+    public void NormalizeTargetDirectory_KeepsDirectories()
+    {
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory("OneDrive2/Update"));
+        Assert.AreEqual("OneDrive2/Update", ToolsEndpoints.NormalizeTargetDirectory("/OneDrive2/Update/"));
+        Assert.AreEqual("", ToolsEndpoints.NormalizeTargetDirectory(null));
+        Assert.AreEqual("", ToolsEndpoints.NormalizeTargetDirectory("  "));
+    }
+
+    [TestMethod]
     public void ViewModelLoadsSettingsOnConstruction()
     {
         var path = Path.Combine(tempDir, "tools.settings.json");
