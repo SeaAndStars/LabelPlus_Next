@@ -42,7 +42,7 @@
                         <TextBox Width="160" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock VerticalAlignment="Center" Text="Password" />
                         <TextBox Width="160" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" />
-                        <TextBlock VerticalAlignment="Center" Text="TargetPath" />
+                        <TextBlock VerticalAlignment="Center" Text="TargetPath (目录)" />
                         <TextBox Width="240" Text="{Binding TargetPath, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Click="OnUploadToFolderClick" Content="Upload to selected" />
                         <Button Click="OnUploadClick" Content="Upload (root)" />

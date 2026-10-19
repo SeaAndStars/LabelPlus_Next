@@ -11,6 +11,26 @@ public static class ToolsEndpoints
         => url.EndsWith('/') ? url : url + "/";
 
     /// <summary>
+    /// TargetPath is a remote directory. Older configurations sometimes point it at
+    /// <c>manifest.json</c> (a file), which makes uploads land inside a bogus directory
+    /// such as <c>/OneDrive2/Update/manifest.json/xxx.zip</c>. Strip a trailing
+    /// <c>.json</c> file name so callers always receive a directory path.
+    /// </summary>
+    public static string NormalizeTargetDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+
+        var normalized = path.Replace('\\', '/').Trim().Trim('/');
+        if (normalized.Length == 0) return string.Empty;
+
+        var lastSlash = normalized.LastIndexOf('/');
+        var lastSegment = lastSlash < 0 ? normalized : normalized[(lastSlash + 1)..];
+        if (!lastSegment.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return normalized;
+
+        return lastSlash < 0 ? string.Empty : normalized[..lastSlash];
+    }
+
+    /// <summary>
     /// Resolves the AList file-API root (e.g. https://host/).
     /// <para>
     /// The WebDAV endpoint is <c>https://host/dav/</c> while file/API calls must go to

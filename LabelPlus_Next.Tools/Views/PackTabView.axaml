@@ -14,7 +14,7 @@
 
     <ScrollViewer>
         <StackPanel Margin="16" Spacing="12">
-            <TextBlock Text="选择要打包的目录 (内含 Client.version.json)；留空或选择源码工程目录时自动构建多平台" />
+            <TextBlock Text="选择要打包的发布目录 (内含 Client.version.json)；选择源码工程目录或留空时自动构建多平台" />
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBox Width="600" Text="{Binding SelectedFolder}" LostFocus="OnFolderLostFocus" />
                 <Button Content="浏览目录" Click="OnBrowseFolderClick" />

@@ -273,7 +273,7 @@ public class MainWindowViewModel : ObservableObject
             var fs = new FileSystemApi(apiBase);
             var items = files.Select(p => new FileUploadItem
             {
-                FilePath = CombineDavPath(TargetPath ?? "/", Path.GetFileName(p)),
+                FilePath = CombineDavPath(ToolsEndpoints.NormalizeTargetDirectory(TargetPath), Path.GetFileName(p)),
                 LocalPath = p
             }).ToList();
             var results = await fs.PutManyAsync(token, items, progress: null, maxConcurrency: UploadConcurrency, asTask: false);
@@ -608,7 +608,7 @@ public class MainWindowViewModel : ObservableObject
         }
         else if (!string.IsNullOrWhiteSpace(TargetPath))
         {
-            relDir = TargetPath!.Replace('\\', '/').Trim('/');
+            relDir = ToolsEndpoints.NormalizeTargetDirectory(TargetPath);
         }
 
         var remotePath = BuildRemotePath(relDir, fileName);
