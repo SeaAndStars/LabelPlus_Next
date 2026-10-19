@@ -32,11 +32,12 @@ public partial class PackWindowViewModel : ObservableObject
 
     // Keep all project-version pairs detected from version files
     private readonly List<(string Project, string Version)> versionEntries = new();
+    private readonly SemaphoreSlim versionRefreshLock = new(1, 1);
 
     [ObservableProperty] private double currentProgress;
     [ObservableProperty] private string? currentTask;
     [ObservableProperty] private string? manifestPath;
-    // Note: during LoadClientVersionAsync this holds the download URL from project json; later in build it will hold DAV url
+    // Note: ManifestUrl holds the download URL from the version file until the build replaces it.
     [ObservableProperty] private string? manifestUrl;
     [ObservableProperty] private string? project;
     [ObservableProperty] private string? selectedFolder;
@@ -45,6 +46,10 @@ public partial class PackWindowViewModel : ObservableObject
     [ObservableProperty] private string? targetPath;
     [ObservableProperty] private string? version;
     [ObservableProperty] private string? zipPath;
+
+    // True when SelectedFolder itself contains version metadata and can be zipped as-is.
+    // Otherwise the folder is a source/project folder and the multi-platform build path is used.
+    [ObservableProperty] private bool hasLocalVersionFiles;
 
     // Publish options (UI configurable)
     [ObservableProperty] private bool winX64 = true;
@@ -78,77 +83,136 @@ public partial class PackWindowViewModel : ObservableObject
     public async Task SetFolderAsync(string folder)
     {
         SelectedFolder = folder;
-        await LoadClientVersionAsync();
+        await RefreshVersionInfoAsync();
     }
 
-    private async Task LoadClientVersionAsync()
+    public async Task SetSolutionAsync(string solutionPath)
     {
-        versionEntries.Clear();
-        if (string.IsNullOrEmpty(SelectedFolder)) return;
+        SolutionPath = solutionPath;
+        await RefreshVersionInfoAsync();
+    }
+
+    /// <summary>
+    /// Loads Project/Version for the UI. Prefers version files inside the selected
+    /// package folder; falls back to the solution/repository so selecting a source
+    /// project (for example LabelPlus_Next.Desktop) still shows the version info.
+    /// </summary>
+    public async Task RefreshVersionInfoAsync()
+    {
+        await versionRefreshLock.WaitAsync();
         try
         {
-            // support Update.version.json or Client.version.json (and misspelled variant)
-            var pUpdate = Path.Combine(SelectedFolder!, "Update.version.json");
-            var pClient = Path.Combine(SelectedFolder!, "Client.version.json");
-            var pClientTypo = Path.Combine(SelectedFolder!, "Clietn.version.json");
+            versionEntries.Clear();
+            Project = null;
+            Version = null;
+            ManifestUrl = null;
+            HasLocalVersionFiles = false;
 
-            var found = new List<(string path, ClientVersion cv)>();
-            if (File.Exists(pUpdate))
-            {
-                await using var fs = File.OpenRead(pUpdate);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pUpdate, cv));
-            }
-            if (File.Exists(pClient))
-            {
-                await using var fs = File.OpenRead(pClient);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pClient, cv));
-            }
-            if (!File.Exists(pClient) && File.Exists(pClientTypo))
-            {
-                await using var fs = File.OpenRead(pClientTypo);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pClientTypo, cv));
-            }
-
-            if (found.Count == 0)
-            {
-                Status = "未找到 Update.version.json 或 Client.version.json";
+            if (string.IsNullOrWhiteSpace(SelectedFolder) && string.IsNullOrWhiteSpace(SolutionPath))
                 return;
-            }
 
-            // Deduplicate by project name, keep order preferring Update.version.json first
-            foreach (var item in found)
+            try
             {
-                if (!string.IsNullOrWhiteSpace(item.cv.Project) && !string.IsNullOrWhiteSpace(item.cv.Version))
+                var localFiles = PackVersionLocator.FindVersionFilesInFolder(SelectedFolder);
+                if (localFiles.Count > 0)
                 {
-                    if (!versionEntries.Exists(e => string.Equals(e.Project, item.cv.Project, StringComparison.OrdinalIgnoreCase)))
-                        versionEntries.Add((item.cv.Project!, item.cv.Version!));
+                    HasLocalVersionFiles = true;
+                    await ReadVersionFilesAsync(localFiles, "所选目录");
+                    return;
                 }
-                // Take first non-empty manifest url as hint
-                if (string.IsNullOrEmpty(ManifestUrl) && !string.IsNullOrEmpty(item.cv.Manifest))
-                    ManifestUrl = item.cv.Manifest;
+
+                // Don't fall back to the tool's own directory here: when the user selected a
+                // folder, the version info must come from that folder's repository.
+                var repoRoot = PackVersionLocator.FindRepoRoot(SelectedFolder, SolutionPath, allowAppDirectoryFallback: false);
+                if (repoRoot is not null)
+                {
+                    var repoFiles = PackVersionLocator.FindVersionFilesInRepo(repoRoot);
+                    if (repoFiles.Count > 0)
+                    {
+                        await ReadVersionFilesAsync(repoFiles, $"仓库 {repoRoot}");
+                        PreferSelectedProject();
+                        return;
+                    }
+                }
+
+                Status = "未找到版本文件：请选择包含 Client.version.json 的打包目录，或留空使用多平台自动构建";
             }
-
-            // Primary display uses the first entry
-            Project = versionEntries[0].Project;
-            Version = versionEntries[0].Version;
-
-            var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
-            Status = $"版本: {Version}, 项目: {Project}（{filesUsed}）";
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "读取版本文件失败");
+                Status = $"读取版本失败: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Logger.Error(ex, "读取版本文件失败");
-            Status = $"读取版本失败: {ex.Message}";
+            versionRefreshLock.Release();
         }
+    }
+
+    private async Task ReadVersionFilesAsync(IReadOnlyList<string> files, string source)
+    {
+        var found = new List<(string path, ClientVersion cv)>();
+        foreach (var file in files)
+        {
+            await using var fs = File.OpenRead(file);
+            var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(
+                fs,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+            if (cv is not null) found.Add((file, cv));
+        }
+
+        // Deduplicate by project name, keeping the first occurrence.
+        foreach (var item in found)
+        {
+            if (string.IsNullOrWhiteSpace(item.cv.Project) || string.IsNullOrWhiteSpace(item.cv.Version))
+                continue;
+
+            if (!versionEntries.Exists(e => string.Equals(e.Project, item.cv.Project, StringComparison.OrdinalIgnoreCase)))
+                versionEntries.Add((item.cv.Project!, item.cv.Version!));
+
+            // Take the first non-empty manifest url as a hint.
+            if (string.IsNullOrEmpty(ManifestUrl) && !string.IsNullOrEmpty(item.cv.Manifest))
+                ManifestUrl = item.cv.Manifest;
+        }
+
+        if (versionEntries.Count == 0)
+        {
+            Status = $"{source} 中未找到有效的 Project/Version";
+            return;
+        }
+
+        Project = versionEntries[0].Project;
+        Version = versionEntries[0].Version;
+        var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
+        Status = $"版本: {Version}, 项目: {Project}（{source}: {filesUsed}）";
+    }
+
+    /// <summary>
+    /// When the version files come from the repository, show the entry matching the
+    /// selected project folder (e.g. LabelPlus_Next.Desktop) before the others.
+    /// </summary>
+    private void PreferSelectedProject()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedFolder)) return;
+
+        var selectedName = new DirectoryInfo(SelectedFolder!).Name;
+        var index = versionEntries.FindIndex(e => string.Equals(e.Project, selectedName, StringComparison.OrdinalIgnoreCase));
+        if (index <= 0) return;
+
+        var entry = versionEntries[index];
+        versionEntries.RemoveAt(index);
+        versionEntries.Insert(0, entry);
+        Project = entry.Project;
+        Version = entry.Version;
     }
 
     private async Task BuildAndUploadAsync()
     {
         try
         {
+            // Reflect a folder typed by hand and a solution selected after the folder.
+            await RefreshVersionInfoAsync();
+
             var settingsPath = ToolsSettingsStore.DefaultPath;
             if (!File.Exists(settingsPath))
             {
@@ -174,13 +238,14 @@ public partial class PackWindowViewModel : ObservableObject
             var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
             Directory.CreateDirectory(outDir);
 
-            // If user selected a folder -> old behavior: zip that folder as a package
-            if (!string.IsNullOrEmpty(SelectedFolder))
+            // A folder that contains version metadata is a prepared package directory:
+            // zip it as-is. Otherwise it is a source/project folder and the
+            // multi-platform build path below is used.
+            if (!string.IsNullOrEmpty(SelectedFolder) && HasLocalVersionFiles)
             {
-                if (versionEntries.Count == 0) await LoadClientVersionAsync();
                 if (versionEntries.Count == 0)
                 {
-                    Status = "版本或项目为空";
+                    Status = "所选目录的版本文件无效";
                     return;
                 }
 
@@ -268,7 +333,21 @@ public partial class PackWindowViewModel : ObservableObject
             }
 
             // Auto build selected platforms for Desktop and Update projects
-            var repoRoot = FindRepoRoot();
+            if (!string.IsNullOrEmpty(SelectedFolder))
+            {
+                if (!PackVersionLocator.LooksLikeSourceProject(SelectedFolder))
+                {
+                    Status = "所选目录不含版本文件，也不是源码工程目录：请选择发布目录，或留空自动构建多平台";
+                    return;
+                }
+
+                Logger.Info("Selected folder {folder} has no version files; using multi-platform build", SelectedFolder);
+                Status = "所选目录不含版本文件，将自动构建多平台…";
+            }
+
+            var repoRoot = string.IsNullOrEmpty(SelectedFolder)
+                ? PackVersionLocator.FindRepoRoot(null, SolutionPath) ?? FindRepoRoot()
+                : PackVersionLocator.FindRepoRoot(SelectedFolder, SolutionPath, allowAppDirectoryFallback: false);
             if (repoRoot is null)
             {
                 Status = "未能定位仓库根目录";
@@ -953,8 +1032,21 @@ public partial class PackWindowViewModel : ObservableObject
         // we really want LabelPlus_Next.Desktop or LabelPlus_Next.Update.
         var csproj = GetProjectPath(repoRoot, projectName);
         var projDir = Path.GetDirectoryName(csproj) ?? Path.Combine(repoRoot, projectName);
-        // Assume net9.0 and Release
-        return Path.Combine(projDir, "bin", "Release", "net9.0", rid, "publish");
+        var releaseDir = Path.Combine(projDir, "bin", "Release");
+
+        // dotnet publish writes to bin/Release/<tfm>/<rid>/publish. Discover the
+        // output instead of hardcoding a target framework that may have moved on.
+        if (Directory.Exists(releaseDir))
+        {
+            var published = Directory.EnumerateDirectories(releaseDir)
+                .Select(tfmDir => Path.Combine(tfmDir, rid, "publish"))
+                .Where(Directory.Exists)
+                .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path))
+                .FirstOrDefault();
+            if (published is not null) return published;
+        }
+
+        return Path.Combine(releaseDir, "net10.0", rid, "publish");
     }
 
     private static async Task PublishProjectAsync(string repoRoot, string projectName, string rid, bool selfContained, bool singleFile, bool trimmed)
@@ -979,7 +1071,7 @@ public partial class PackWindowViewModel : ObservableObject
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
         var code = await tcs.Task.ConfigureAwait(false);
-        if (code != 0) throw new InvalidOperationException($"dotenv publish 失败（{projectName} {rid}）：exit={code}");
+        if (code != 0) throw new InvalidOperationException($"dotnet publish 失败（{projectName} {rid}）：exit={code}");
     }
 
     private static string? TryReadVersion(string jsonPath)
