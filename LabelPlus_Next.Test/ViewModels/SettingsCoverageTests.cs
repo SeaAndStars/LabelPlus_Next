@@ -261,6 +261,11 @@ public class SettingsCoverageTests
         Assert.AreEqual("u", main.Username);
         Assert.AreEqual("p", main.Password);
         Assert.AreEqual("/target", main.TargetPath);
+        Assert.AreEqual("https://dav.invalid", vm.BaseUrl);
+        Assert.AreEqual("https://api.invalid", vm.ApiBaseUrl);
+        Assert.AreEqual("u", vm.Username);
+        Assert.AreEqual("p", vm.Password);
+        Assert.AreEqual("/target", vm.TargetPath);
         CollectionAssert.Contains(changed, nameof(vm.BaseUrl));
 
         await vm.SaveCommand.ExecuteAsync(null);

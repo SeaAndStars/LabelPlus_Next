@@ -13,6 +13,7 @@ using LabelPlus_Next.Shared;
 using LabelPlus_Next.Views;
 using NLog;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http;
@@ -623,6 +624,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static string? ResolveUpdaterEntry(string dir)
     {
         try

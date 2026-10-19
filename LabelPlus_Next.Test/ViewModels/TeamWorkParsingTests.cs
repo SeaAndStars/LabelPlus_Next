@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using LabelPlus_Next.ViewModels;
@@ -45,6 +46,7 @@ public class TeamWorkParsingTests
 
         Instance(vm, "BuildTreeSource", episodes);
 
+        Assert.IsFalse(vm.IsTreeEmpty);
         Assert.IsTrue(vm.TreeRows.Count > 2);
         var root = vm.TreeRows[0];
         Assert.IsTrue(root.IsExpanded);
@@ -67,6 +69,27 @@ public class TeamWorkParsingTests
         vm.ToggleTreeNodeCommand.Execute(null);
     }
 
+
+    [TestMethod]
+    public async Task ParameterlessConstructor_StartsRefreshWithoutThrowing()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "upload.json");
+        var backup = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        try
+        {
+            File.WriteAllText(path, "{\"baseUrl\":\"http://127.0.0.1:1\",\"username\":\"u\",\"password\":\"p\"}");
+            var vm = new TeamWorkViewModel();
+            typeof(TeamWorkViewModel).GetField("Logger", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null);
+            await Task.Delay(100);
+            Assert.IsNotNull(vm);
+            Assert.IsTrue(vm.IsTreeEmpty);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+            if (backup is not null) File.WriteAllBytes(path, backup);
+        }
+    }
     [TestMethod]
     public void CreateNode_SetsStageRowsAndFileChildren()
     {

@@ -33,7 +33,7 @@ public class TranslateHelperTests
 
     private static void ResetStore()
     {
-        var field = typeof(TranslateViewModel).GetField("LabelFileManager1", BindingFlags.NonPublic | BindingFlags.Static);
+        var field = typeof(TranslateViewModel).GetField("SharedLabelManager", BindingFlags.NonPublic | BindingFlags.Static);
         if (field?.GetValue(null) is LabelFileManager manager)
         {
             manager.StoreManager.Store.Clear();
@@ -61,7 +61,7 @@ public class TranslateHelperTests
     [TestMethod]
     public void ResolveImagePath_CombinesTranslationDirectoryAndDecodes()
     {
-        var vm = new TranslateViewModel(new NoopFileDialogService());
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher(), new LabelFileManager());
         vm.OpenTranslationFilePath = Path.Combine(_dir, "translation.txt");
 
         var resolved = (string)Instance(vm, "ResolveImagePath", "img/a%20b.png")!;
@@ -75,7 +75,7 @@ public class TranslateHelperTests
     [TestMethod]
     public async Task BuildSnapshotAndAutosaveWriteBackup()
     {
-        var vm = new TranslateViewModel(new NoopFileDialogService());
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher(), new LabelFileManager());
         await vm.AddImageFileAsync("a.png");
         vm.SelectedImageFile = "a.png";
         await vm.AddLabelAtAsync(0.25f, 0.75f, 2);
@@ -99,10 +99,62 @@ public class TranslateHelperTests
         vm.OpenTranslationFilePath = null;
     }
 
+
+    [TestMethod]
+    public void RefreshImagesList_EmptyStoreClearsSelection()
+    {
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher());
+        vm.SelectedImageFile = "x.png";
+        vm.RefreshImagesList();
+        Assert.IsNull(vm.SelectedImageFile);
+        Assert.AreEqual(0, vm.ImageFileNames.Count);
+    }
+
+    [TestMethod]
+    public void AddOrUpdateRecentProject_HandlesMissingInvalidAndUnwritableStore()
+    {
+        var field = typeof(TranslateViewModel).GetField("RecentStorePath", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var path = (string)field.GetValue(null)!;
+        var backup = File.Exists(path) ? File.ReadAllBytes(path) : null;
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+            var translation = Path.Combine(_dir, "translation.txt");
+            File.WriteAllText(translation, "");
+            Static("AddOrUpdateRecentProject", translation);
+            Assert.IsTrue(File.Exists(path));
+            Assert.IsTrue(File.ReadAllText(path).Contains("translation.txt"));
+
+            Static("AddOrUpdateRecentProject", translation);
+            Assert.IsTrue(File.ReadAllText(path).Contains("translation.txt"));
+
+            File.WriteAllText(path, "{ invalid");
+            Static("AddOrUpdateRecentProject", translation);
+
+            File.Delete(path);
+            Directory.CreateDirectory(path);
+            Static("AddOrUpdateRecentProject", translation);
+
+            Directory.Delete(path, true);
+            File.CreateSymbolicLink(path, "/proc/self/mem");
+            Static("AddOrUpdateRecentProject", translation);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (Directory.Exists(path)) Directory.Delete(path, true);
+                if (backup is not null) File.WriteAllBytes(path, backup);
+            }
+            catch { }
+        }
+    }
+
     [TestMethod]
     public async Task MoveLabelAndTextNotificationWork()
     {
-        var vm = new TranslateViewModel(new NoopFileDialogService());
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher(), new LabelFileManager());
         await vm.AddImageFileAsync("p.png");
         vm.SelectedImageFile = "p.png";
         await vm.AddLabelAtAsync(0.1f, 0.1f, 1);

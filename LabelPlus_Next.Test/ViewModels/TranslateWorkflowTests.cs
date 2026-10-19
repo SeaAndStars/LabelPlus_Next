@@ -57,7 +57,7 @@ public class TranslateWorkflowTests
 
     private static void ResetStore()
     {
-        var field = typeof(TranslateViewModel).GetField("LabelFileManager1", BindingFlags.NonPublic | BindingFlags.Static);
+        var field = typeof(TranslateViewModel).GetField("SharedLabelManager", BindingFlags.NonPublic | BindingFlags.Static);
         if (field?.GetValue(null) is LabelFileManager manager)
         {
             manager.StoreManager.Store.Clear();
@@ -75,7 +75,7 @@ public class TranslateWorkflowTests
     [TestMethod]
     public async Task OpenTranslationCommand_CancelDoesNothing()
     {
-        var vm = new TranslateViewModel(new FakeDialogs { OpenFile = null });
+        var vm = new TranslateViewModel(new FakeDialogs { OpenFile = null }, new InlineUiDispatcher(), new LabelFileManager());
         await InvokeAsync(vm, "OpenTranslationFileCommand");
         Assert.IsNull(vm.OpenTranslationFilePath);
     }
@@ -84,7 +84,7 @@ public class TranslateWorkflowTests
     public async Task SaveCurrentCommand_WithoutOpenPathShowsMessage()
     {
         var dialogs = new FakeDialogs();
-        var vm = new TranslateViewModel(dialogs);
+        var vm = new TranslateViewModel(dialogs, new InlineUiDispatcher(), new LabelFileManager());
         await InvokeAsync(vm, "SaveCurrentCommand");
         Assert.AreEqual(1, dialogs.Messages.Count);
     }
@@ -92,7 +92,7 @@ public class TranslateWorkflowTests
     [TestMethod]
     public async Task SaveAsCommand_CancelDoesNothingAndDirectFileSaveWorks()
     {
-        var vm = new TranslateViewModel(new FakeDialogs());
+        var vm = new TranslateViewModel(new FakeDialogs(), new InlineUiDispatcher(), new LabelFileManager());
         await vm.SaveAsCommand();
         Assert.IsNull(vm.OpenTranslationFilePath);
 
@@ -104,7 +104,7 @@ public class TranslateWorkflowTests
     [TestMethod]
     public async Task ImageAndFileSettingsHelpers()
     {
-        var vm = new TranslateViewModel(new FakeDialogs());
+        var vm = new TranslateViewModel(new FakeDialogs(), new InlineUiDispatcher(), new LabelFileManager());
         await vm.AddImageFileAsync("a.png");
         await vm.AddImageFileAsync("b.png");
         Assert.AreEqual(2, vm.GetIncludedImageFiles().Count);
@@ -122,7 +122,7 @@ public class TranslateWorkflowTests
     [TestMethod]
     public void OpenAtPath_MissingFileIsIgnored()
     {
-        var vm = new TranslateViewModel(new FakeDialogs());
+        var vm = new TranslateViewModel(new FakeDialogs(), new InlineUiDispatcher(), new LabelFileManager());
         vm.OpenTranslationFileAtPathAsync(Path.Combine(_dir, "missing.txt"));
         Assert.IsNull(vm.OpenTranslationFilePath);
     }

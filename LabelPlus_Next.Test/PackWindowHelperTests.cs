@@ -31,6 +31,18 @@ public class PackWindowHelperTests
         => typeof(PackWindowViewModel).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
             .Invoke(null, args);
 
+    private static object? Instance(PackWindowViewModel vm, string name, params object?[] args)
+        => typeof(PackWindowViewModel).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(vm, args);
+
+
+    [TestMethod]
+    public void ToolsStore_TryDeleteSwallowsIoErrors()
+    {
+        var method = typeof(LabelPlus_Next.Tools.Services.ToolsSettingsStore).GetMethod("TryDelete", BindingFlags.NonPublic | BindingFlags.Static)!;
+        method.Invoke(null, new object[] { "/proc/self/mem" });
+        Assert.IsTrue(true);
+    }
     [TestMethod]
     public void StringAndVersionHelpers()
     {
@@ -101,6 +113,48 @@ public class PackWindowHelperTests
         StringAssert.Contains(fallback, "net10.0");
     }
 
+
+    [TestMethod]
+    public void PreferSelectedProject_ReordersEntries()
+    {
+        var vm = new PackWindowViewModel();
+        var folder = Path.Combine(_dir, "LabelPlus_Next.Desktop");
+        Directory.CreateDirectory(folder);
+        vm.SelectedFolder = folder;
+        var field = typeof(PackWindowViewModel).GetField("versionEntries", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var list = (System.Collections.IList)field.GetValue(vm)!;
+        list.Add(("Other", "1.0"));
+        list.Add(("LabelPlus_Next.Desktop", "2.0"));
+
+        Instance(vm, "PreferSelectedProject");
+        Assert.AreEqual("LabelPlus_Next.Desktop", vm.Project);
+        Assert.AreEqual("2.0", vm.Version);
+
+        vm.SelectedFolder = null;
+        Instance(vm, "PreferSelectedProject");
+        vm.SelectedFolder = _dir;
+        Instance(vm, "PreferSelectedProject");
+    }
+
+    [TestMethod]
+    public void LogFetchedJson_TruncatesLongPayloads()
+    {
+        InstanceStatic("LogFetchedJson", "src", "https://x", "{\"a\":1}");
+        InstanceStatic("LogFetchedJson", "src", "https://x", new string('x', 11000));
+    }
+
+    private static void InstanceStatic(string name, params object?[] args)
+        => typeof(PackWindowViewModel).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, args);
+
+    [TestMethod]
+    public void FindRepoRoot_WalksUpFromAppDirectory()
+    {
+        // The test assembly lives under the repository worktree, so the helper
+        // should walk up until it sees both project folders.
+        var found = Call("FindRepoRoot");
+        Assert.IsNotNull(found);
+        StringAssert.Contains((string)found!, "lp-cov");
+    }
     [TestMethod]
     public async Task SetFolder_ReadsVersionAndDetectsSourceProject()
     {

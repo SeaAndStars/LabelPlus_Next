@@ -55,7 +55,7 @@ public class TranslateFileWorkflowTests
 
     private static void ResetStore()
     {
-        var field = typeof(TranslateViewModel).GetField("LabelFileManager1", BindingFlags.NonPublic | BindingFlags.Static);
+        var field = typeof(TranslateViewModel).GetField("SharedLabelManager", BindingFlags.NonPublic | BindingFlags.Static);
         if (field?.GetValue(null) is LabelFileManager manager)
         {
             manager.StoreManager.Store.Clear();
@@ -70,7 +70,7 @@ public class TranslateFileWorkflowTests
     }
 
     private TranslateViewModel NewVm(FakeDialogs dialogs)
-        => new(dialogs, new InlineUiDispatcher());
+        => new(dialogs, new InlineUiDispatcher(), new LabelFileManager());
 
     [TestMethod]
     public async Task NewTranslation_WithInlineUi_CreatesLoadsAndSaves()

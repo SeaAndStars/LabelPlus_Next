@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -23,6 +23,7 @@ public class MainProjectsViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly IFileDialogService _dialogs;
+    private readonly IUiDispatcher _ui;
     private readonly string _recentStorePath;
 
     private RecentProject? _selectedProject;
@@ -44,11 +45,14 @@ public class MainProjectsViewModel : ViewModelBase
     public MainProjectsViewModel() : this(App.Services.GetRequiredService<IFileDialogService>()) { }
 
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public MainProjectsViewModel(IFileDialogService dialogs) : this(dialogs, null) { }
+    public MainProjectsViewModel(IFileDialogService dialogs) : this(dialogs, null, null) { }
 
-    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath)
+    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath) : this(dialogs, recentStorePath, null) { }
+
+    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath, IUiDispatcher? ui)
     {
         _dialogs = dialogs;
+        _ui = ui ?? new AvaloniaUiDispatcher();
         if (string.IsNullOrWhiteSpace(recentStorePath))
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
@@ -150,7 +154,7 @@ public class MainProjectsViewModel : ViewModelBase
             bmp?.Dispose();
             return; // selection changed while loading
         }
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await _ui.InvokeAsync(() =>
         {
             CurrentPreviewImage?.Dispose();
             CurrentPreviewImage = bmp;
@@ -258,7 +262,7 @@ public class MainProjectsViewModel : ViewModelBase
             PreviewStatus = UiText.Tr("加载预览...");
             var imageNames = ParseImageNames(proj.TranslationFile, 50); // load up to 50 names
             if (version != _previewLoadVersion) return;
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _ui.InvokeAsync(() =>
             {
                 foreach (var n in imageNames) PreviewImageNames.Add(n);
             });
