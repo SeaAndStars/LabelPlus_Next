@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -477,7 +477,8 @@ public class MainProjectsViewModel : ViewModelBase
                 var now = DateTime.Now;
                 foreach (var f in files)
                 {
-                    var stamp = Path.GetFileName(f).Split('_').FirstOrDefault();
+                    var parts = Path.GetFileName(f).Split('_');
+                    var stamp = parts.Length >= 2 ? parts[0] + "_" + parts[1] : null;
                     if (stamp != null && DateTime.TryParseExact(stamp, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out var dt))
                     {
                         if ((now - dt) < TimeSpan.FromHours(3)) candidates.Add(f);
