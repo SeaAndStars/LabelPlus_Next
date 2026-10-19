@@ -1,4 +1,4 @@
-namespace LabelPlus_Next.Services;
+﻿namespace LabelPlus_Next.Services;
 
 public sealed class CollaborationSession
 {
@@ -11,5 +11,11 @@ public sealed class CollaborationSession
     public string? LastRemoteHash { get; set; }
 
     public string RemoteDirectory
-        => System.IO.Path.GetDirectoryName(RemoteTranslatePath)?.Replace('\\', '/') ?? "/";
+    {
+        get
+        {
+            var dir = System.IO.Path.GetDirectoryName(RemoteTranslatePath)?.Replace('\\', '/');
+            return string.IsNullOrWhiteSpace(dir) ? "/" : dir;
+        }
+    }
 }
