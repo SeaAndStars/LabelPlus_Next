@@ -52,10 +52,32 @@ jobs:
             --logger "trx;LogFileName=test_results.trx" \
             --results-directory ./TestResults
 
-          COVERAGE_FILE=$(find TestResults -name coverage.cobertura.xml | head -1)
-          LINE_RATE=$(grep -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | head -1 | grep -o '[0-9.]*')
+          COVERAGE_FILE=$(find TestResults -name coverage.cobertura.xml -print -quit)
+          if [ -z "$COVERAGE_FILE" ]; then
+            echo "coverage.cobertura.xml not found" >&2
+            exit 1
+          fi
+          # grep -m1 stops after the first match; piping to head triggers SIGPIPE
+          # under `set -e` on some runners (observed on ubuntu-latest).
+          LINE_RATE=$(grep -m1 -o 'line-rate="[0-9.]*"' "$COVERAGE_FILE" | sed 's/[^0-9.]//g')
           echo "Core line coverage: $LINE_RATE (target 100%)"
           echo "CORE_LINE_COVERAGE=$LINE_RATE" >> "$GITHUB_ENV"
+
+      - name: Enforce core coverage (100%)
+        # Platform-specific updater/WebDAV/test paths differ per OS; the core
+        # coverage contract is enforced on the representative Linux run. All
+        # three matrix legs still run the full test suite.
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -e
+          awk -v rate="$CORE_LINE_COVERAGE" 'BEGIN {
+            if (rate + 0 < 1.0) {
+              printf "Core line coverage %.4f is below 100%%\n", rate + 0;
+              exit 1;
+            }
+            printf "Core line coverage %.4f meets the 100%% threshold\n", rate + 0;
+          }' 
 
       - name: Generate coverage report (Markdown + HTML)
         shell: bash
