@@ -1,4 +1,4 @@
-using Avalonia.Controls.Notifications;
+﻿using Avalonia.Controls.Notifications;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -31,14 +31,17 @@ public partial class TranslateViewModel : ViewModelBase
     private int _autoSaveBusy;
     private Timer? _autoSaveTimer;
     private readonly IFileDialogService _dialogs;
+    private readonly IUiDispatcher _ui;
     private string? _lastBackupSignature;
     private bool _autoSaveConflictNotified; // 防止重复通知
     public CollaborationSession? Collab { get; set; } // null for local-only
 
-    public TranslateViewModel() : this(new NoopFileDialogService()) { }
-    public TranslateViewModel(IFileDialogService dialogs)
+    public TranslateViewModel() : this(new NoopFileDialogService(), null) { }
+    public TranslateViewModel(IFileDialogService dialogs) : this(dialogs, null) { }
+    public TranslateViewModel(IFileDialogService dialogs, IUiDispatcher? ui)
     {
         _dialogs = dialogs;
+        _ui = ui ?? new AvaloniaUiDispatcher();
     }
     public WindowNotificationManager? NotificationManager { get; set; }
 
@@ -58,17 +61,17 @@ public partial class TranslateViewModel : ViewModelBase
     [ObservableProperty] private LabelItem? selectedLabel;
     [ObservableProperty] private string? selectedLang = "default";
 
-    private static bool OnUiThread => Dispatcher.UIThread.CheckAccess();
+    private bool OnUiThread => _ui.CheckAccess();
 
     private async Task RunOnUiAsync(Action act)
     {
-        if (OnUiThread)
+        if (_ui.CheckAccess())
         {
             act();
         }
         else
         {
-            await Dispatcher.UIThread.InvokeAsync(act);
+            await _ui.InvokeAsync(act);
         }
     }
 
@@ -382,7 +385,7 @@ public partial class TranslateViewModel : ViewModelBase
         {
             if (NotificationManager is not null)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => NotificationManager.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]));
+                await _ui.InvokeAsync(() => NotificationManager.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]));
             }
         }
         catch (Exception ex) { Logger.Warn(ex, "NotifyAsync failed: {title} - {message}", title, message); }
@@ -510,7 +513,7 @@ public partial class TranslateViewModel : ViewModelBase
     }
     public void RefreshImagesList()
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(RefreshImagesList); return; }
+        if (!OnUiThread) { _ui.Post(RefreshImagesList); return; }
         Logger.Debug("Refreshing image list UI.");
         var selected = SelectedImageFile;
         ImageFileNames.Clear();
@@ -558,7 +561,7 @@ public partial class TranslateViewModel : ViewModelBase
 
     partial void OnSelectedImageFileChanged(string? value)
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(() => OnSelectedImageFileChanged(value)); return; }
+        if (!OnUiThread) { _ui.Post(() => OnSelectedImageFileChanged(value)); return; }
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
@@ -635,7 +638,7 @@ public partial class TranslateViewModel : ViewModelBase
 
     private void UpdateCurrentLabels()
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(UpdateCurrentLabels); return; }
+        if (!OnUiThread) { _ui.Post(UpdateCurrentLabels); return; }
         CurrentLabels.Clear();
         if (!string.IsNullOrEmpty(SelectedImageFile) && LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
         {
