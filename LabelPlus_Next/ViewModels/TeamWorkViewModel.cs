@@ -59,7 +59,9 @@ public partial class TeamWorkViewModel : ObservableObject
     private string? _lastNotifyKey;
     private DateTime _lastNotifyAt;
 
-    public TeamWorkViewModel()
+    public TeamWorkViewModel() : this(true) { }
+
+    public TeamWorkViewModel(bool autoRefresh)
     {
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         StartTranslateCommand = new AsyncRelayCommand<EpisodeItem>(StartTranslateAsync);
@@ -70,7 +72,7 @@ public partial class TeamWorkViewModel : ObservableObject
         RetryCommand = new RelayCommand(async () => { var op = _lastOp; if (op is not null) await op(); });
         ShowFilesCommand = new AsyncRelayCommand<EpisodeItem>(ShowFilesAsync);
         DownloadFileCommand = new AsyncRelayCommand<NodeItem>(DownloadFileAsync); // 新增
-        _ = RefreshAsync();
+        if (autoRefresh) _ = RefreshAsync();
     }
 
     private readonly Dictionary<string, string> _projectMap = new(StringComparer.Ordinal);
