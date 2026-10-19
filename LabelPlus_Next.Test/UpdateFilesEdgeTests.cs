@@ -57,8 +57,11 @@ public class UpdateFilesEdgeTests
         Assert.IsFalse(Directory.Exists(sub));
         UpdateFiles.TryDeleteDirectory(sub);
 
-        UpdateFiles.TryDelete("/proc/self/mem");
-        UpdateFiles.TryDeleteDirectory("/proc/self");
+        if (OperatingSystem.IsLinux())
+        {
+            UpdateFiles.TryDelete("/proc/self/mem");
+            UpdateFiles.TryDeleteDirectory("/proc/self");
+        }
     }
 
     [TestMethod]

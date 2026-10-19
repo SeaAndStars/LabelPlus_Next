@@ -39,6 +39,7 @@ public class PackWindowHelperTests
     [TestMethod]
     public void ToolsStore_TryDeleteSwallowsIoErrors()
     {
+        if (!OperatingSystem.IsLinux()) return;
         var method = typeof(LabelPlus_Next.Tools.Services.ToolsSettingsStore).GetMethod("TryDelete", BindingFlags.NonPublic | BindingFlags.Static)!;
         method.Invoke(null, new object[] { "/proc/self/mem" });
         Assert.IsTrue(true);
@@ -90,7 +91,7 @@ public class PackWindowHelperTests
         var valid = Path.Combine(_dir, "version.json");
         File.WriteAllText(valid, "{\"project\":\"x\",\"version\":\"1.2.3\"}");
         Assert.AreEqual("1.2.3", Call("TryReadVersion", valid));
-        Assert.IsNull(Call("TryReadVersion", "/proc/self/mem"));
+        if (OperatingSystem.IsLinux()) Assert.IsNull(Call("TryReadVersion", "/proc/self/mem"));
     }
 
     [TestMethod]

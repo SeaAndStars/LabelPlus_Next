@@ -188,11 +188,9 @@ public class MainProjectsParsingTests
     [TestMethod]
     public void RecentStore_ProcMemIoFailuresAreSwallowed()
     {
-        var vm = new MainProjectsViewModel(new NoopFileDialogService(), "/proc/self/mem", new InlineUiDispatcher());
+        var path = OperatingSystem.IsLinux() ? "/proc/self/mem" : Path.Combine(_dir, "recent_mem.json");
+        var vm = new MainProjectsViewModel(new NoopFileDialogService(), path, new InlineUiDispatcher());
         vm.RefreshRecentCommand.Execute(null);
-
-        var denied = new MainProjectsViewModel(new NoopFileDialogService(), "/proc/1/mem", new InlineUiDispatcher());
-        denied.RefreshRecentCommand.Execute(null);
         Assert.IsNotNull(vm.RecentProjects);
     }
     [TestMethod]

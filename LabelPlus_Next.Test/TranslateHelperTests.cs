@@ -146,7 +146,7 @@ public class TranslateHelperTests
             Static("AddOrUpdateRecentProject", translation);
 
             Directory.Delete(path, true);
-            if (!OperatingSystem.IsWindows())
+            if (OperatingSystem.IsLinux())
             {
                 File.CreateSymbolicLink(path, "/proc/self/mem");
                 Static("AddOrUpdateRecentProject", translation);
