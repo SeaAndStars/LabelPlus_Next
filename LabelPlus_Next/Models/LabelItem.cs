@@ -60,6 +60,9 @@ public class LabelItem : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Re-evaluate display-only properties (e.g. the localized category text).</summary>
+    public void NotifyCategoryDisplayChanged() => OnPropertyChanged(nameof(CategoryString));
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

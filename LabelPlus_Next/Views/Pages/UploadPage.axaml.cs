@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Services;
@@ -41,6 +41,8 @@ public partial class UploadPage : UserControl
     {
         base.OnAttachedToVisualTree(e);
         Logger.Debug("UploadPage attached to visual tree.");
+        if (DataContext is UploadViewModel vm && vm.Projects.Count == 0 && !vm.IsBusy)
+            _ = vm.RefreshCommand.ExecuteAsync(null);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)

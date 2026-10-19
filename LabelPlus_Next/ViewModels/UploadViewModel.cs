@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -39,6 +39,12 @@ public partial class UploadViewModel : ObservableObject
     [ObservableProperty] private string? status;
     [ObservableProperty] private int uploadCompleted;
     [ObservableProperty] private int uploadTotal;
+    [ObservableProperty] private bool isBusy;
+
+    /// <summary>Hide the progress bar until an upload actually has steps/paths.</summary>
+    public bool HasUploadProgress => UploadTotal > 0 || !string.IsNullOrEmpty(CurrentUploadingPath);
+    partial void OnUploadTotalChanged(int value) => OnPropertyChanged(nameof(HasUploadProgress));
+    partial void OnCurrentUploadingPathChanged(string? value) => OnPropertyChanged(nameof(HasUploadProgress));
 
     [ObservableProperty] private bool isTankobonFallback;
     [ObservableProperty] private int? tankobonVolumeNumber;
@@ -457,6 +463,16 @@ public partial class UploadViewModel : ObservableObject
 
             MultiMetadataReady?.Invoke(this, list);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            Status = UiText.Tr("无法访问所选文件夹，请检查权限。");
+            Logger.Warn(ex, "AddProjectAsync access denied");
+        }
+        catch (IOException ex)
+        {
+            Status = UiText.Tr("读取所选文件夹失败: {0}", ex.Message);
+            Logger.Warn(ex, "AddProjectAsync IO failure");
+        }
         catch (Exception ex)
         {
             Status = UiText.Tr("新增项目失败: {0}", ex.Message);
@@ -769,6 +785,8 @@ public partial class UploadViewModel : ObservableObject
 
     private async Task RefreshAsync()
     {
+        if (IsBusy) return;
+        IsBusy = true;
         try
         {
             Status = UiText.Tr("正在刷新项目列表...");
@@ -814,6 +832,10 @@ public partial class UploadViewModel : ObservableObject
         {
             Status = UiText.Tr("刷新失败: {0}", ex.Message);
             Logger.Error(ex, "RefreshAsync failed");
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
