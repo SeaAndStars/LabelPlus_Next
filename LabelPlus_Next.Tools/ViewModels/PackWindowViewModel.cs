@@ -212,6 +212,8 @@ public partial class PackWindowViewModel : ObservableObject
         {
             // Reflect a folder typed by hand and a solution selected after the folder.
             await RefreshVersionInfoAsync();
+            Logger.Info("Pack started: folder='{folder}', solution='{solution}', project='{project}', version='{version}'",
+                SelectedFolder, SolutionPath, Project, Version);
 
             var settingsPath = ToolsSettingsStore.DefaultPath;
             if (!File.Exists(settingsPath))
@@ -234,6 +236,7 @@ public partial class PackWindowViewModel : ObservableObject
                 Status = "未配置 API BaseUrl：请在“设置服务器”中填写站点根地址（例如 https://主机）";
                 return;
             }
+            Logger.Info("Pack API base: {apiBase}", apiBase);
 
             var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
             Directory.CreateDirectory(outDir);
@@ -248,6 +251,7 @@ public partial class PackWindowViewModel : ObservableObject
                     Status = "所选目录的版本文件无效";
                     return;
                 }
+                Logger.Info("Pack mode: zip selected folder {folder}", SelectedFolder);
 
                 var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 var fileName = $"{Project}({Version})_{ts}.zip";
@@ -267,13 +271,17 @@ public partial class PackWindowViewModel : ObservableObject
                 var manifestDownloadUrlFromProject = ManifestUrl;
 
                 // 使用文件 API 上传（站点根地址，而不是 /dav 端点）
+                Logger.Info("Pack login: user='{user}', API={apiBase}", uploadSettings.Username, baseDir);
                 var auth = new AuthApi(baseDir);
                 var login = await auth.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
                 if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
                 {
+                    Logger.Warn("Pack login failed: code={code}, message={message}, API={apiBase}",
+                        login.Code, login.Message, baseDir);
                     Status = $"登录失败: {login.Code} {login.Message}（API: {baseDir}）";
                     return;
                 }
+                Logger.Info("Pack login succeeded (API: {apiBase})", baseDir);
                 var token = login.Data!.Token!;
                 var fs = new FileSystemApi(baseDir);
 
@@ -333,6 +341,7 @@ public partial class PackWindowViewModel : ObservableObject
             }
 
             // Auto build selected platforms for Desktop and Update projects
+            Logger.Info("Pack mode: multi-platform build");
             if (!string.IsNullOrEmpty(SelectedFolder))
             {
                 if (!PackVersionLocator.LooksLikeSourceProject(SelectedFolder))
@@ -353,6 +362,7 @@ public partial class PackWindowViewModel : ObservableObject
                 Status = "未能定位仓库根目录";
                 return;
             }
+            Logger.Info("Pack repo root: {repoRoot}", repoRoot);
 
             // Read versions from project roots
             versionEntries.Clear();
@@ -419,8 +429,16 @@ public partial class PackWindowViewModel : ObservableObject
             var destRoot = new Uri(new Uri(baseUrl), target);
             var pubRoot = new Uri(new Uri(baseUrl), "d/" + target);
             var auth2 = new AuthApi(baseUrl);
+            Logger.Info("Pack login: user='{user}', API={apiBase}", uploadSettings.Username, baseUrl);
             var login2 = await auth2.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
-            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token)) { Status = $"登录失败: {login2.Code} {login2.Message}（API: {baseUrl}）"; return; }
+            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token))
+            {
+                Logger.Warn("Pack login failed: code={code}, message={message}, API={apiBase}",
+                    login2.Code, login2.Message, baseUrl);
+                Status = $"登录失败: {login2.Code} {login2.Message}（API: {baseUrl}）";
+                return;
+            }
+            Logger.Info("Pack login succeeded (API: {apiBase})", baseUrl);
             var token2 = login2.Data!.Token!;
             var fs2 = new FileSystemApi(baseUrl);
             var remoteBase2 = "/" + target;
