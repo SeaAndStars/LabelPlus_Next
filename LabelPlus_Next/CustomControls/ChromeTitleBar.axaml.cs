@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Antelcat.I18N.Avalonia;
+using LabelPlus_Next.Lang;
+using LabelPlus_Next.Shared;
 
 namespace LabelPlus_Next.CustomControls;
 
@@ -36,6 +39,7 @@ public partial class ChromeTitleBar : UserControl
         _window = TopLevel.GetTopLevel(this) as Window;
         if (_window is not null)
         {
+            WindowChrome.RemoveSystemBorder(_window);
             _window.PropertyChanged += OnWindowPropertyChanged;
             UpdateWindowState();
         }
@@ -59,7 +63,9 @@ public partial class ChromeTitleBar : UserControl
         var maximized = _window?.WindowState == WindowState.Maximized;
         MaximizeGlyph.IsVisible = !maximized;
         RestoreGlyph.IsVisible = maximized;
-        ToolTip.SetTip(MaximizeButton, maximized ? "还原" : "最大化");
+        ToolTip.SetTip(MaximizeButton, maximized
+            ? (I18NExtension.Translate(LangKeys.ui0189) ?? "还原")
+            : (I18NExtension.Translate(LangKeys.ui0190) ?? "最大化"));
     }
 
     private void OnDragAreaPointerPressed(object? sender, PointerPressedEventArgs e)

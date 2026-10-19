@@ -3,15 +3,16 @@ using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using LabelPlus_Next.Services;
 
 namespace LabelPlus_Next.ViewModels;
 
 public partial class MergeConflictViewModel : ObservableObject
 {
-    [ObservableProperty] private string title = "保存冲突合并";
+    [ObservableProperty] private string title = UiText.Tr("保存冲突合并");
     [ObservableProperty] private string fileName = "translation.txt";
-    [ObservableProperty] private string remoteLabel = "远端";
-    [ObservableProperty] private string localLabel = "本地";
+    [ObservableProperty] private string remoteLabel = UiText.Tr("远端");
+    [ObservableProperty] private string localLabel = UiText.Tr("本地");
     [ObservableProperty] private string remoteText = string.Empty;
     [ObservableProperty] private string localText = string.Empty;
     [ObservableProperty] private string mergedText = string.Empty;
@@ -171,7 +172,7 @@ public partial class MergeConflictViewModel : ObservableObject
         if (_totalConflicts == 0)
         {
             _currentConflict = 0;
-            ConflictStatus = "无冲突";
+            ConflictStatus = UiText.Tr("无冲突");
             CurrentStart = 0;
             CurrentLength = 0;
         }
@@ -180,7 +181,7 @@ public partial class MergeConflictViewModel : ObservableObject
             if (_currentConflict < 1) _currentConflict = 1;
             _currentConflict = Math.Clamp(_currentConflict, 1, _totalConflicts);
             var chosen = Conflicts.Count(c => c.Choice != ChoiceOption.None);
-            ConflictStatus = $"冲突 {_currentConflict}/{_totalConflicts}，已选择 {chosen}/{_totalConflicts}";
+            ConflictStatus = UiText.Tr("冲突 {0}/{1}，已选择 {2}/{3}", _currentConflict, _totalConflicts, chosen, _totalConflicts);
             var (start, length) = GetConflictRange(MergedText, _currentConflict);
             CurrentStart = start;
             CurrentLength = length;
@@ -250,6 +251,9 @@ public partial class MergeConflictViewModel : ObservableObject
         _totalConflicts = Conflicts.Count;
         _currentConflict = _totalConflicts > 0 ? 1 : 0;
         SelectedConflictIndex = _currentConflict > 0 ? 0 : -1;
+        // Setting SelectedConflictIndex to its existing default (0) does not raise
+        // a change notification, so initialise the selected item explicitly.
+        SelectedConflictItem = _totalConflicts > 0 ? Conflicts[0] : null;
     }
 
     internal void OnItemChoiceChanged(ConflictItem _)
@@ -307,59 +311,6 @@ public partial class MergeConflictViewModel : ObservableObject
         UpdateConflictsStatus();
     }
 
-    private static (int count, List<int> positions) CountConflicts(string text)
-    {
-        var pos = new List<int>();
-        int idx = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            pos.Add(i);
-            idx = i + StartMarker.Length;
-        }
-        return (pos.Count, pos);
-    }
-
-    private static string ApplyAll(string text, bool keepRemote)
-    {
-        int idx = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            var (j, k) = FindMarkers(text, i);
-            if (j < 0 || k < 0) break;
-            var (remoteChunk, localChunk) = ExtractChunks(text, i, j, k);
-            var replacement = keepRemote ? remoteChunk : localChunk;
-            text = text.Substring(0, i) + replacement + text.Substring(k + EndMarker.Length);
-            idx = i + replacement.Length;
-        }
-        return text;
-    }
-
-    private static string ApplyNth(string text, int nth, bool keepRemote)
-    {
-        int idx = 0;
-        int seen = 0;
-        while (true)
-        {
-            var i = text.IndexOf(StartMarker, idx, StringComparison.Ordinal);
-            if (i < 0) break;
-            seen++;
-            var (j, k) = FindMarkers(text, i);
-            if (j < 0 || k < 0) break;
-            if (seen == nth)
-            {
-                var (remoteChunk, localChunk) = ExtractChunks(text, i, j, k);
-                var replacement = keepRemote ? remoteChunk : localChunk;
-                return text.Substring(0, i) + replacement + text.Substring(k + EndMarker.Length);
-            }
-            idx = k + EndMarker.Length;
-        }
-        return text;
-    }
-
     private static (int midPos, int endPos) FindMarkers(string text, int startPos)
     {
         var j = text.IndexOf('\n' + MidMarker + '\n', startPos, StringComparison.Ordinal);
@@ -367,18 +318,6 @@ public partial class MergeConflictViewModel : ObservableObject
         var k = text.IndexOf('\n' + EndMarker, j + 1, StringComparison.Ordinal);
         if (k < 0) k = text.IndexOf(EndMarker, j + 1, StringComparison.Ordinal);
         return (j, k);
-    }
-
-    private static (string remoteChunk, string localChunk) ExtractChunks(string text, int startPos, int midPos, int endPos)
-    {
-        var remStart = startPos + StartMarker.Length;
-        // skip newline if exists
-        if (remStart < text.Length && text[remStart] == '\n') remStart++;
-        var remoteChunk = text.Substring(remStart, Math.Max(0, midPos - remStart));
-        var locStart = midPos + MidMarker.Length;
-        if (locStart < text.Length && text[locStart] == '\n') locStart++;
-        var localChunk = text.Substring(locStart, Math.Max(0, endPos - locStart));
-        return (remoteChunk, localChunk);
     }
 
     private static (int start, int length) GetConflictRange(string text, int nth)

@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
-    Title="管理图片"
+    Title="{I18N {x:Static lang:LangKeys.ui0142}}"
     WindowStartupLocation="CenterOwner"
     Width="760"
     Height="614"
@@ -16,16 +16,31 @@
     d:DesignWidth="760"
     x:DataType="viewModels:ImageManagerViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
+    <u:UrsaWindow.Styles>
+        <!--  Row separators for the two file lists  -->
+        <Style Selector="ListBox.lp-divided">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.lp-divided ListBoxItem">
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="8,8" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+    </u:UrsaWindow.Styles>
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="管理图片" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0142}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="2">
-            <TextBlock Classes="lp-page-title" Text="管理图片" />
-            <TextBlock Classes="lp-subtle" Text="选择要包含在翻译文件中的图片，左右移动即可调整顺序。" />
+            <TextBlock Classes="lp-page-title" Text="{I18N {x:Static lang:LangKeys.ui0142}}" />
+            <TextBlock Classes="lp-subtle" Text="{I18N {x:Static lang:LangKeys.ui0143}}" />
         </StackPanel>
 
         <Border Grid.Row="1" Classes="lp-card">
@@ -34,6 +49,7 @@
                     <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.labelFolderFile}}" />
                     <ListBox
                         Grid.Row="1"
+                        Classes="lp-divided"
                         ItemsSource="{Binding FileFolderList, Mode=TwoWay}"
                         SelectedItem="{Binding SelectedFolerFile}" />
                 </Grid>
@@ -45,25 +61,26 @@
                     <Button
                         HorizontalAlignment="Stretch"
                         Click="SelectOneFile"
-                        Content="添加 →" />
+                        Content="{I18N {x:Static lang:LangKeys.ui0144}}" />
                     <Button
                         HorizontalAlignment="Stretch"
                         Click="SelectAllFile"
-                        Content="全部添加 ⇉" />
+                        Content="{I18N {x:Static lang:LangKeys.ui0145}}" />
                     <Button
                         HorizontalAlignment="Stretch"
                         Click="UnselectOneFile"
-                        Content="← 移除" />
+                        Content="{I18N {x:Static lang:LangKeys.ui0146}}" />
                     <Button
                         HorizontalAlignment="Stretch"
                         Click="UnselectAllFile"
-                        Content="⇇ 全部移除" />
+                        Content="{I18N {x:Static lang:LangKeys.ui0147}}" />
                 </StackPanel>
 
                 <Grid Grid.Column="2" RowDefinitions="Auto,*" RowSpacing="8">
                     <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.labelIncludedFile}}" />
                     <ListBox
                         Grid.Row="1"
+                        Classes="lp-divided"
                         ItemsSource="{Binding FileList, Mode=TwoWay}"
                         SelectedItem="{Binding SelectedFile}" />
                 </Grid>

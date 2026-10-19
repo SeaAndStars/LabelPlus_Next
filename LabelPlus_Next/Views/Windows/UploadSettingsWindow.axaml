@@ -1,48 +1,50 @@
 <u:UrsaWindow
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Windows.UploadSettingsWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-    Title="上传设置"
+    Title="{I18N {x:Static lang:LangKeys.ui0029}}"
     WindowStartupLocation="CenterOwner"
     Width="460"
     Height="454"
     x:DataType="vm:UploadSettingsViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False">
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="上传设置" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0029}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="2">
-            <TextBlock Classes="lp-page-title" Text="上传设置" />
-            <TextBlock Classes="lp-subtle" Text="配置上传服务器的地址与账号信息。" />
+            <TextBlock Classes="lp-page-title" Text="{I18N {x:Static lang:LangKeys.ui0029}}" />
+            <TextBlock Classes="lp-subtle" Text="{I18N {x:Static lang:LangKeys.ui0030}}" />
         </StackPanel>
 
         <Border Grid.Row="1" Classes="lp-card">
             <StackPanel Spacing="12">
                 <StackPanel Spacing="4">
-                    <TextBlock Classes="lp-label" Text="服务器地址 (BaseUrl)" />
+                    <TextBlock Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0031}}" />
                     <TextBox Text="{Binding BaseUrl, Mode=TwoWay}" />
                 </StackPanel>
                 <StackPanel Spacing="4">
-                    <TextBlock Classes="lp-label" Text="用户名" />
+                    <TextBlock Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0032}}" />
                     <TextBox Text="{Binding Username, Mode=TwoWay}" />
                 </StackPanel>
                 <StackPanel Spacing="4">
-                    <TextBlock Classes="lp-label" Text="密码" />
+                    <TextBlock Classes="lp-label" Text="{I18N {x:Static lang:LangKeys.ui0033}}" />
                     <TextBox Text="{Binding Password, Mode=TwoWay}" PasswordChar="•" />
                 </StackPanel>
             </StackPanel>
         </Border>
 
         <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-            <Button Content="关闭" IsCancel="True" MinWidth="88" />
-            <Button Click="OnSaveAndRefreshClick" Content="保存并刷新" MinWidth="112" />
-            <Button Classes="lp-primary" Command="{Binding SaveCommand}" Content="保存" MinWidth="88" />
+            <Button Content="{I18N {x:Static lang:LangKeys.ui0028}}" IsCancel="True" MinWidth="88" />
+            <Button Click="OnSaveAndRefreshClick" Content="{I18N {x:Static lang:LangKeys.ui0034}}" MinWidth="112" />
+            <Button Classes="lp-primary" Command="{Binding SaveCommand}" Content="{I18N {x:Static lang:LangKeys.ui0035}}" MinWidth="88" />
         </StackPanel>
     </Grid>
     </Grid>

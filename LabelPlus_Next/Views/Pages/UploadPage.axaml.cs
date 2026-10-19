@@ -1,7 +1,8 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Windows;
 using NLog;
@@ -40,6 +41,8 @@ public partial class UploadPage : UserControl
     {
         base.OnAttachedToVisualTree(e);
         Logger.Debug("UploadPage attached to visual tree.");
+        if (DataContext is UploadViewModel vm && vm.Projects.Count == 0 && !vm.IsBusy)
+            _ = vm.RefreshCommand.ExecuteAsync(null);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -110,7 +113,11 @@ public partial class UploadPage : UserControl
             if (_vm.HasDuplicates)
             {
                 Logger.Info("Duplicate episodes detected, asking for confirmation.");
-                var res = await MessageBox.ShowAsync("检测到与远端存在相同话数，是否继续?", "提示", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var res = await MessageBox.ShowAsync(
+                    UiText.T(LangKeys.ui0206, "检测到与远端存在相同话数，是否继续?"),
+                    UiText.T(LangKeys.ui0207, "提示"),
+                    MessageBoxIcon.Warning,
+                    MessageBoxButton.YesNo);
                 if (res != MessageBoxResult.Yes)
                 {
                     Logger.Info("User cancelled due to duplicates.");

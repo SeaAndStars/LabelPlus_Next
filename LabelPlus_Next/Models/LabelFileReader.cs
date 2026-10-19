@@ -1,6 +1,7 @@
 ﻿using NLog;
 using System.Globalization;
 using System.Text;
+using LabelPlus_Next.Services;
 
 namespace LabelPlus_Next.Models;
 
@@ -16,7 +17,7 @@ public class LabelFileReader
         var normalizedPath = decodedPath.Replace('/', Path.DirectorySeparatorChar);
 
         if (!File.Exists(normalizedPath))
-            throw new FileNotFoundException($"文件未找到或无法访问: {normalizedPath}，请检查路径是否正确，文件是否存在。");
+            throw new FileNotFoundException(UiText.Tr("文件未找到或无法访问: {0}，请检查路径是否正确，文件是否存在。", normalizedPath));
 
         var store = new Dictionary<string, List<LabelItem>?>();
         var headerBuilder = new StringBuilder();

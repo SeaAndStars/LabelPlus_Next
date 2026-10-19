@@ -54,6 +54,8 @@
                         <GradientStop Offset="0" Color="#FFF7F8FA" />
                         <GradientStop Offset="1" Color="#FFF2F3F5" />
                     </LinearGradientBrush>
+                    <!--  Theme-aware app tile: dark glyph on a white rounded rectangle.  -->
+                    <Bitmap x:Key="AppLogoSource">avares://LabelPlus_Next/Assets/app_icon_light.png</Bitmap>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <!--  Semi Design dark palette  -->
@@ -92,6 +94,8 @@
                         <GradientStop Offset="0" Color="#FF17171A" />
                         <GradientStop Offset="1" Color="#FF1D1D20" />
                     </LinearGradientBrush>
+                    <!--  Theme-aware app tile: white glyph on a dark rounded rectangle.  -->
+                    <Bitmap x:Key="AppLogoSource">avares://LabelPlus_Next/Assets/app_icon_dark.png</Bitmap>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
@@ -209,6 +213,15 @@
         </Style>
         <Style Selector="GridSplitter.lp-splitter:pointerover">
             <Setter Property="Background" Value="{DynamicResource LpButtonBrush}" />
+        </Style>
+        <Style Selector="Border.lp-split-line">
+            <Setter Property="Background" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.lp-split-grip">
+            <Setter Property="Background" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
         <Style Selector="DataGrid.lp-grid">
             <Setter Property="Background" Value="Transparent" />

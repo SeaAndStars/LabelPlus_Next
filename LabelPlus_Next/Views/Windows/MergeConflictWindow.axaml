@@ -1,4 +1,5 @@
 <u:UrsaWindow
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
     x:Class="LabelPlus_Next.Views.Windows.MergeConflictWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -7,13 +8,14 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
-    Title="保存冲突合并"
+    Title="{I18N {x:Static lang:LangKeys.ui0049}}"
     WindowStartupLocation="CenterOwner"
     Width="1320"
     Height="794"
     x:DataType="vm:MergeConflictViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
     <Design.DataContext>
@@ -21,21 +23,21 @@
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="保存冲突合并" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0049}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,Auto,*" RowSpacing="12">
         <!--  Header  -->
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
             <StackPanel Spacing="2">
-                <TextBlock Classes="lp-page-title" Text="保存冲突合并" />
+                <TextBlock Classes="lp-page-title" Text="{I18N {x:Static lang:LangKeys.ui0049}}" />
                 <TextBlock Classes="lp-subtle" TextTrimming="CharacterEllipsis">
-                    <Run Text="文件：" />
+                    <Run Text="{I18N {x:Static lang:LangKeys.ui0050}}" />
                     <Run Text="{Binding FileName}" />
                 </TextBlock>
             </StackPanel>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
-                <Button Command="{Binding PrevConflictCommand}" Content="上一处" Classes="lp-flat" />
-                <Button Command="{Binding NextConflictCommand}" Content="下一处" Classes="lp-flat" />
+                <Button Command="{Binding PrevConflictCommand}" Content="{I18N {x:Static lang:LangKeys.ui0051}}" Classes="lp-flat" />
+                <Button Command="{Binding NextConflictCommand}" Content="{I18N {x:Static lang:LangKeys.ui0052}}" Classes="lp-flat" />
                 <TextBlock VerticalAlignment="Center" Classes="lp-subtle" Text="{Binding ConflictStatus}" />
             </StackPanel>
         </Grid>
@@ -43,15 +45,15 @@
         <!--  Action bar  -->
         <Border Grid.Row="1" Classes="lp-card" Padding="10">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Command="{Binding UseRemoteCommand}" Content="采用远端" />
-                <Button Command="{Binding UseLocalCommand}" Content="采用本地" />
-                <Button Command="{Binding AcceptAllRemoteCommand}" Content="全部用远端" />
-                <Button Command="{Binding AcceptAllLocalCommand}" Content="全部用本地" />
-                <Button Command="{Binding AcceptCurrentRemoteCommand}" Content="当前用远端" />
-                <Button Command="{Binding AcceptCurrentLocalCommand}" Content="当前用本地" />
+                <Button Command="{Binding UseRemoteCommand}" Content="{I18N {x:Static lang:LangKeys.ui0053}}" />
+                <Button Command="{Binding UseLocalCommand}" Content="{I18N {x:Static lang:LangKeys.ui0054}}" />
+                <Button Command="{Binding AcceptAllRemoteCommand}" Content="{I18N {x:Static lang:LangKeys.ui0055}}" />
+                <Button Command="{Binding AcceptAllLocalCommand}" Content="{I18N {x:Static lang:LangKeys.ui0056}}" />
+                <Button Command="{Binding AcceptCurrentRemoteCommand}" Content="{I18N {x:Static lang:LangKeys.ui0057}}" />
+                <Button Command="{Binding AcceptCurrentLocalCommand}" Content="{I18N {x:Static lang:LangKeys.ui0058}}" />
                 <Rectangle Width="1" Height="20" Margin="4,0" Fill="{DynamicResource LpCardBorderBrush}" />
-                <Button Command="{Binding CancelCommand}" Content="取消" />
-                <Button Classes="lp-primary" Command="{Binding SaveMergedCommand}" Content="保存合并" />
+                <Button Command="{Binding CancelCommand}" Content="{I18N {x:Static lang:LangKeys.ui0047}}" />
+                <Button Classes="lp-primary" Command="{Binding SaveMergedCommand}" Content="{I18N {x:Static lang:LangKeys.ui0059}}" />
             </StackPanel>
         </Border>
 
@@ -59,7 +61,7 @@
             <!--  Conflict list  -->
             <Border Classes="lp-card" Padding="0">
                 <Grid RowDefinitions="Auto,*">
-                    <TextBlock Margin="14,10" Classes="lp-pane-title" Text="冲突列表" />
+                    <TextBlock Margin="14,10" Classes="lp-pane-title" Text="{I18N {x:Static lang:LangKeys.ui0060}}" />
                     <ListBox
                         Grid.Row="1"
                         BorderThickness="0"
@@ -74,7 +76,7 @@
                                     CornerRadius="8">
                                     <StackPanel Spacing="8">
                                         <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
-                                            <TextBlock VerticalAlignment="Center" Text="冲突 #" />
+                                            <TextBlock VerticalAlignment="Center" Text="{I18N {x:Static lang:LangKeys.ui0061}}" />
                                             <TextBlock Grid.Column="1" FontWeight="Bold" Text="{Binding Index}" />
                                             <TextBlock
                                                 Grid.Column="2"
@@ -85,13 +87,13 @@
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
                                                 <Button
                                                     Command="{Binding ChooseRemoteSelfCommand}"
-                                                    Content="用远端"
+                                                    Content="{I18N {x:Static lang:LangKeys.ui0062}}"
                                                     Classes="lp-flat"
                                                     FontSize="12"
                                                     Height="26" />
                                                 <Button
                                                     Command="{Binding ChooseLocalSelfCommand}"
-                                                    Content="用本地"
+                                                    Content="{I18N {x:Static lang:LangKeys.ui0063}}"
                                                     Classes="lp-flat"
                                                     FontSize="12"
                                                     Height="26" />
@@ -100,7 +102,7 @@
                                         </Grid>
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                                             <StackPanel>
-                                                <TextBlock FontWeight="SemiBold" Text="远端" />
+                                                <TextBlock FontWeight="SemiBold" Text="{I18N {x:Static lang:LangKeys.ui0064}}" />
                                                 <Border
                                                     Height="110"
                                                     Background="{DynamicResource LpSurfaceBrush}"
@@ -117,7 +119,7 @@
                                                 </Border>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1">
-                                                <TextBlock FontWeight="SemiBold" Text="本地" />
+                                                <TextBlock FontWeight="SemiBold" Text="{I18N {x:Static lang:LangKeys.ui0065}}" />
                                                 <Border
                                                     Height="110"
                                                     Background="{DynamicResource LpSurfaceBrush}"
@@ -146,8 +148,8 @@
             <Border Grid.Column="1" Classes="lp-card" Padding="0">
                 <Grid RowDefinitions="Auto,*">
                     <StackPanel Classes="lp-pane-header" Spacing="2">
-                        <TextBlock Classes="lp-pane-title" Text="合并结果" />
-                        <TextBlock Classes="lp-subtle" FontSize="12" Text="Alt+↑/↓ 导航，Alt+L 用本地，Alt+R 用远端" />
+                        <TextBlock Classes="lp-pane-title" Text="{I18N {x:Static lang:LangKeys.ui0066}}" />
+                        <TextBlock Classes="lp-subtle" FontSize="12" Text="{I18N {x:Static lang:LangKeys.ui0067}}" />
                     </StackPanel>
                     <Grid Grid.Row="1">
                         <Grid.KeyBindings>

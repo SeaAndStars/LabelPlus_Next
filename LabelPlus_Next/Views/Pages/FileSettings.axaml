@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
-    Title="文件设置"
+    Title="{I18N {x:Static lang:LangKeys.ui0114}}"
     WindowStartupLocation="CenterOwner"
     Width="640"
     Height="494"
@@ -16,16 +16,17 @@
     d:DesignWidth="640"
     x:DataType="viewModels:FileSettingsViewModel"
     WindowDecorations="BorderOnly"
-    ExtendClientAreaToDecorationsHint="False"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="0"
     IsTitleBarVisible="False"
     mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <cc:ChromeTitleBar Grid.Row="0" Title="文件设置" />
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.ui0114}}" />
 
         <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <StackPanel Spacing="2">
-            <TextBlock Classes="lp-page-title" Text="文件设置" />
-            <TextBlock Classes="lp-subtle" Text="管理标签分组与当前翻译文件的备注。" />
+            <TextBlock Classes="lp-page-title" Text="{I18N {x:Static lang:LangKeys.ui0114}}" />
+            <TextBlock Classes="lp-subtle" Text="{I18N {x:Static lang:LangKeys.ui0148}}" />
         </StackPanel>
 
         <Border Grid.Row="1" Classes="lp-card">
@@ -37,7 +38,7 @@
                         ItemsSource="{Binding GroupList, Mode=TwoWay}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Spacing="8">
-                    <TextBlock Classes="lp-section-title" Text="备注" />
+                    <TextBlock Classes="lp-section-title" Text="{I18N {x:Static lang:LangKeys.ui0045}}" />
                     <TextBox
                         MinHeight="240"
                         AcceptsReturn="True"

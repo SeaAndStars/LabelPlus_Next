@@ -54,8 +54,6 @@ public partial class MainWindowViewModel : ViewModelBase
     // Protocol activation URI (set by App on startup when opened via labelplus://...)
     public string? InitialUri { get; set; }
 
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
-
     public bool HasUnsavedChanges
     {
         get => LabelFileManager1.StoreManager.IsDirty;
@@ -242,7 +240,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task AddLabelAtAsync(float xPercent, float yPercent, int category = 1)
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = "新标签", Category = category };
+        var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = UiText.Tr("新标签"), Category = category };
         await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
         UpdateCurrentLabels();
         if (CurrentLabels.Count > 0)
@@ -256,7 +254,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task AddLabelCommand()
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "新标签", Category = 1 };
+        var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = UiText.Tr("新标签"), Category = 1 };
         await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel);
         UpdateCurrentLabels();
         if (CurrentLabels.Count > 0)
@@ -301,7 +299,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task NewTranslationCommand()
     {
         if (_dialogs is null) return;
-        var folder = await _dialogs.PickFolderAsync("选择翻译目录");
+        var folder = await _dialogs.PickFolderAsync(UiText.Tr("选择翻译目录"));
         if (string.IsNullOrEmpty(folder)) return;
 
         // show image chooser
@@ -337,7 +335,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var outPath = Path.Combine(folder, "translation.txt");
         await File.WriteAllTextAsync(outPath, sb.ToString(), Encoding.UTF8);
 
-        await _dialogs.ShowMessageAsync($"创建完成:{nl}{outPath}{nl}共 {selected.Count} 个文件。");
+        await _dialogs.ShowMessageAsync(UiText.Tr("创建完成:{0}{1}{2}共 {3} 个文件。", nl, outPath, nl, selected.Count));
         OpenTranslationFilePath = outPath;
         await LoadTranslationFile(outPath);
     }
@@ -355,7 +353,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (NotificationManager is not null)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("提示", "打开成功。"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("提示"), UiText.Tr("打开成功。")), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
             }
         }
         catch (Exception ex)
@@ -363,11 +361,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (NotificationManager is not null)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("错误", $"打开失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("错误"), UiText.Tr("打开失败：{0}", ex.Message)), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
             }
             else if (_dialogs is not null)
             {
-                await _dialogs.ShowMessageAsync($"打开失败：{ex.Message}");
+                await _dialogs.ShowMessageAsync(UiText.Tr("打开失败：{0}", ex.Message));
             }
             Logger.Error(ex, "Open translation file failed.");
         }
@@ -379,7 +377,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (_dialogs is null) return;
         if (string.IsNullOrEmpty(OpenTranslationFilePath))
         {
-            await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。");
+            await _dialogs.ShowMessageAsync(UiText.Tr("未打开翻译文件，无法保存。请使用‘另存为’。"));
             return;
         }
         try
@@ -389,7 +387,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 var file = Path.GetFileName(OpenTranslationFilePath);
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("提示", $"保存成功：{file}"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("提示"), UiText.Tr("保存成功：{0}", file)), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
             }
             Logger.Info("File saved: {file}", OpenTranslationFilePath);
         }
@@ -398,11 +396,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (NotificationManager is not null)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("错误", $"保存失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("错误"), UiText.Tr("保存失败：{0}", ex.Message)), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
             }
             else
             {
-                await _dialogs.ShowMessageAsync($"保存失败：{ex.Message}");
+                await _dialogs.ShowMessageAsync(UiText.Tr("保存失败：{0}", ex.Message));
             }
             Logger.Error(ex, "Save current file failed.");
         }
@@ -422,7 +420,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 var file = Path.GetFileName(path);
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("提示", $"另存为成功：{file}"), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("提示"), UiText.Tr("另存为成功：{0}", file)), showIcon: true, showClose: true, type: NotificationType.Success, classes: ["Light"]));
             }
             Logger.Info("File saved as: {file}", path);
         }
@@ -431,11 +429,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (NotificationManager is not null)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
-                    NotificationManager.Show(new Notification("错误", $"另存为失败：{ex.Message}"), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
+                    NotificationManager.Show(new Notification(UiText.Tr("错误"), UiText.Tr("另存为失败：{0}", ex.Message)), showIcon: true, showClose: true, type: NotificationType.Error, classes: ["Light"]));
             }
             else
             {
-                await _dialogs.ShowMessageAsync($"另存为失败：{ex.Message}");
+                await _dialogs.ShowMessageAsync(UiText.Tr("另存为失败：{0}", ex.Message));
             }
             Logger.Error(ex, "Save as file failed.");
         }
@@ -542,14 +540,14 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task ManageImagesCommand()
     {
         if (_dialogs is null) return;
-        var folder = await _dialogs.PickFolderAsync("选择图片目录");
+        var folder = await _dialogs.PickFolderAsync(UiText.Tr("选择图片目录"));
         if (string.IsNullOrEmpty(folder)) return;
         var selected = await _dialogs.ChooseImagesAsync(folder);
         if (selected == null)
         {
-            await _dialogs.ShowMessageAsync("已取消。");
+            await _dialogs.ShowMessageAsync(UiText.Tr("已取消。"));
             return;
         }
-        await _dialogs.ShowMessageAsync($"已选择 {selected.Count} 个文件。");
+        await _dialogs.ShowMessageAsync(UiText.Tr("已选择 {0} 个文件。", selected.Count));
     }
 }

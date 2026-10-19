@@ -18,6 +18,11 @@ public sealed class FileSystemApi : IFileSystemApi
 
     private const string DefaultUserAgent = "pan.baidu.com";
 
+    // Large uploads occasionally have their TCP connection reset mid-body by the
+    // server or an intermediate proxy (SocketException 10054). AList's PUT endpoint
+    // has no resumable upload, so retry the whole body a couple of times.
+    private const int PutMaxAttempts = 3;
+
     public FileSystemApi(string baseUrl)
     {
         _baseUrl = baseUrl.TrimEnd('/');
@@ -560,6 +565,15 @@ public sealed class FileSystemApi : IFileSystemApi
                             await EnsureRemoteDirectoriesAsync(token, GetDirectoryOfRemote(pair.remotePath), cancellationToken);
                             results[idx] = await SafePutAsync(token, pair.remotePath, /*localPath*/ pair.localPath, /*content*/ null, asTask: asTask, progress: null, completedHint: 0, totalHint: 0, cancellationToken: cancellationToken);
                         }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error(ex, "SafeUpload item failed: {file}", pair.remotePath);
+                            results[idx] = new FsPutResponse { Code = 0, Message = DescribeException(ex) };
+                        }
                         finally { sem.Release(); }
                     });
                     await Task.WhenAll(tasks);
@@ -574,53 +588,128 @@ public sealed class FileSystemApi : IFileSystemApi
     private async Task<FsPutResponse> PutRawAsync(string token, string filePath, byte[]? content, bool asTask, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken, string? localPath)
     {
         var safePath = EncodePathForHeader(filePath);
-        long? total = null;
-        Stream dataStream;
-        if (!string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath))
+        var hasLocalFile = !string.IsNullOrWhiteSpace(localPath) && File.Exists(localPath);
+        var total = hasLocalFile ? new FileInfo(localPath!).Length : (content ?? Array.Empty<byte>()).LongLength;
+        Logger.Debug("PutRaw path={path} asTask={asTask} size={size} via={via}", safePath, asTask, total, hasLocalFile ? "file" : "memory");
+
+        for (var attempt = 1; ; attempt++)
         {
-            var fi = new FileInfo(localPath);
-            total = fi.Length;
-            dataStream = new FileStream(localPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 256 * 1024, useAsync: true);
-        }
-        else
-        {
-            var bytes = content ?? Array.Empty<byte>();
-            total = bytes.LongLength;
-            dataStream = new MemoryStream(bytes, writable: false);
-        }
-        await using var ds = dataStream;
-        Logger.Debug("PutRaw path={path} asTask={asTask} size={size} via={via}", safePath, asTask, total, string.IsNullOrWhiteSpace(localPath) ? "memory" : "file");
-        using var pcs = new ProgressStreamContent(ds, 256 * 1024, (sent, tot, elapsed) =>
-        {
-            if (progress is null) return;
-            var seconds = Math.Max(0.001, elapsed.TotalSeconds);
-            var speedMBps = sent / 1024d / 1024d / seconds;
-            progress.Report(new UploadProgress
+            cancellationToken.ThrowIfCancellationRequested();
+            try
             {
-                Completed = completedHint,
-                Total = totalHint,
-                CurrentRemotePath = filePath,
-                BytesSent = sent,
-                BytesTotal = tot ?? total,
-                SpeedMBps = speedMBps
-            });
-        }, total);
-        using var req = new HttpRequestMessage(HttpMethod.Put, "/api/fs/put");
-        req.Headers.TryAddWithoutValidation("Authorization", token);
-        req.Headers.TryAddWithoutValidation("File-Path", safePath);
-        req.Headers.TryAddWithoutValidation("As-Task", asTask ? "true" : "false");
-        req.Content = pcs;
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        var code = (int)resp.StatusCode;
-        var text = await resp.Content.ReadAsStringAsync(cancellationToken);
-        if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(text))
-        {
-            Logger.Warn("PutRaw fail {code} {msg}", code, resp.ReasonPhrase);
-            return new FsPutResponse { Code = code, Message = resp.ReasonPhrase ?? "Request failed" };
+                // The body must be rebuilt for every attempt: HttpContent cannot be resent.
+                Stream dataStream = hasLocalFile
+                    ? new FileStream(localPath!, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 256 * 1024, useAsync: true)
+                    : new MemoryStream(content ?? Array.Empty<byte>(), writable: false);
+                await using var ds = dataStream;
+
+                using var pcs = new ProgressStreamContent(ds, 256 * 1024, (sent, tot, elapsed) =>
+                {
+                    if (progress is null) return;
+                    var seconds = Math.Max(0.001, elapsed.TotalSeconds);
+                    var speedMBps = sent / 1024d / 1024d / seconds;
+                    progress.Report(new UploadProgress
+                    {
+                        Completed = completedHint,
+                        Total = totalHint,
+                        CurrentRemotePath = filePath,
+                        BytesSent = sent,
+                        BytesTotal = tot ?? total,
+                        SpeedMBps = speedMBps
+                    });
+                }, total);
+
+                using var req = new HttpRequestMessage(HttpMethod.Put, "/api/fs/put");
+                req.Headers.TryAddWithoutValidation("Authorization", token);
+                req.Headers.TryAddWithoutValidation("File-Path", safePath);
+                req.Headers.TryAddWithoutValidation("As-Task", asTask ? "true" : "false");
+                req.Content = pcs;
+
+                using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                var code = (int)resp.StatusCode;
+                var text = await resp.Content.ReadAsStringAsync(cancellationToken);
+                if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(text))
+                {
+                    // A 2xx without a JSON body means the connection was cut before
+                    // AList answered; never report that to callers as a success.
+                    var emptySuccess = resp.IsSuccessStatusCode && string.IsNullOrWhiteSpace(text);
+                    Logger.Warn("PutRaw fail {code} {msg} (try {attempt}/{max})", code, resp.ReasonPhrase, attempt, PutMaxAttempts);
+                    if (attempt < PutMaxAttempts && (emptySuccess || IsTransientUploadStatus(code)))
+                    {
+                        await DelayBeforePutRetryAsync(attempt, filePath, total, progress, completedHint, totalHint, cancellationToken);
+                        continue;
+                    }
+                    return new FsPutResponse
+                    {
+                        Code = emptySuccess ? -1 : code,
+                        Message = emptySuccess ? "Empty response body" : (resp.ReasonPhrase ?? "Request failed")
+                    };
+                }
+
+                var parsed = JsonConvert.DeserializeObject<FsPutResponse>(text);
+                Logger.Info("PutRaw ok code={code}{retry}", parsed?.Code, attempt > 1 ? $" (after {attempt} attempts)" : string.Empty);
+                return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (IsTransientUploadException(ex))
+            {
+                if (attempt >= PutMaxAttempts)
+                {
+                    Logger.Error(ex, "PutRaw gave up after {max} attempts: {path}", PutMaxAttempts, filePath);
+                    return new FsPutResponse { Code = 0, Message = DescribeException(ex) };
+                }
+
+                // A 10054/connection reset arrives as HttpRequestException -> IOException.
+                // Log just the message for retries; the last failure logs the full stack.
+                Logger.Warn("PutRaw transport failure (try {attempt}/{max}) for {path}: {error}", attempt, PutMaxAttempts, filePath, DescribeException(ex));
+                await DelayBeforePutRetryAsync(attempt, filePath, total, progress, completedHint, totalHint, cancellationToken);
+            }
         }
-        var parsed = JsonConvert.DeserializeObject<FsPutResponse>(text);
-        Logger.Info("PutRaw ok code={code}", parsed?.Code);
-        return parsed ?? new FsPutResponse { Code = -1, Message = "Deserialize failed" };
+    }
+
+    private static async Task DelayBeforePutRetryAsync(int attempt, string filePath, long total, IProgress<UploadProgress>? progress, int completedHint, int totalHint, CancellationToken cancellationToken)
+    {
+        var delay = TimeSpan.FromMilliseconds(Math.Min(15_000, 1_500 * Math.Pow(2, attempt - 1)) + Random.Shared.Next(0, 400));
+        Logger.Info("Retrying upload {file} in {delay}ms (try {next}/{max})", filePath, (int)delay.TotalMilliseconds, attempt + 1, PutMaxAttempts);
+        // The next attempt starts the body from zero; keep the UI from looking stuck at 100%.
+        progress?.Report(new UploadProgress
+        {
+            Completed = completedHint,
+            Total = totalHint,
+            CurrentRemotePath = filePath,
+            BytesSent = 0,
+            BytesTotal = total,
+            SpeedMBps = 0
+        });
+        await Task.Delay(delay, cancellationToken);
+    }
+
+    private static bool IsTransientUploadStatus(int code) => code == 408 || code == 429 || (code >= 500 && code <= 599);
+
+    private static bool IsTransientUploadException(Exception ex) => ex switch
+    {
+        // User cancellation must surface instead of being retried.
+        OperationCanceledException => false,
+        // Connection resets surface as HttpRequestException wrapping IOException/SocketException.
+        HttpRequestException => true,
+        IOException => true,
+        System.Net.Sockets.SocketException => true,
+        TimeoutException => true,
+        _ => false
+    };
+
+    private static string DescribeException(Exception ex)
+    {
+        var message = ex.Message;
+        for (var inner = ex.InnerException; inner is not null; inner = inner.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(inner.Message) && !message.Contains(inner.Message, StringComparison.Ordinal))
+                message += " -> " + inner.Message;
+        }
+        return message;
     }
 
     // Overload SafePut that accepts localPath for zero-copy streaming; internal use only
@@ -756,6 +845,18 @@ public sealed class FileSystemApi : IFileSystemApi
                     var res = await SafePutAsync(token, item.FilePath, item.Content ?? Array.Empty<byte>(), asTask, progress, completedHint, totalHint, cancellationToken);
                     results[idx] = res;
                 }
+                var d = Interlocked.Increment(ref done);
+                progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // One bad file must not abort the whole batch: report it and keep going.
+                Logger.Error(ex, "PutMany item failed: {file}", item.FilePath);
+                results[idx] = new FsPutResponse { Code = 0, Message = DescribeException(ex) };
                 var d = Interlocked.Increment(ref done);
                 progress?.Report(new UploadProgress { Completed = d, Total = list.Count, CurrentRemotePath = item.FilePath });
             }

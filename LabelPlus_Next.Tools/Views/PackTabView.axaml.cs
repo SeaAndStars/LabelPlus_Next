@@ -47,6 +47,18 @@ public partial class PackTabView : UserControl
         });
         var file = files?.FirstOrDefault();
         if (file?.Path is null) return;
-        vm.SolutionPath = file.Path.LocalPath;
+        await vm.SetSolutionAsync(file.Path.LocalPath);
+    }
+
+    private async void OnFolderLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PackWindowViewModel vm)
+            await vm.RefreshVersionInfoAsync();
+    }
+
+    private async void OnSolutionLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PackWindowViewModel vm)
+            await vm.RefreshVersionInfoAsync();
     }
 }

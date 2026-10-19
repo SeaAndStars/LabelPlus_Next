@@ -39,6 +39,8 @@
     <ItemGroup>
         <!-- Shared update infrastructure (client + updater) -->
         <Compile Include="..\Shared\UpdateKit.cs" Link="Shared\UpdateKit.cs" />
+        <!-- Shared window chrome helpers (client + updater) -->
+        <Compile Include="..\Shared\WindowChrome.cs" Link="Shared\WindowChrome.cs" />
     </ItemGroup>
 
 </Project>

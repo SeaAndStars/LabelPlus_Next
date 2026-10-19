@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
@@ -6,11 +6,13 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Antelcat.I18N.Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using Avalonia.Threading;
 using LabelPlus_Next.Animations;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.ViewModels;
@@ -69,6 +71,8 @@ public partial class MainWindow : UrsaWindow
         _menuMain = this.FindControl<NavMenu>("NavMenuMain");
         _menuFooter = this.FindControl<NavMenu>("NavMenuFooter");
         _settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
+        LocalizationService.CultureChanged += OnCultureChanged;
+        Closed += (_, _) => LocalizationService.CultureChanged -= OnCultureChanged;
         _navCollapsed = _menuMain?.IsHorizontalCollapsed == true;
         UpdateToggleItemVisual();
         SetContent("translate");
@@ -187,7 +191,7 @@ public partial class MainWindow : UrsaWindow
     private void InsertUploadMenuIfAbsent()
     {
         if (_uploadMenuInserted || _menuMain is null) return;
-        var uploadItem = new NavMenuItem { Header = "上传", Icon = CreateIcon("SemiIconUpload"), Tag = "upload" };
+        var uploadItem = new NavMenuItem { Header = I18NExtension.Translate(LangKeys.ui0120) ?? "上传", Icon = CreateIcon("SemiIconUpload"), Tag = "upload" };
         var items = _menuMain.Items;
         var insertIndex = -1;
         for (var i = 0; i < items.Count; i++)
@@ -247,13 +251,31 @@ public partial class MainWindow : UrsaWindow
         UpdateToggleItemVisual();
     }
 
+    private void OnCultureChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_menuMain?.Items is { } items)
+            {
+                foreach (var item in items.OfType<NavMenuItem>())
+                {
+                    if (string.Equals(item.Tag as string, "upload", StringComparison.Ordinal))
+                        item.Header = I18NExtension.Translate(LangKeys.ui0120) ?? "上传";
+                }
+            }
+            UpdateToggleItemVisual();
+        });
+    }
+
     private void UpdateToggleItemVisual()
     {
         if (_menuMain?.Items is not IEnumerable items) return;
         var first = items.Cast<object>().OfType<NavMenuItem>().FirstOrDefault();
         if (first is NavMenuItem nmi)
         {
-            nmi.Header = _navCollapsed ? "展开" : "收起";
+            nmi.Header = _navCollapsed
+                ? (I18NExtension.Translate(LangKeys.ui0155) ?? "展开")
+                : (I18NExtension.Translate(LangKeys.ui0002) ?? "收起");
             nmi.Icon = CreateIcon(_navCollapsed ? "SemiIconChevronRight" : "SemiIconChevronLeft");
         }
     }
@@ -318,11 +340,17 @@ public partial class MainWindow : UrsaWindow
         {
             "translate" => _translateView ??= new TranslateView { DataContext = App.Services.GetRequiredService<TranslateViewModel>() },
             "teamwork" => _teamWorkPage ??= new TeamWorkPage { DataContext = App.Services.GetRequiredService<TeamWorkViewModel>() },
-            "proof" => _proofPage ??= new SimpleTextPage("校对", "校对工作流正在开发中，敬请期待。"),
+            "proof" => _proofPage ??= new SimpleTextPage(
+                I18NExtension.Translate(LangKeys.ui0004) ?? "校对",
+                I18NExtension.Translate(LangKeys.ui0184) ?? "校对工作流正在开发中，敬请期待。"),
             "upload" => _uploadPage ??= new UploadPage { DataContext = App.Services.GetRequiredService<UploadViewModel>() },
-            "deliver" => _deliverPage ??= new SimpleTextPage("交付", "交付工作流正在开发中，敬请期待。"),
+            "deliver" => _deliverPage ??= new SimpleTextPage(
+                I18NExtension.Translate(LangKeys.ui0006) ?? "交付",
+                I18NExtension.Translate(LangKeys.ui0185) ?? "交付工作流正在开发中，敬请期待。"),
             "settings" => _settingsPage ??= new SettingsPage { DataContext = _settingsVm },
-            _ => string.IsNullOrEmpty(_lastContentTag) ? new SimpleTextPage("欢迎") : null
+            _ => string.IsNullOrEmpty(_lastContentTag)
+                ? new SimpleTextPage(I18NExtension.Translate(LangKeys.ui0186) ?? "欢迎")
+                : null
         };
         _lastContentTag = t;
         if (page is null || ReferenceEquals(host.Content, page)) return;
@@ -443,7 +471,11 @@ public partial class MainWindow : UrsaWindow
 
     private async Task PromptSaveAndCloseAsync(TranslateViewModel tvm)
     {
-        var res = await MessageBox.ShowAsync("当前译文有未保存的更改，是否保存？", "关闭确认", MessageBoxIcon.Warning, MessageBoxButton.YesNoCancel);
+        var res = await MessageBox.ShowAsync(
+            I18NExtension.Translate(LangKeys.ui0187) ?? "当前译文有未保存的更改，是否保存？",
+            I18NExtension.Translate(LangKeys.ui0188) ?? "关闭确认",
+            MessageBoxIcon.Warning,
+            MessageBoxButton.YesNoCancel);
         if (res == MessageBoxResult.Cancel) return;
         if (res == MessageBoxResult.Yes)
         {

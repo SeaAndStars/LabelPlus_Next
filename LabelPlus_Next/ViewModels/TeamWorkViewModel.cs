@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
+using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using NLog;
 using Notification = Ursa.Controls.Notification;
@@ -55,6 +56,8 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private CancellationTokenSource? _cts;
     private Func<Task>? _lastOp;
+    private string? _lastNotifyKey;
+    private DateTime _lastNotifyAt;
 
     public TeamWorkViewModel()
     {
@@ -93,7 +96,7 @@ public partial class TeamWorkViewModel : ObservableObject
         var us = await LoadUploadSettingsAsync();
         if (us is null || string.IsNullOrWhiteSpace(us.BaseUrl))
         {
-            Status = "未配置服务器地址";
+            Status = UiText.Tr("未配置服务器地址");
             return null;
         }
         var baseUrl = us.BaseUrl!.TrimEnd('/');
@@ -101,7 +104,7 @@ public partial class TeamWorkViewModel : ObservableObject
         var login = await auth.LoginAsync(us.Username ?? string.Empty, us.Password ?? string.Empty);
         if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
         {
-            Status = $"登录失败: {login.Code} {login.Message}";
+            Status = UiText.Tr("登录失败: {0} {1}", login.Code, login.Message);
             return null;
         }
         return (baseUrl, login.Data!.Token!);
@@ -109,6 +112,8 @@ public partial class TeamWorkViewModel : ObservableObject
 
     public async Task RefreshAsync()
     {
+        if (IsBusy) return;
+        IsBusy = true;
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -116,19 +121,19 @@ public partial class TeamWorkViewModel : ObservableObject
         try
         {
             Logger.Info("TeamWork Refresh: start loading aggregate.");
-            Status = "正在加载项目...";
-            IsBusy = true; Progress = 10; ProgressText = "登录中";
+            Status = UiText.Tr("正在加载项目...");
+            Progress = 10; ProgressText = UiText.Tr("登录中");
             var login = await LoginAsync();
             if (login is null) return;
             var (baseUrl, token) = login.Value;
             var fs = new FileSystemApi(baseUrl);
-            Progress = 30; ProgressText = "下载聚合清单";
+            Progress = 30; ProgressText = UiText.Tr("下载聚合清单");
             var agg = await fs.DownloadAsync(token, "/project.json", ct);
             if (agg.Code != 200 || agg.Content is null)
             {
-                Status = $"下载失败: {agg.Code} {agg.Message}";
+                Status = UiText.Tr("下载失败: {0} {1}", agg.Code, agg.Message);
                 Logger.Warn("TeamWork Refresh: download project.json failed {code} {msg}", agg.Code, agg.Message);
-                ShowNotify("加载失败", Status, NotificationType.Warning);
+                ShowNotify(UiText.Tr("加载失败"), Status, NotificationType.Warning);
                 return;
             }
             var txt = Encoding.UTF8.GetString(TrimBom(agg.Content)).Trim();
@@ -150,16 +155,20 @@ public partial class TeamWorkViewModel : ObservableObject
                 _projectMap[kv.Key] = kv.Value;
                 Suggestions.Add(kv.Key);
             }
-            Status = $"已加载 {Suggestions.Count} 个项目";
-            Progress = 100; ProgressText = "完成";
+            Status = UiText.Tr("已加载 {0} 个项目", Suggestions.Count);
+            Progress = 100; ProgressText = UiText.Tr("完成");
             Logger.Info("TeamWork Refresh: loaded {count} projects", Suggestions.Count);
-            ShowNotify("加载完成", Status, NotificationType.Success);
+            ShowNotify(UiText.Tr("加载完成"), Status, NotificationType.Success);
         }
         catch (Exception ex)
         {
-            Status = $"加载失败: {ex.Message}";
+            Status = UiText.Tr("加载失败: {0}", ex.Message);
             Logger.Error(ex, "Refresh TeamWork failed.");
-            ShowNotify("加载失败", ex.Message, NotificationType.Error);
+            ShowNotify(UiText.Tr("加载失败"), ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -189,18 +198,18 @@ public partial class TeamWorkViewModel : ObservableObject
             var (baseUrl, token) = login.Value;
             if (!_projectMap.TryGetValue(name, out var projectJson) || string.IsNullOrWhiteSpace(projectJson))
             {
-                Status = "未在聚合清单中找到项目路径";
+                Status = UiText.Tr("未在聚合清单中找到项目路径");
                 Logger.Warn("TeamWork: project path not found for {name}", name);
-                ShowNotify("错误", Status, NotificationType.Warning);
+                ShowNotify(UiText.Tr("错误"), Status, NotificationType.Warning);
                 return;
             }
             var fs = new FileSystemApi(baseUrl);
             var dl = await fs.DownloadAsync(token, projectJson, ct);
             if (dl.Code != 200 || dl.Content is null)
             {
-                Status = $"项目JSON下载失败: {dl.Code} {dl.Message}";
+                Status = UiText.Tr("项目JSON下载失败: {0} {1}", dl.Code, dl.Message);
                 Logger.Warn("TeamWork LoadProject: download failed {code} {msg}", dl.Code, dl.Message);
-                ShowNotify("下载失败", Status, NotificationType.Warning);
+                ShowNotify(UiText.Tr("下载失败"), Status, NotificationType.Warning);
                 return;
             }
             var txt = Encoding.UTF8.GetString(TrimBom(dl.Content)).TrimStart('\uFEFF');
@@ -271,15 +280,15 @@ public partial class TeamWorkViewModel : ObservableObject
 
             BuildTreeSource(ordered);
 
-            Status = $"已加载 {Episodes.Count} 话";
+            Status = UiText.Tr("已加载 {0} 话", Episodes.Count);
             Logger.Info("TeamWork LoadProject: loaded {count} episodes", Episodes.Count);
-            ShowNotify("项目已载入", Status, NotificationType.Success);
+            ShowNotify(UiText.Tr("项目已载入"), Status, NotificationType.Success);
         }
         catch (Exception ex)
         {
-            Status = $"加载项目失败: {ex.Message}";
+            Status = UiText.Tr("加载项目失败: {0}", ex.Message);
             Logger.Error(ex, "LoadProjectAsync failed.");
-            ShowNotify("加载项目失败", ex.Message, NotificationType.Error);
+            ShowNotify(UiText.Tr("加载项目失败"), ex.Message, NotificationType.Error);
         }
     }
 
@@ -350,17 +359,17 @@ public partial class TeamWorkViewModel : ObservableObject
         };
         var stages = new List<NodeItem>
         {
-            new() { Title = "图源", Episode = e, Status = string.IsNullOrWhiteSpace(e.SourcePath) ? "-" : "已上传", Path = e.SourcePath, Owner = e.SourceOwner, CreatedAt = Fmt(e.SourceCreatedAt), UpdatedAt = Fmt(e.SourceUpdatedAt) },
-            new() { Title = "翻译", Episode = e, Status = string.IsNullOrWhiteSpace(e.TranslatePath) ? "-" : "已上传", Path = e.TranslatePath, Owner = e.TranslateOwner, CreatedAt = Fmt(e.TranslateCreatedAt), UpdatedAt = Fmt(e.TranslateUpdatedAt) },
-            new() { Title = "校对", Episode = e, Status = string.IsNullOrWhiteSpace(e.ProofPath) ? "-" : "已上传", Path = e.ProofPath, Owner = e.ProofOwner, CreatedAt = Fmt(e.ProofCreatedAt), UpdatedAt = Fmt(e.ProofUpdatedAt) },
-            new() { Title = "嵌字", Episode = e, Status = string.IsNullOrWhiteSpace(e.TypesetPath) ? "-" : "已上传", Path = e.TypesetPath, Owner = e.PublishOwner, CreatedAt = Fmt(e.PublishCreatedAt), UpdatedAt = Fmt(e.PublishUpdatedAt) }
+            new() { Title = UiText.Tr("图源"), Episode = e, Status = string.IsNullOrWhiteSpace(e.SourcePath) ? "-" : UiText.Tr("已上传"), Path = e.SourcePath, Owner = e.SourceOwner, CreatedAt = Fmt(e.SourceCreatedAt), UpdatedAt = Fmt(e.SourceUpdatedAt) },
+            new() { Title = UiText.Tr("翻译"), Episode = e, Status = string.IsNullOrWhiteSpace(e.TranslatePath) ? "-" : UiText.Tr("已上传"), Path = e.TranslatePath, Owner = e.TranslateOwner, CreatedAt = Fmt(e.TranslateCreatedAt), UpdatedAt = Fmt(e.TranslateUpdatedAt) },
+            new() { Title = UiText.Tr("校对"), Episode = e, Status = string.IsNullOrWhiteSpace(e.ProofPath) ? "-" : UiText.Tr("已上传"), Path = e.ProofPath, Owner = e.ProofOwner, CreatedAt = Fmt(e.ProofCreatedAt), UpdatedAt = Fmt(e.ProofUpdatedAt) },
+            new() { Title = UiText.Tr("嵌字"), Episode = e, Status = string.IsNullOrWhiteSpace(e.TypesetPath) ? "-" : UiText.Tr("已上传"), Path = e.TypesetPath, Owner = e.PublishOwner, CreatedAt = Fmt(e.PublishCreatedAt), UpdatedAt = Fmt(e.PublishUpdatedAt) }
         };
         node.Children.AddRange(stages);
 
         // 新增：文件容器 + 文件子项
         if (e.FilePaths is { Count: > 0 })
         {
-            var container = new NodeItem { Title = "文件", Episode = e, IsGroupContainer = true };
+            var container = new NodeItem { Title = UiText.Tr("文件"), Episode = e, IsGroupContainer = true };
             foreach (var rp in e.FilePaths)
             {
                 if (string.IsNullOrWhiteSpace(rp)) continue;
@@ -401,20 +410,20 @@ public partial class TeamWorkViewModel : ObservableObject
     {
         if (ep is null)
         {
-            ShowNotify("文件列表", "无记录", NotificationType.Information);
+            ShowNotify(UiText.Tr("文件列表"), UiText.Tr("无记录"), NotificationType.Information);
             return;
         }
         var list = ep.FilePaths;
         if (list is null || list.Count == 0)
         {
-            ShowNotify("文件列表", "无记录", NotificationType.Information);
+            ShowNotify(UiText.Tr("文件列表"), UiText.Tr("无记录"), NotificationType.Information);
             return;
         }
         var take = Math.Min(50, list.Count);
         var sb = new StringBuilder();
         for (int i = 0; i < take; i++) sb.AppendLine(list[i]);
-        if (list.Count > take) sb.AppendLine($"... 其余 {list.Count - take} 条省略");
-        ShowNotify("文件列表", sb.ToString(), NotificationType.Information);
+        if (list.Count > take) sb.AppendLine(UiText.Tr("... 其余 {0} 条省略", list.Count - take));
+        ShowNotify(UiText.Tr("文件列表"), sb.ToString(), NotificationType.Information);
         await Task.CompletedTask;
     }
 
@@ -425,20 +434,20 @@ public partial class TeamWorkViewModel : ObservableObject
         {
             if (node is null)
             {
-                ShowNotify("下载", "无效的项目", NotificationType.Warning);
+                ShowNotify(UiText.Tr("下载"), UiText.Tr("无效的项目"), NotificationType.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(node.Path))
             {
-                ShowNotify("下载", "该项没有可下载的路径", NotificationType.Information);
+                ShowNotify(UiText.Tr("下载"), UiText.Tr("该项没有可下载的路径"), NotificationType.Information);
                 return;
             }
 
             var login = await LoginAsync();
             if (login is null)
             {
-                ShowNotify("下载失败", "未能登录服务器", NotificationType.Error);
+                ShowNotify(UiText.Tr("下载失败"), UiText.Tr("未能登录服务器"), NotificationType.Error);
                 return;
             }
             var (baseUrl, token) = login.Value;
@@ -448,12 +457,12 @@ public partial class TeamWorkViewModel : ObservableObject
             var meta = await fs.GetAsync(token, node.Path);
             if (meta.Code != 200 || meta.Data is null)
             {
-                ShowNotify("下载失败", meta.Message ?? "未知错误", NotificationType.Error);
+                ShowNotify(UiText.Tr("下载失败"), meta.Message ?? UiText.Tr("未知错误"), NotificationType.Error);
                 return;
             }
             if (meta.Data.IsDir)
             {
-                ShowNotify("下载", "该路径是文件夹，暂不支持打包下载", NotificationType.Information);
+                ShowNotify(UiText.Tr("下载"), UiText.Tr("该路径是文件夹，暂不支持打包下载"), NotificationType.Information);
                 return;
             }
 
@@ -468,18 +477,18 @@ public partial class TeamWorkViewModel : ObservableObject
             var res = await fs.DownloadToFileAsync(token, node.Path, localPath);
             if (res.Code == 200)
             {
-                ShowNotify("下载完成", localPath, NotificationType.Success);
+                ShowNotify(UiText.Tr("下载完成"), localPath, NotificationType.Success);
             }
             else
             {
-                var msg = string.IsNullOrWhiteSpace(res.Message) ? $"错误码 {res.Code}" : res.Message!;
-                ShowNotify("下载失败", msg, NotificationType.Error);
+                var msg = string.IsNullOrWhiteSpace(res.Message) ? UiText.Tr("错误码 {0}", res.Code) : res.Message!;
+                ShowNotify(UiText.Tr("下载失败"), msg, NotificationType.Error);
             }
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "DownloadFile failed");
-            ShowNotify("下载异常", ex.Message, NotificationType.Error);
+            ShowNotify(UiText.Tr("下载异常"), ex.Message, NotificationType.Error);
         }
     }
 
@@ -515,6 +524,14 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private void ShowNotify(string title, string message, NotificationType type)
     {
+        // Suppress an identical toast shown twice by overlapping refresh calls.
+        var key = title + "\u0001" + message + "\u0001" + (int)type;
+        var now = DateTime.UtcNow;
+        if (string.Equals(key, _lastNotifyKey, StringComparison.Ordinal) && now - _lastNotifyAt < TimeSpan.FromSeconds(2))
+            return;
+        _lastNotifyKey = key;
+        _lastNotifyAt = now;
+
         try { NotificationManager?.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]); }
         catch (InvalidOperationException ex)
         {
@@ -556,10 +573,10 @@ public partial class TeamWorkViewModel : ObservableObject
         public DateTimeOffset? PublishCreatedAt { get; set; }
         public DateTimeOffset? PublishUpdatedAt { get; set; }
 
-        public string SourceInfo => $"负责人: {SourceOwner ?? "-"}  创建: {FormatTime(SourceCreatedAt)}  更新: {FormatTime(SourceUpdatedAt)}";
-        public string TranslateInfo => $"负责人: {TranslateOwner ?? "-"}  创建: {FormatTime(TranslateCreatedAt)}  更新: {FormatTime(TranslateUpdatedAt)}";
-        public string ProofInfo => $"负责人: {ProofOwner ?? "-"}  创建: {FormatTime(ProofCreatedAt)}  更新: {FormatTime(ProofUpdatedAt)}";
-        public string PublishInfo => $"负责人: {PublishOwner ?? "-"}  创建: {FormatTime(PublishCreatedAt)}  更新: {FormatTime(PublishUpdatedAt)}";
+        public string SourceInfo => UiText.Tr("负责人: {0}  创建: {1}  更新: {2}", SourceOwner ?? "-", FormatTime(SourceCreatedAt), FormatTime(SourceUpdatedAt));
+        public string TranslateInfo => UiText.Tr("负责人: {0}  创建: {1}  更新: {2}", TranslateOwner ?? "-", FormatTime(TranslateCreatedAt), FormatTime(TranslateUpdatedAt));
+        public string ProofInfo => UiText.Tr("负责人: {0}  创建: {1}  更新: {2}", ProofOwner ?? "-", FormatTime(ProofCreatedAt), FormatTime(ProofUpdatedAt));
+        public string PublishInfo => UiText.Tr("负责人: {0}  创建: {1}  更新: {2}", PublishOwner ?? "-", FormatTime(PublishCreatedAt), FormatTime(PublishUpdatedAt));
         private static string FormatTime(DateTimeOffset? t) => t.HasValue ? t.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-";
     }
 }

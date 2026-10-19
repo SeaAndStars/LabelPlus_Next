@@ -41,7 +41,6 @@ public partial class TranslateViewModel : ViewModelBase
         _dialogs = dialogs;
     }
     public WindowNotificationManager? NotificationManager { get; set; }
-    public List<string> LangList { get; } = new() { "default", "en", "zh-hant-tw" };
 
     // UI progress and status
     [ObservableProperty] private bool isBusy;
@@ -138,32 +137,32 @@ public partial class TranslateViewModel : ViewModelBase
     private async Task NewTranslationCommand()
     {
         if (_dialogs is null) return;
-        await RunOnUiAsync(() => { IsBusy = true; Progress = 5; ProgressText = "选择图片..."; });
+        await RunOnUiAsync(() => { IsBusy = true; Progress = 5; ProgressText = UiText.Tr("选择图片..."); });
         try
         {
-            var folder = await _dialogs.PickFolderAsync("选择翻译目录").ConfigureAwait(false);
-            if (string.IsNullOrEmpty(folder)) { await RunOnUiAsync(() => { Progress = 100; ProgressText = "已取消"; }); return; }
+            var folder = await _dialogs.PickFolderAsync(UiText.Tr("选择翻译目录")).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(folder)) { await RunOnUiAsync(() => { Progress = 100; ProgressText = UiText.Tr("已取消"); }); return; }
             var selected = await _dialogs.ChooseImagesAsync(folder).ConfigureAwait(false);
-            if (selected == null || selected.Count == 0) { await RunOnUiAsync(() => { Progress = 100; ProgressText = "未选择图片"; }); return; }
-            await RunOnUiAsync(() => { Progress = 25; ProgressText = "生成初始内容..."; });
+            if (selected == null || selected.Count == 0) { await RunOnUiAsync(() => { Progress = 100; ProgressText = UiText.Tr("未选择图片"); }); return; }
+            await RunOnUiAsync(() => { Progress = 25; ProgressText = UiText.Tr("生成初始内容..."); });
             var names = selected.Select(p => Path.GetFileName(p)).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n!);
             var content = TranslationFileUtils.BuildInitialContent(names);
             var outPath = TranslationFileUtils.GetNonConflictPath(folder, "translation.txt");
-            await RunOnUiAsync(() => { Progress = 60; ProgressText = "写入文件..."; });
+            await RunOnUiAsync(() => { Progress = 60; ProgressText = UiText.Tr("写入文件..."); });
             await File.WriteAllTextAsync(outPath, content, Encoding.UTF8).ConfigureAwait(false);
-            await RunOnUiAsync(() => { Progress = 80; ProgressText = "加载到编辑器..."; OpenTranslationFilePath = outPath; });
+            await RunOnUiAsync(() => { Progress = 80; ProgressText = UiText.Tr("加载到编辑器..."); OpenTranslationFilePath = outPath; });
             await LoadTranslationFile(outPath).ConfigureAwait(false);
             AddOrUpdateRecentProject(outPath); // NEW: sync to recent projects
-            await NotifyAsync("提示", "新建翻译文件完成并已打开。", NotificationType.Success).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("提示"), UiText.Tr("新建翻译文件完成并已打开。"), NotificationType.Success).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "NewTranslationCommand failed");
-            await NotifyAsync("错误", $"新建翻译失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("错误"), UiText.Tr("新建翻译失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
         }
         finally
         {
-            await RunOnUiAsync(() => { Progress = 100; ProgressText = "完成"; IsBusy = false; });
+            await RunOnUiAsync(() => { Progress = 100; ProgressText = UiText.Tr("完成"); IsBusy = false; });
         }
     }
     [RelayCommand]
@@ -179,8 +178,8 @@ public partial class TranslateViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            await NotifyAsync("错误", $"打开失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"打开失败：{ex.Message}").ConfigureAwait(false); }
+            await NotifyAsync(UiText.Tr("错误"), UiText.Tr("打开失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync(UiText.Tr("打开失败：{0}", ex.Message)).ConfigureAwait(false); }
             Logger.Error(ex, "Open translation file failed.");
         }
     }
@@ -191,7 +190,7 @@ public partial class TranslateViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
         try
         {
-            await RunOnUiAsync(() => { IsBusy = true; Progress = 15; ProgressText = "读取翻译文件..."; OpenTranslationFilePath = path; });
+            await RunOnUiAsync(() => { IsBusy = true; Progress = 15; ProgressText = UiText.Tr("读取翻译文件..."); OpenTranslationFilePath = path; });
             await LabelFileManager1.LoadAsync(path).ConfigureAwait(false);
             await RunOnUiAsync(() =>
             {
@@ -199,16 +198,16 @@ public partial class TranslateViewModel : ViewModelBase
                 foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
                 if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
                 UpdateCurrentLabels();
-                Progress = 100; ProgressText = "完成";
+                Progress = 100; ProgressText = UiText.Tr("完成");
             });
             AddOrUpdateRecentProject(path); // NEW ensure also when called externally
-            await NotifyAsync("提示", "打开成功。", NotificationType.Success).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("提示"), UiText.Tr("打开成功。"), NotificationType.Success).ConfigureAwait(false);
             Logger.Info("Translation file loaded: {file}", path);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "OpenTranslationFileAtPathAsync failed");
-            await NotifyAsync("错误", $"加载失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("错误"), UiText.Tr("加载失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
         }
         finally { await RunOnUiAsync(() => IsBusy = false); }
     }
@@ -222,19 +221,19 @@ public partial class TranslateViewModel : ViewModelBase
         if (_dialogs is null) return;
         if (string.IsNullOrEmpty(OpenTranslationFilePath))
         {
-            await _dialogs.ShowMessageAsync("未打开翻译文件，无法保存。请使用‘另存为’。").ConfigureAwait(false);
+            await _dialogs.ShowMessageAsync(UiText.Tr("未打开翻译文件，无法保存。请使用‘另存为’。")).ConfigureAwait(false);
             return;
         }
         try
         {
-            await RunOnUiAsync(() => { IsBusy = true; Progress = 10; ProgressText = "保存本地文件..."; });
+            await RunOnUiAsync(() => { IsBusy = true; Progress = 10; ProgressText = UiText.Tr("保存本地文件..."); });
             await FileSave(OpenTranslationFilePath).ConfigureAwait(false);
             // Remote upload on manual save if collaboration, with conflict detection
             try
             {
                 if (Collab is not null)
                 {
-                    await RunOnUiAsync(() => { Progress = 35; ProgressText = "检查远端版本..."; });
+                    await RunOnUiAsync(() => { Progress = 35; ProgressText = UiText.Tr("检查远端版本..."); });
                     var fs = new Services.Api.FileSystemApi(Collab.BaseUrl);
                     var remoteRes = await fs.DownloadAsync(Collab.Token, Collab.RemoteTranslatePath).ConfigureAwait(false);
                     string? remoteHash = null;
@@ -243,13 +242,13 @@ public partial class TranslateViewModel : ViewModelBase
                         var remoteTxt = Encoding.UTF8.GetString(remoteRes.Content);
                         remoteHash = ComputeHash(remoteTxt);
                     }
-                    await RunOnUiAsync(() => { Progress = 55; ProgressText = "计算哈希..."; });
+                    await RunOnUiAsync(() => { Progress = 55; ProgressText = UiText.Tr("计算哈希..."); });
                     var localBytes = await File.ReadAllBytesAsync(OpenTranslationFilePath).ConfigureAwait(false);
                     var localTxt = Encoding.UTF8.GetString(localBytes);
                     var localHash = ComputeHash(localTxt);
                     if (!string.IsNullOrEmpty(Collab.LastRemoteHash) && !string.Equals(remoteHash, Collab.LastRemoteHash, StringComparison.Ordinal))
                     {
-                        await RunOnUiAsync(() => { ProgressText = "检测到冲突，准备合并..."; Progress = 65; });
+                        await RunOnUiAsync(() => { ProgressText = UiText.Tr("检测到冲突，准备合并..."); Progress = 65; });
                         var remoteTxt = remoteRes.Content is not null ? Encoding.UTF8.GetString(remoteRes.Content) : string.Empty;
                         var fileName = Path.GetFileName(OpenTranslationFilePath);
                         string? merged = null;
@@ -259,7 +258,7 @@ public partial class TranslateViewModel : ViewModelBase
                             if (win is not null)
                             {
                                 var dlg = new LabelPlus_Next.Views.Windows.MergeConflictWindow();
-                                await NotifyAsync("保存冲突", "检测到远端更新，正在打开合并助手...", NotificationType.Warning).ConfigureAwait(false);
+                                await NotifyAsync(UiText.Tr("保存冲突"), UiText.Tr("检测到远端更新，正在打开合并助手..."), NotificationType.Warning).ConfigureAwait(false);
                                 merged = await dlg.ShowAsync(win, remoteTxt, localTxt, fileName).ConfigureAwait(false);
                             }
                         }
@@ -284,47 +283,47 @@ public partial class TranslateViewModel : ViewModelBase
                             var localBackup = Path.Combine(conflictDir, $"{baseName}_local_{ts}{ext}");
                             if (remoteRes.Content is not null) await File.WriteAllBytesAsync(remoteBackup, remoteRes.Content).ConfigureAwait(false);
                             await File.WriteAllBytesAsync(localBackup, localBytes).ConfigureAwait(false);
-                            var msg = $"检测到保存冲突：远端译文已更新。已备份两份：\n{remoteBackup}\n{localBackup}\n请手动合并后再上传。";
-                            await NotifyAsync("保存冲突", msg, NotificationType.Warning).ConfigureAwait(false);
+                            var msg = UiText.Tr("检测到保存冲突：远端译文已更新。已备份两份：\n{0}\n{1}\n请手动合并后再上传。", remoteBackup, localBackup);
+                            await NotifyAsync(UiText.Tr("保存冲突"), msg, NotificationType.Warning).ConfigureAwait(false);
                             if (_dialogs is not null) await _dialogs.ShowMessageAsync(msg).ConfigureAwait(false);
                             Logger.Warn("Save conflict: remote changed since last known hash.");
                             return;
                         }
 
                         // user provided merged content -> upload
-                        await RunOnUiAsync(() => { Progress = 85; ProgressText = "上传合并结果到远端..."; });
+                        await RunOnUiAsync(() => { Progress = 85; ProgressText = UiText.Tr("上传合并结果到远端..."); });
                         var mergedBytes = Encoding.UTF8.GetBytes(merged);
                         await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, mergedBytes).ConfigureAwait(false);
                         Collab.LastRemoteHash = ComputeHash(merged);
                         await File.WriteAllBytesAsync(OpenTranslationFilePath, mergedBytes).ConfigureAwait(false);
                         Logger.Info("Merged content uploaded and written locally.");
-                        await NotifyAsync("提示", "合并完成并已上传。", NotificationType.Success).ConfigureAwait(false);
+                        await NotifyAsync(UiText.Tr("提示"), UiText.Tr("合并完成并已上传。"), NotificationType.Success).ConfigureAwait(false);
                         return;
                     }
                     // no conflict -> upload and update last remote hash
-                    await RunOnUiAsync(() => { Progress = 80; ProgressText = "上传到远端..."; });
+                    await RunOnUiAsync(() => { Progress = 80; ProgressText = UiText.Tr("上传到远端..."); });
                     await fs.SafePutAsync(Collab.Token, Collab.RemoteTranslatePath, localBytes).ConfigureAwait(false);
                     Collab.LastRemoteHash = localHash;
                     Logger.Info("Save uploaded to remote: {remote}", Collab.RemoteTranslatePath);
-                    await NotifyAsync("提示", "已上传到远端。", NotificationType.Success).ConfigureAwait(false);
+                    await NotifyAsync(UiText.Tr("提示"), UiText.Tr("已上传到远端。"), NotificationType.Success).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
             {
                 Logger.Warn(ex, "Manual save remote upload failed.");
-                await NotifyAsync("错误", $"远端上传失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
+                await NotifyAsync(UiText.Tr("错误"), UiText.Tr("远端上传失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
             }
             var fileNameOnly = Path.GetFileName(OpenTranslationFilePath);
-            await NotifyAsync("提示", $"保存成功：{fileNameOnly}", NotificationType.Success).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("提示"), UiText.Tr("保存成功：{0}", fileNameOnly), NotificationType.Success).ConfigureAwait(false);
             Logger.Info("File saved: {file}", OpenTranslationFilePath);
         }
         catch (Exception ex)
         {
-            await NotifyAsync("错误", $"保存失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"保存失败：{ex.Message}").ConfigureAwait(false); }
+            await NotifyAsync(UiText.Tr("错误"), UiText.Tr("保存失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync(UiText.Tr("保存失败：{0}", ex.Message)).ConfigureAwait(false); }
             Logger.Error(ex, "Save current file failed.");
         }
-        finally { await RunOnUiAsync(() => { Progress = 100; ProgressText = "完成"; IsBusy = false; }); }
+        finally { await RunOnUiAsync(() => { Progress = 100; ProgressText = UiText.Tr("完成"); IsBusy = false; }); }
     }
     [RelayCommand]
     public async Task SaveAsCommand()
@@ -334,17 +333,17 @@ public partial class TranslateViewModel : ViewModelBase
         if (string.IsNullOrEmpty(path)) return;
         try
         {
-            await RunOnUiAsync(() => { IsBusy = true; Progress = 10; ProgressText = "写入文件..."; });
+            await RunOnUiAsync(() => { IsBusy = true; Progress = 10; ProgressText = UiText.Tr("写入文件..."); });
             await FileSave(path).ConfigureAwait(false);
-            await RunOnUiAsync(() => { OpenTranslationFilePath = path; Progress = 100; ProgressText = "完成"; });
+            await RunOnUiAsync(() => { OpenTranslationFilePath = path; Progress = 100; ProgressText = UiText.Tr("完成"); });
             var file = Path.GetFileName(path);
-            await NotifyAsync("提示", $"另存为成功：{file}", NotificationType.Success).ConfigureAwait(false);
+            await NotifyAsync(UiText.Tr("提示"), UiText.Tr("另存为成功：{0}", file), NotificationType.Success).ConfigureAwait(false);
             Logger.Info("File saved as: {file}", path);
         }
         catch (Exception ex)
         {
-            await NotifyAsync("错误", $"另存为失败：{ex.Message}", NotificationType.Error).ConfigureAwait(false);
-            if (_dialogs is not null) { await _dialogs.ShowMessageAsync($"另存为失败：{ex.Message}").ConfigureAwait(false); }
+            await NotifyAsync(UiText.Tr("错误"), UiText.Tr("另存为失败：{0}", ex.Message), NotificationType.Error).ConfigureAwait(false);
+            if (_dialogs is not null) { await _dialogs.ShowMessageAsync(UiText.Tr("另存为失败：{0}", ex.Message)).ConfigureAwait(false); }
             Logger.Error(ex, "Save as file failed.");
         }
         finally { await RunOnUiAsync(() => IsBusy = false); }
@@ -365,7 +364,7 @@ public partial class TranslateViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
             var psi = new System.Diagnostics.ProcessStartInfo { FileName = dir, UseShellExecute = true };
             System.Diagnostics.Process.Start(psi);
-            _ = NotifyAsync("提示", $"已打开：{dir}", NotificationType.Information);
+            _ = NotifyAsync(UiText.Tr("提示"), UiText.Tr("已打开：{0}", dir), NotificationType.Information);
         }
         catch (Exception ex) { Logger.Warn(ex, "OpenTranslationFolder failed"); }
     }
@@ -479,7 +478,7 @@ public partial class TranslateViewModel : ViewModelBase
                     {
                         if (!_autoSaveConflictNotified)
                         {
-                            _ = NotifyAsync("自动保存已暂停上传", "检测到远端内容已更新，将在手动保存时提示合并，避免覆盖。", NotificationType.Warning);
+                            _ = NotifyAsync(UiText.Tr("自动保存已暂停上传"), UiText.Tr("检测到远端内容已更新，将在手动保存时提示合并，避免覆盖。"), NotificationType.Warning);
                             _autoSaveConflictNotified = true;
                         }
                     }

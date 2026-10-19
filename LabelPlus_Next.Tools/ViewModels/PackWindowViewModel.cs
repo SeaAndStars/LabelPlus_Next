@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Tools.Models;
+using LabelPlus_Next.Tools.Services;
 using NLog;
 using System;
 using System.Collections.Generic;
@@ -31,11 +32,12 @@ public partial class PackWindowViewModel : ObservableObject
 
     // Keep all project-version pairs detected from version files
     private readonly List<(string Project, string Version)> versionEntries = new();
+    private readonly SemaphoreSlim versionRefreshLock = new(1, 1);
 
     [ObservableProperty] private double currentProgress;
     [ObservableProperty] private string? currentTask;
     [ObservableProperty] private string? manifestPath;
-    // Note: during LoadClientVersionAsync this holds the download URL from project json; later in build it will hold DAV url
+    // Note: ManifestUrl holds the download URL from the version file until the build replaces it.
     [ObservableProperty] private string? manifestUrl;
     [ObservableProperty] private string? project;
     [ObservableProperty] private string? selectedFolder;
@@ -44,6 +46,20 @@ public partial class PackWindowViewModel : ObservableObject
     [ObservableProperty] private string? targetPath;
     [ObservableProperty] private string? version;
     [ObservableProperty] private string? zipPath;
+
+    // True when SelectedFolder itself contains version metadata and can be zipped as-is.
+    // Otherwise the folder is a source/project folder and the multi-platform build path is used.
+    [ObservableProperty] private bool hasLocalVersionFiles;
+
+    /// <summary>
+    /// A source project folder can also contain a version file (for example
+    /// LabelPlus_Next.Update/Update.version.json). Only a folder without a project or
+    /// solution file is considered a prepared release directory worth zipping.
+    /// </summary>
+    public bool CanPackSelectedFolder =>
+        !string.IsNullOrWhiteSpace(SelectedFolder)
+        && HasLocalVersionFiles
+        && !PackVersionLocator.LooksLikeSourceProject(SelectedFolder);
 
     // Publish options (UI configurable)
     [ObservableProperty] private bool winX64 = true;
@@ -77,84 +93,151 @@ public partial class PackWindowViewModel : ObservableObject
     public async Task SetFolderAsync(string folder)
     {
         SelectedFolder = folder;
-        await LoadClientVersionAsync();
+        await RefreshVersionInfoAsync();
     }
 
-    private async Task LoadClientVersionAsync()
+    public async Task SetSolutionAsync(string solutionPath)
     {
-        versionEntries.Clear();
-        if (string.IsNullOrEmpty(SelectedFolder)) return;
+        SolutionPath = solutionPath;
+        await RefreshVersionInfoAsync();
+    }
+
+    /// <summary>
+    /// Loads Project/Version for the UI. Prefers version files inside the selected
+    /// package folder; falls back to the solution/repository so selecting a source
+    /// project (for example LabelPlus_Next.Desktop) still shows the version info.
+    /// </summary>
+    public async Task RefreshVersionInfoAsync()
+    {
+        await versionRefreshLock.WaitAsync();
         try
         {
-            // support Update.version.json or Client.version.json (and misspelled variant)
-            var pUpdate = Path.Combine(SelectedFolder!, "Update.version.json");
-            var pClient = Path.Combine(SelectedFolder!, "Client.version.json");
-            var pClientTypo = Path.Combine(SelectedFolder!, "Clietn.version.json");
+            versionEntries.Clear();
+            Project = null;
+            Version = null;
+            ManifestUrl = null;
+            HasLocalVersionFiles = false;
 
-            var found = new List<(string path, ClientVersion cv)>();
-            if (File.Exists(pUpdate))
-            {
-                await using var fs = File.OpenRead(pUpdate);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pUpdate, cv));
-            }
-            if (File.Exists(pClient))
-            {
-                await using var fs = File.OpenRead(pClient);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pClient, cv));
-            }
-            if (!File.Exists(pClient) && File.Exists(pClientTypo))
-            {
-                await using var fs = File.OpenRead(pClientTypo);
-                var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
-                if (cv is not null) found.Add((pClientTypo, cv));
-            }
-
-            if (found.Count == 0)
-            {
-                Status = "未找到 Update.version.json 或 Client.version.json";
+            if (string.IsNullOrWhiteSpace(SelectedFolder) && string.IsNullOrWhiteSpace(SolutionPath))
                 return;
-            }
 
-            // Deduplicate by project name, keep order preferring Update.version.json first
-            foreach (var item in found)
+            try
             {
-                if (!string.IsNullOrWhiteSpace(item.cv.Project) && !string.IsNullOrWhiteSpace(item.cv.Version))
+                var localFiles = PackVersionLocator.FindVersionFilesInFolder(SelectedFolder);
+                if (localFiles.Count > 0)
                 {
-                    if (!versionEntries.Exists(e => string.Equals(e.Project, item.cv.Project, StringComparison.OrdinalIgnoreCase)))
-                        versionEntries.Add((item.cv.Project!, item.cv.Version!));
+                    HasLocalVersionFiles = true;
+                    await ReadVersionFilesAsync(localFiles, "所选目录");
+                    return;
                 }
-                // Take first non-empty manifest url as hint
-                if (string.IsNullOrEmpty(ManifestUrl) && !string.IsNullOrEmpty(item.cv.Manifest))
-                    ManifestUrl = item.cv.Manifest;
+
+                // Don't fall back to the tool's own directory here: when the user selected a
+                // folder, the version info must come from that folder's repository.
+                var repoRoot = PackVersionLocator.FindRepoRoot(SelectedFolder, SolutionPath, allowAppDirectoryFallback: false);
+                if (repoRoot is not null)
+                {
+                    var repoFiles = PackVersionLocator.FindVersionFilesInRepo(repoRoot);
+                    if (repoFiles.Count > 0)
+                    {
+                        await ReadVersionFilesAsync(repoFiles, $"仓库 {repoRoot}");
+                        PreferSelectedProject();
+                        return;
+                    }
+                }
+
+                Status = "未找到版本文件：请选择包含 Client.version.json 的打包目录，或留空使用多平台自动构建";
             }
-
-            // Primary display uses the first entry
-            Project = versionEntries[0].Project;
-            Version = versionEntries[0].Version;
-
-            var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
-            Status = $"版本: {Version}, 项目: {Project}（{filesUsed}）";
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "读取版本文件失败");
+                Status = $"读取版本失败: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Logger.Error(ex, "读取版本文件失败");
-            Status = $"读取版本失败: {ex.Message}";
+            versionRefreshLock.Release();
         }
+    }
+
+    private async Task ReadVersionFilesAsync(IReadOnlyList<string> files, string source)
+    {
+        var found = new List<(string path, ClientVersion cv)>();
+        foreach (var file in files)
+        {
+            await using var fs = File.OpenRead(file);
+            var cv = await JsonSerializer.DeserializeAsync<ClientVersion>(
+                fs,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
+            if (cv is not null) found.Add((file, cv));
+        }
+
+        // Deduplicate by project name, keeping the first occurrence.
+        foreach (var item in found)
+        {
+            if (string.IsNullOrWhiteSpace(item.cv.Project) || string.IsNullOrWhiteSpace(item.cv.Version))
+                continue;
+
+            if (!versionEntries.Exists(e => string.Equals(e.Project, item.cv.Project, StringComparison.OrdinalIgnoreCase)))
+                versionEntries.Add((item.cv.Project!, item.cv.Version!));
+
+            // Take the first non-empty manifest url as a hint.
+            if (string.IsNullOrEmpty(ManifestUrl) && !string.IsNullOrEmpty(item.cv.Manifest))
+                ManifestUrl = item.cv.Manifest;
+        }
+
+        if (versionEntries.Count == 0)
+        {
+            Status = $"{source} 中未找到有效的 Project/Version";
+            return;
+        }
+
+        Project = versionEntries[0].Project;
+        Version = versionEntries[0].Version;
+        var filesUsed = string.Join(", ", found.Select(f => Path.GetFileName(f.path)));
+        Status = $"版本: {Version}, 项目: {Project}（{source}: {filesUsed}）";
+    }
+
+    /// <summary>
+    /// When the version files come from the repository, show the entry matching the
+    /// selected project folder (e.g. LabelPlus_Next.Desktop) before the others.
+    /// </summary>
+    private void PreferSelectedProject()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedFolder)) return;
+
+        var selectedName = new DirectoryInfo(SelectedFolder!).Name;
+        var index = versionEntries.FindIndex(e => string.Equals(e.Project, selectedName, StringComparison.OrdinalIgnoreCase));
+        if (index <= 0) return;
+
+        var entry = versionEntries[index];
+        versionEntries.RemoveAt(index);
+        versionEntries.Insert(0, entry);
+        Project = entry.Project;
+        Version = entry.Version;
     }
 
     private async Task BuildAndUploadAsync()
     {
         try
         {
-            var settingsPath = Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
+            // Clear stale output from a previous attempt before starting a new one.
+            ZipPath = null;
+            ManifestPath = null;
+            CurrentTask = null;
+            CurrentProgress = 0;
+
+            // Reflect a folder typed by hand and a solution selected after the folder.
+            await RefreshVersionInfoAsync();
+            Logger.Info("Pack started: folder='{folder}', solution='{solution}', project='{project}', version='{version}'",
+                SelectedFolder, SolutionPath, Project, Version);
+
+            var settingsPath = ToolsSettingsStore.DefaultPath;
             if (!File.Exists(settingsPath))
             {
                 Status = "未在程序根目录找到 tools.settings.json";
                 return;
             }
-            var uploadSettings = await LoadSettingsAsync(settingsPath);
+            var uploadSettings = await ToolsSettingsStore.LoadAsync(settingsPath);
             if (uploadSettings is null)
             {
                 Status = "读取 tools.settings.json 失败";
@@ -162,45 +245,75 @@ public partial class PackWindowViewModel : ObservableObject
             }
             TargetPath ??= uploadSettings.TargetPath;
 
+            // Older configs sometimes store .../manifest.json here. The packer needs a
+            // directory, otherwise uploads are written under a file path and mkdir fails.
+            var configuredTarget = TargetPath;
+            TargetPath = ToolsEndpoints.NormalizeTargetDirectory(TargetPath);
+            if (!string.Equals(configuredTarget, TargetPath, StringComparison.Ordinal))
+            {
+                Logger.Warn("Pack target path '{raw}' points at a file; using directory '{dir}'",
+                    configuredTarget, TargetPath);
+            }
+
+            // Files/API live at the site root; the WebDAV URL may end with /dav.
+            var apiBase = ToolsEndpoints.ResolveApiBaseUrl(uploadSettings.ApiBaseUrl, uploadSettings.BaseUrl);
+            if (apiBase is null)
+            {
+                Status = "未配置 API BaseUrl：请在“设置服务器”中填写站点根地址（例如 https://主机）";
+                return;
+            }
+            Logger.Info("Pack API base: {apiBase}", apiBase);
+
             var outDir = Path.Combine(AppContext.BaseDirectory, "packages");
             Directory.CreateDirectory(outDir);
 
-            // If user selected a folder -> old behavior: zip that folder as a package
-            if (!string.IsNullOrEmpty(SelectedFolder))
+            // A prepared release directory contains a version file and no project/solution
+            // file; zip it as-is. Source folders (which may also carry a version file)
+            // use the multi-platform build path below.
+            if (CanPackSelectedFolder)
             {
-                if (versionEntries.Count == 0) await LoadClientVersionAsync();
                 if (versionEntries.Count == 0)
                 {
-                    Status = "版本或项目为空";
+                    Status = "所选目录的版本文件无效";
                     return;
                 }
+                Logger.Info("Pack mode: zip prepared release folder {folder}", SelectedFolder);
 
                 var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 var fileName = $"{Project}({Version})_{ts}.zip";
                 var outZip = Path.Combine(outDir, fileName);
                 if (File.Exists(outZip)) File.Delete(outZip);
 
-                ZipFile.CreateFromDirectory(SelectedFolder!, outZip, CompressionLevel.Optimal, false, Encoding.UTF8);
+                // Zip on a worker thread: CreateFromDirectory is synchronous and can
+                // block the UI for a long time on large folders.
+                CurrentTask = "打包目录...";
+                CurrentProgress = 0;
+                await Task.Run(() => ZipFile.CreateFromDirectory(
+                    SelectedFolder!, outZip, CompressionLevel.Optimal, false, Encoding.UTF8));
                 ZipPath = outZip;
 
                 var zipInfo = new FileInfo(outZip);
+                Logger.Info("Pack zip created: {zip} ({size} bytes) from {folder}", outZip, zipInfo.Length, SelectedFolder);
                 var sha256 = await ComputeSha256Async(outZip);
 
-                var baseDir = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+                var baseDir = AppendSlash(apiBase);
                 var targetDir = NormalizePath(TargetPath);
-                var destBase = new Uri(new Uri(baseDir), targetDir);
                 var pubBase = new Uri(new Uri(baseDir), "d/" + targetDir);
                 var zipUrl = new Uri(pubBase, fileName).ToString();
                 var manifestDownloadUrlFromProject = ManifestUrl;
 
-                // 使用文件 API 上传
+                // 使用文件 API 上传（站点根地址，而不是 /dav 端点）
+                Logger.Info("Pack login: user='{user}', API={apiBase}", uploadSettings.Username, baseDir);
                 var auth = new AuthApi(baseDir);
                 var login = await auth.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
                 if (login.Code != 200 || string.IsNullOrWhiteSpace(login.Data?.Token))
                 {
-                    Status = $"登录失败: {login.Code} {login.Message}";
+                    Logger.Warn("Pack login failed: code={code}, message={message}, API={apiBase}",
+                        login.Code, login.Message, baseDir);
+                    Status = $"登录失败: {login.Code} {login.Message}（API: {baseDir}）";
                     return;
                 }
+                Logger.Info("Pack login succeeded (API: {apiBase})", baseDir);
                 var token = login.Data!.Token!;
                 var fs = new FileSystemApi(baseDir);
 
@@ -224,7 +337,12 @@ public partial class PackWindowViewModel : ObservableObject
                 if (putRes.Count == 0 || putRes[0].Code != 200)
                 {
                     var code = putRes.Count > 0 ? putRes[0].Code : -1;
-                    Status = $"上传失败: {code}";
+                    var message = putRes.Count > 0 ? putRes[0].Message : null;
+                    var sizeMb = zipInfo.Length / 1024d / 1024d;
+                    Logger.Warn("Pack zip upload failed: code={code}, message={message}, size={size} bytes", code, message, zipInfo.Length);
+                    Status = code == 413
+                        ? $"上传失败: 413 文件过大（{sizeMb:F1} MB）。请提高 OpenList/反向代理的上传上限，或减小打包体积"
+                        : $"上传失败: {code}{(string.IsNullOrWhiteSpace(message) ? string.Empty : $" {message}")}";
                     return;
                 }
 
@@ -260,12 +378,28 @@ public partial class PackWindowViewModel : ObservableObject
             }
 
             // Auto build selected platforms for Desktop and Update projects
-            var repoRoot = FindRepoRoot();
+            Logger.Info("Pack mode: multi-platform build");
+            if (!string.IsNullOrEmpty(SelectedFolder))
+            {
+                if (!PackVersionLocator.LooksLikeSourceProject(SelectedFolder))
+                {
+                    Status = "所选目录既不是发布目录，也不是源码工程目录：请选择包含 Client.version.json 的发布目录，或留空自动构建多平台";
+                    return;
+                }
+
+                Logger.Info("Selected folder {folder} is a source project; using multi-platform build", SelectedFolder);
+                Status = "所选目录是源码工程目录，将自动构建多平台…";
+            }
+
+            var repoRoot = string.IsNullOrEmpty(SelectedFolder)
+                ? PackVersionLocator.FindRepoRoot(null, SolutionPath) ?? FindRepoRoot()
+                : PackVersionLocator.FindRepoRoot(SelectedFolder, SolutionPath, allowAppDirectoryFallback: false);
             if (repoRoot is null)
             {
                 Status = "未能定位仓库根目录";
                 return;
             }
+            Logger.Info("Pack repo root: {repoRoot}", repoRoot);
 
             // Read versions from project roots
             versionEntries.Clear();
@@ -314,8 +448,11 @@ public partial class PackWindowViewModel : ObservableObject
                     var outZip2 = Path.Combine(outDir, fileName2);
                     if (File.Exists(outZip2)) File.Delete(outZip2);
                     CurrentTask = $"打包 {proj} ({rid})...";
-                    ZipFile.CreateFromDirectory(publishDir, outZip2, CompressionLevel.Optimal, false, Encoding.UTF8);
+                    CurrentProgress = 0;
+                    await Task.Run(() => ZipFile.CreateFromDirectory(
+                        publishDir, outZip2, CompressionLevel.Optimal, false, Encoding.UTF8));
                     var fi = new FileInfo(outZip2);
+                    Logger.Info("Pack zip created: {zip} ({size} bytes) from {folder}", outZip2, fi.Length, publishDir);
                     var sha = await ComputeSha256Async(outZip2);
                     artifacts.Add((proj, ver, rid, outZip2, fi.Length, sha));
                 }
@@ -327,13 +464,21 @@ public partial class PackWindowViewModel : ObservableObject
                 return;
             }
 
-            var baseUrl = AppendSlash(uploadSettings.BaseUrl ?? throw new InvalidOperationException("BaseUrl 为空"));
+            var baseUrl = AppendSlash(apiBase);
             var target = NormalizePath(TargetPath);
             var destRoot = new Uri(new Uri(baseUrl), target);
             var pubRoot = new Uri(new Uri(baseUrl), "d/" + target);
             var auth2 = new AuthApi(baseUrl);
+            Logger.Info("Pack login: user='{user}', API={apiBase}", uploadSettings.Username, baseUrl);
             var login2 = await auth2.LoginAsync(uploadSettings.Username ?? string.Empty, uploadSettings.Password ?? string.Empty);
-            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token)) { Status = $"登录失败: {login2.Code} {login2.Message}"; return; }
+            if (login2.Code != 200 || string.IsNullOrWhiteSpace(login2.Data?.Token))
+            {
+                Logger.Warn("Pack login failed: code={code}, message={message}, API={apiBase}",
+                    login2.Code, login2.Message, baseUrl);
+                Status = $"登录失败: {login2.Code} {login2.Message}（API: {baseUrl}）";
+                return;
+            }
+            Logger.Info("Pack login succeeded (API: {apiBase})", baseUrl);
             var token2 = login2.Data!.Token!;
             var fs2 = new FileSystemApi(baseUrl);
             var remoteBase2 = "/" + target;
@@ -358,7 +503,17 @@ public partial class PackWindowViewModel : ObservableObject
                 var put = await fs2.PutManyAsync(token2,
                     new[] { new FileUploadItem { FilePath = remoteZip, LocalPath = a.ZipPath, Content = Array.Empty<byte>() } },
                     progress: progress2, maxConcurrency: 1, asTask: false);
-                if (put.Count == 0 || put[0].Code != 200) { Status = $"上传失败: {name}"; return; }
+                if (put.Count == 0 || put[0].Code != 200)
+                {
+                    var code = put.Count > 0 ? put[0].Code : -1;
+                    var message = put.Count > 0 ? put[0].Message : null;
+                    var sizeMb = a.Size / 1024d / 1024d;
+                    Logger.Warn("Pack artifact upload failed: file={file}, code={code}, message={message}, size={size} bytes", name, code, message, a.Size);
+                    Status = code == 413
+                        ? $"上传失败: 413 文件过大（{name}, {sizeMb:F1} MB）。请提高 OpenList/反向代理的上传上限，或减小打包体积"
+                        : $"上传失败: {name} ({code}){(string.IsNullOrWhiteSpace(message) ? string.Empty : $" {message}")}";
+                    return;
+                }
                 uploaded.Add((a.Project, a.Version, new ReleaseFile { Name = name, Url = url, Size = a.Size, Sha256 = a.Sha256 }));
             }
 
@@ -508,12 +663,6 @@ public partial class PackWindowViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(text)) return text;
         return text[0] == '\uFEFF' ? text[1..] : text;
-    }
-
-    private static async Task<ToolsSettings?> LoadSettingsAsync(string settingsPath)
-    {
-        await using var fs = File.OpenRead(settingsPath);
-        return await JsonSerializer.DeserializeAsync<ToolsSettings>(fs, new JsonSerializerOptions(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true });
     }
 
     private static int CompareSemVer(string a, string b)
@@ -951,8 +1100,21 @@ public partial class PackWindowViewModel : ObservableObject
         // we really want LabelPlus_Next.Desktop or LabelPlus_Next.Update.
         var csproj = GetProjectPath(repoRoot, projectName);
         var projDir = Path.GetDirectoryName(csproj) ?? Path.Combine(repoRoot, projectName);
-        // Assume net9.0 and Release
-        return Path.Combine(projDir, "bin", "Release", "net9.0", rid, "publish");
+        var releaseDir = Path.Combine(projDir, "bin", "Release");
+
+        // dotnet publish writes to bin/Release/<tfm>/<rid>/publish. Discover the
+        // output instead of hardcoding a target framework that may have moved on.
+        if (Directory.Exists(releaseDir))
+        {
+            var published = Directory.EnumerateDirectories(releaseDir)
+                .Select(tfmDir => Path.Combine(tfmDir, rid, "publish"))
+                .Where(Directory.Exists)
+                .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path))
+                .FirstOrDefault();
+            if (published is not null) return published;
+        }
+
+        return Path.Combine(releaseDir, "net10.0", rid, "publish");
     }
 
     private static async Task PublishProjectAsync(string repoRoot, string projectName, string rid, bool selfContained, bool singleFile, bool trimmed)
@@ -977,7 +1139,7 @@ public partial class PackWindowViewModel : ObservableObject
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
         var code = await tcs.Task.ConfigureAwait(false);
-        if (code != 0) throw new InvalidOperationException($"dotenv publish 失败（{projectName} {rid}）：exit={code}");
+        if (code != 0) throw new InvalidOperationException($"dotnet publish 失败（{projectName} {rid}）：exit={code}");
     }
 
     private static string? TryReadVersion(string jsonPath)

@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using LabelPlus_Next.ViewModels;
+using LabelPlus_Next.Lang;
+using LabelPlus_Next.Services;
 using NLog;
 using Ursa.Controls;
 using System.Collections.ObjectModel;
@@ -128,7 +130,11 @@ public partial class ImageManager : UrsaWindow
         {
             if (Host is not null && Host.HasLabelsForFile(item))
             {
-                var res = await MessageBox.ShowAsync($"文件 {item} 仍包含标签，移到忽略将丢失这些标签，是否继续？", "确认", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var res = await MessageBox.ShowAsync(
+                    UiText.F(LangKeys.ui0201, "文件 {0} 仍包含标签，移到忽略将丢失这些标签，是否继续？", item),
+                    UiText.T(LangKeys.ui0200, "确认"),
+                    MessageBoxIcon.Warning,
+                    MessageBoxButton.YesNo);
                 if (res != MessageBoxResult.Yes) return;
             }
             VM.FileList.Remove(item);
@@ -149,9 +155,9 @@ public partial class ImageManager : UrsaWindow
             if (withLabels.Count > 0)
             {
                 var preview = string.Join("\n", withLabels.Take(8));
-                var more = withLabels.Count > 8 ? $"\n... 以及另外 {withLabels.Count - 8} 个" : string.Empty;
-                var msg = $"下列被移出包含的文件仍有标签，将丢失这些标签：\n{preview}{more}\n是否继续？";
-                var res = await MessageBox.ShowAsync(msg, "确认", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+                var more = withLabels.Count > 8 ? $"\n… +{withLabels.Count - 8}" : string.Empty;
+                var msg = UiText.F(LangKeys.ui0202, "下列被移出包含的文件仍有标签，将丢失这些标签：{0}{1}。是否继续？", preview, more);
+                var res = await MessageBox.ShowAsync(msg, UiText.T(LangKeys.ui0200, "确认"), MessageBoxIcon.Warning, MessageBoxButton.YesNo);
                 if (res != MessageBoxResult.Yes) return;
             }
         }
@@ -191,9 +197,9 @@ public partial class ImageManager : UrsaWindow
         if (withLabels.Count > 0)
         {
             var preview = string.Join("\n", withLabels.Take(8));
-            var more = withLabels.Count > 8 ? $"\n... 以及另外 {withLabels.Count - 8} 个" : string.Empty;
-            var msg = $"下列被移出包含的文件仍有标签，将丢失这些标签：\n{preview}{more}\n是否继续？";
-            var res = await MessageBox.ShowAsync(msg, "确认", MessageBoxIcon.Warning, MessageBoxButton.YesNo);
+            var more = withLabels.Count > 8 ? $"\n… +{withLabels.Count - 8}" : string.Empty;
+            var msg = UiText.F(LangKeys.ui0202, "下列被移出包含的文件仍有标签，将丢失这些标签：{0}{1}。是否继续？", preview, more);
+            var res = await MessageBox.ShowAsync(msg, UiText.T(LangKeys.ui0200, "确认"), MessageBoxIcon.Warning, MessageBoxButton.YesNo);
             if (res != MessageBoxResult.Yes)
             {
                 return; // keep dialog open for user to adjust
