@@ -13,10 +13,12 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using LabelPlus_Next.Animations;
 using LabelPlus_Next.Lang;
+using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Pages;
+using LabelPlus_Next.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Ursa.Controls;
@@ -471,13 +473,21 @@ public partial class MainWindow : UrsaWindow
 
     private async Task PromptSaveAndCloseAsync(TranslateViewModel tvm)
     {
-        var res = await MessageBox.ShowAsync(
-            I18NExtension.Translate(LangKeys.ui0187) ?? "当前译文有未保存的更改，是否保存？",
-            I18NExtension.Translate(LangKeys.ui0188) ?? "关闭确认",
-            MessageBoxIcon.Warning,
-            MessageBoxButton.YesNoCancel);
-        if (res == MessageBoxResult.Cancel) return;
-        if (res == MessageBoxResult.Yes)
+        var res = await ConfirmDialog.ShowAsync(this, new ConfirmDialogOptions
+        {
+            Title = I18NExtension.Translate(LangKeys.dialogUnsavedTitle) ?? "未保存的更改",
+            Message = I18NExtension.Translate(LangKeys.ui0187) ?? "当前译文有未保存的更改，是否保存？",
+            Severity = ConfirmDialogSeverity.Warning,
+            BodyIcon = ConfirmBodyIcon.Save,
+            ShowCancel = true,
+            YesText = I18NExtension.Translate(LangKeys.buttonSave) ?? "保存",
+            NoText = I18NExtension.Translate(LangKeys.buttonDontSave) ?? "不保存",
+            CancelText = I18NExtension.Translate(LangKeys.buttonCancel) ?? "取消",
+            YesIsDanger = false,
+            NoIsDanger = true,
+        });
+        if (res == ConfirmDialogResult.Cancel) return;
+        if (res == ConfirmDialogResult.Yes)
         {
             if (!string.IsNullOrEmpty(tvm.OpenTranslationFilePath)) await tvm.FileSave(tvm.OpenTranslationFilePath);
             else await tvm.SaveAsCommand();

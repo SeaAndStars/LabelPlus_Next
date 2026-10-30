@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
     <resheader name="resmimetype">
         <value>text/microsoft-resx</value>
@@ -894,5 +894,110 @@
   </data>
     <data name="ui0212" xml:space="preserve">
     <value>圖片</value>
+  </data>
+    <data name="findReplaceOpenTooltip" xml:space="preserve">
+    <value>尋找與取代</value>
+  </data>
+    <data name="findReplaceTitle" xml:space="preserve">
+    <value>尋找與取代</value>
+  </data>
+    <data name="findReplaceFindPlaceholder" xml:space="preserve">
+    <value>尋找內容</value>
+  </data>
+    <data name="findReplaceReplacePlaceholder" xml:space="preserve">
+    <value>取代為</value>
+  </data>
+    <data name="findReplaceFindNext" xml:space="preserve">
+    <value>尋找下一個</value>
+  </data>
+    <data name="findReplaceFindPrevious" xml:space="preserve">
+    <value>尋找上一個</value>
+  </data>
+    <data name="findReplaceReplace" xml:space="preserve">
+    <value>取代</value>
+  </data>
+    <data name="findReplaceReplaceAll" xml:space="preserve">
+    <value>全部取代</value>
+  </data>
+    <data name="findReplaceMatchCase" xml:space="preserve">
+    <value>區分大小寫</value>
+  </data>
+    <data name="findReplaceWrapAround" xml:space="preserve">
+    <value>循環</value>
+  </data>
+    <data name="findReplaceNoResult" xml:space="preserve">
+    <value>沒有符合項目</value>
+  </data>
+    <data name="findReplaceMatchPosition" xml:space="preserve">
+    <value>第 {0} / {1} 處</value>
+  </data>
+    <data name="findReplaceReplacedCount" xml:space="preserve">
+    <value>已取代 {0} 處</value>
+  </data>
+    <data name="findReplaceCloseTooltip" xml:space="preserve">
+    <value>關閉</value>
+  </data>
+    <data name="quickInputTitle" xml:space="preserve">
+    <value>快速輸入</value>
+  </data>
+    <data name="quickInputTooltip" xml:space="preserve">
+    <value>快速輸入 (Alt+A)</value>
+  </data>
+    <data name="settingsLanguageLabel" xml:space="preserve">
+    <value>介面語言</value>
+  </data>
+    <data name="settingsLanguageAppearanceTitle" xml:space="preserve">
+    <value>語言與外觀</value>
+  </data>
+    <data name="settingsLanguageAppearanceDescription" xml:space="preserve">
+    <value>選擇介面語言與明暗主題，切換後立即生效。</value>
+  </data>
+    <data name="settingsThemeLabel" xml:space="preserve">
+    <value>主題</value>
+  </data>
+    <data name="settingsThemeHint" xml:space="preserve">
+    <value>點擊在淺色 / 深色 / 跟隨系統之間切換</value>
+  </data>
+    <data name="settingsThemeSystem" xml:space="preserve">
+    <value>跟隨系統</value>
+  </data>
+    <data name="settingsThemeLight" xml:space="preserve">
+    <value>淺色</value>
+  </data>
+    <data name="settingsThemeDark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+    <data name="button_no" xml:space="preserve">
+    <value>否</value>
+  </data>
+    <data name="buttonRemove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+    <data name="buttonContinue" xml:space="preserve">
+    <value>繼續</value>
+  </data>
+    <data name="dialogUnsavedTitle" xml:space="preserve">
+    <value>未儲存的變更</value>
+  </data>
+    <data name="dialogDeleteLabelTitle" xml:space="preserve">
+    <value>刪除標籤</value>
+  </data>
+    <data name="dialogRemoveProjectTitle" xml:space="preserve">
+    <value>移除專案</value>
+  </data>
+    <data name="dialogDiscardFilesTitle" xml:space="preserve">
+    <value>移出包含檔案</value>
+  </data>
+    <data name="dialogDuplicateTitle" xml:space="preserve">
+    <value>發現重複話數</value>
+  </data>
+    <data name="buttonDontSave" xml:space="preserve">
+    <value>不儲存</value>
+  </data>
+    <data name="findReplaceScopeAll" xml:space="preserve">
+    <value>全部圖片</value>
+  </data>
+    <data name="findReplaceScopeAllTip" xml:space="preserve">
+    <value>搜尋全部圖片（跨頁）</value>
   </data>
 </root>

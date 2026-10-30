@@ -105,21 +105,26 @@ jobs:
           REF="${GITHUB_REF:-${{ github.ref }}}"
           if [[ "$REF" == refs/tags/* ]]; then
             current_tag="${REF#refs/tags/}"
-            prev_tag=$(git describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
-            {
-              echo "# Changelog for ${current_tag}";
-              echo;
-              if [[ -n "$prev_tag" ]]; then
-                echo "Changes since ${prev_tag}:";
+            notes=".github/release-notes/${current_tag}.md"
+            if [[ -f "$notes" ]]; then
+              cp "$notes" "$CHANGELOG"
+            else
+              prev_tag=$(git describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
+              {
+                echo "# Changelog for ${current_tag}";
                 echo;
-                git log --no-merges --pretty=format:'- %s (%h) by %an' "${prev_tag}..${current_tag}";
-              else
-                echo "Initial release ${current_tag}.";
+                if [[ -n "$prev_tag" ]]; then
+                  echo "Changes since ${prev_tag}:";
+                  echo;
+                  git log --no-merges --pretty=format:'- %s (%h) by %an' "${prev_tag}..${current_tag}";
+                else
+                  echo "Initial release ${current_tag}.";
+                  echo;
+                  git log --no-merges --pretty=format:'- %s (%h) by %an' "${current_tag}";
+                fi;
                 echo;
-                git log --no-merges --pretty=format:'- %s (%h) by %an' "${current_tag}";
-              fi;
-              echo;
-            } > "$CHANGELOG"
+              } > "$CHANGELOG"
+            fi
           else
             {
               echo "# Nightly build changelog";

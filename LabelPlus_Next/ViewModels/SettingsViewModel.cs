@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -53,6 +54,10 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private LanguageOption? selectedLanguage;
     public IReadOnlyList<LanguageOption> Languages => LocalizationService.Options;
 
+    [ObservableProperty] private ThemeVariant? selectedTheme;
+    [ObservableProperty] private string? themeDisplayName;
+    private bool _suppressThemePersist;
+
     public event EventHandler? LabelOverlaySettingsChanged;
 
     [ObservableProperty] private string? updateNotes;
@@ -76,6 +81,31 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnSelectedLanguageChanged(LanguageOption? value)
         => LocalizationService.Apply(value?.Code);
 
+    partial void OnSelectedThemeChanged(ThemeVariant? value)
+    {
+        ThemeDisplayName = value == ThemeVariant.Light
+            ? I18NExtension.Translate(LangKeys.settingsThemeLight)
+            : value == ThemeVariant.Dark
+                ? I18NExtension.Translate(LangKeys.settingsThemeDark)
+                : I18NExtension.Translate(LangKeys.settingsThemeSystem);
+
+        if (_suppressThemePersist || _settings is null) return;
+        _settings.Theme = ThemePreference.Format(value);
+        _ = PersistThemeAsync(_settings);
+    }
+
+    private async Task PersistThemeAsync(AppSettings settings)
+    {
+        try
+        {
+            await _settingsService.SaveAsync(settings);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn(ex, "Persist theme preference failed");
+        }
+    }
+
     public IAsyncRelayCommand VerifyHttpCommand { get; }
     public IAsyncRelayCommand CheckUpdateCommand { get; }
 
@@ -90,6 +120,18 @@ public partial class SettingsViewModel : ViewModelBase
             LabelTipFontScale = s.LabelOverlay.LabelTipFontScale;
             LabelTipBackgroundOpacity = s.LabelOverlay.LabelTipBackgroundOpacity;
             SelectedLanguage = LocalizationService.Resolve(s.Language);
+
+            _suppressThemePersist = true;
+            try
+            {
+                SelectedTheme = ThemePreference.Parse(s.Theme);
+                // Ensure the display text is localized even when the parsed value did not change.
+                OnSelectedThemeChanged(SelectedTheme);
+            }
+            finally
+            {
+                _suppressThemePersist = false;
+            }
 
             // Keep VM defaults as priority; only override when settings.json has non-empty values
             var defBase = BaseUrl;
@@ -174,6 +216,7 @@ public partial class SettingsViewModel : ViewModelBase
             var s = new AppSettings
             {
                 Language = SelectedLanguage?.Code ?? "default",
+                Theme = ThemePreference.Format(SelectedTheme),
                 LabelOverlay = new LabelOverlaySettings
                 {
                     LabelIndexFontScale = LabelIndexFontScale,

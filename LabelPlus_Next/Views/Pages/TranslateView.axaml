@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
     x:Class="LabelPlus_Next.Views.Pages.TranslateView"
     xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -34,6 +34,25 @@
         </Style>
         <Style Selector="TextBox#LabelTextBox:focus:pointerover">
             <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+
+        <!--  Inactive mode tabs stay legible at 50% opacity; the active tab is full strength.  -->
+        <Style Selector="Border.lp-segment RadioButton">
+            <Setter Property="Opacity" Value="0.5" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.lp-segment RadioButton:checked">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!--  Compact quick-input rows: the Ursa item container otherwise adds padding/min-height.  -->
+        <Style Selector="u|SelectionListItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="22" />
         </Style>
 
         <!-- 拖拽插入位置高亮：为 DataGrid 行添加上/下边框提示 -->
@@ -91,7 +110,12 @@
                     <Button Classes="lp-flat" Click="OnAboutClick" Content="{I18N {x:Static lang:LangKeys.helpAToolStripMenuItem}}" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <u:ThemeToggleButton IsThreeState="True" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0101}}" />
+                    <u:IconButton
+                        x:Name="SearchButton"
+                        Theme="{DynamicResource BorderlessIconButton}"
+                        Click="SearchButton_OnClick"
+                        Icon="{StaticResource SemiIconSearch}"
+                        ToolTip.Tip="{I18N {x:Static lang:LangKeys.findReplaceOpenTooltip}}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -102,22 +126,25 @@
             <Border Classes="lp-card lp-pane">
                 <Grid Name="PictureView" RowDefinitions="Auto,*,Auto">
                     <Grid Classes="lp-pane-header" ColumnDefinitions="*">
-                        <!--  模式切换（分段控件，窄宽度时自动换行）  -->
-                        <Border Classes="lp-segment" HorizontalAlignment="Stretch">
-                            <WrapPanel Orientation="Horizontal">
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
+                        <!--  模式切换（分段控件，宽度自适应到最后一个模式）  -->
+                        <Border Classes="lp-segment" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="0" Padding="9,0" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Browse}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_BrowseMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
+                                <Border Classes="lp-segment-divider" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="0" Padding="9,0" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Label}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_EditLabelMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
+                                <Border Classes="lp-segment-divider" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="0" Padding="9,0" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Input}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_InputMode}}" />
-                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="1,0" Padding="9,3" FontSize="12"
+                                <Border Classes="lp-segment-divider" />
+                                <RadioButton Theme="{DynamicResource ButtonRadioButton}" Margin="0" Padding="9,0" FontSize="12"
                                              IsChecked="{Binding #Pic.Mode, Mode=TwoWay, Converter={x:Static local:EnumEqualsConverter.Instance}, ConverterParameter=Check}"
                                              Content="{I18N {x:Static lang:LangKeys.toolStripButton_CheckMode}}" />
-                            </WrapPanel>
+                            </StackPanel>
                         </Border>
                     </Grid>
 
@@ -162,18 +189,51 @@
                                     ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0104}}" />
                             </StackPanel>
                         </Border>
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronLeft}"
-                                          Click="PrevImage_OnClick" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0024}}" />
-                            <ComboBox
-                                Name="ImageFileNamesComboBox"
-                                MinWidth="180"
-                                MaxWidth="320"
-                                ItemsSource="{Binding ImageFileNames}"
-                                PlaceholderText="{I18N {x:Static lang:LangKeys.ui0105}}"
-                                SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
-                            <u:IconButton Theme="{DynamicResource BorderlessIconButton}" Icon="{StaticResource SemiIconChevronRight}"
-                                          Click="NextImage_OnClick" ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0025}}" />
+                        <StackPanel
+                            Grid.Column="2"
+                            Height="28"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="4">
+                            <u:IconButton
+                                Width="28"
+                                Height="28"
+                                VerticalAlignment="Center"
+                                Theme="{DynamicResource BorderlessIconButton}"
+                                Icon="{StaticResource SemiIconChevronLeft}"
+                                Click="PrevImage_OnClick"
+                                ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0024}}" />
+                            <Border
+                                Height="28"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource LpSegmentBrush}"
+                                ClipToBounds="True"
+                                CornerRadius="6">
+                                <ComboBox
+                                    Name="ImageFileNamesComboBox"
+                                    Height="28"
+                                    MinHeight="28"
+                                    MaxHeight="28"
+                                    MinWidth="180"
+                                    MaxWidth="320"
+                                    Padding="10,0"
+                                    VerticalAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    CornerRadius="6"
+                                    ItemsSource="{Binding ImageFileNames}"
+                                    PlaceholderText="{I18N {x:Static lang:LangKeys.ui0105}}"
+                                    SelectedItem="{Binding SelectedImageFile, Mode=TwoWay}" />
+                            </Border>
+                            <u:IconButton
+                                Width="28"
+                                Height="28"
+                                VerticalAlignment="Center"
+                                Theme="{DynamicResource BorderlessIconButton}"
+                                Icon="{StaticResource SemiIconChevronRight}"
+                                Click="NextImage_OnClick"
+                                ToolTip.Tip="{I18N {x:Static lang:LangKeys.ui0025}}" />
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -216,13 +276,6 @@
                                         </Border>
                                     </StackPanel>
                                 </Button>
-                                <Border
-                                    VerticalAlignment="Center"
-                                    Classes="lp-tag lp-count-tag">
-                                    <TextBlock
-                                        FontSize="11"
-                                        Text="{Binding CurrentLabels.Count, Converter={x:Static local:LocalizedCountConverter.Instance}, ConverterParameter=ui0181}" />
-                                </Border>
                             </StackPanel>
 
                             <!--  操作：添加、删除、撤销、文件设置  -->
@@ -322,13 +375,22 @@
                             <dataGrid:DataGridTemplateColumn Width="*" MinWidth="200" Header="{I18N {x:Static lang:LangKeys.ui0116}}" SortMemberPath="Text">
                                 <dataGrid:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            MaxLines="2"
-                                            Text="{Binding Text}"
-                                            TextTrimming="CharacterEllipsis"
-                                            TextWrapping="Wrap"
-                                            ToolTip.Tip="{Binding Text}" />
+                                        <Grid>
+                                            <Border
+                                                Height="36"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource LpSearchHighlightBrush}"
+                                                CornerRadius="4"
+                                                IsHitTestVisible="False"
+                                                IsVisible="{Binding IsSearchMatch}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                MaxLines="2"
+                                                Text="{Binding Text}"
+                                                TextTrimming="CharacterEllipsis"
+                                                TextWrapping="Wrap"
+                                                ToolTip.Tip="{Binding Text}" />
+                                        </Grid>
                                     </DataTemplate>
                                 </dataGrid:DataGridTemplateColumn.CellTemplate>
                             </dataGrid:DataGridTemplateColumn>
@@ -348,11 +410,31 @@
                     <Border Grid.Row="2" Classes="lp-split-grip" Width="36" Height="4" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     <GridSplitter Grid.Row="2" Classes="lp-splitter" ResizeDirection="Rows" />
                     <Grid Grid.Row="3" RowDefinitions="Auto,*">
-                        <StackPanel Classes="lp-pane-header" Orientation="Horizontal" Spacing="8">
-                            <PathIcon Width="14" Height="14" Data="{StaticResource SemiIconEdit}" Foreground="{DynamicResource LpSubtleText}" />
-                            <TextBlock Classes="lp-pane-title" Text="{I18N {x:Static lang:LangKeys.ui0118}}" />
-                            <TextBlock Classes="lp-subtle" VerticalAlignment="Center" FontSize="12"
-                                       Text="{Binding SelectedLabel.Index, StringFormat=#{0}, FallbackValue=''}" />
+                        <StackPanel
+                            Classes="lp-pane-header"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
+                            <PathIcon
+                                Width="14"
+                                Height="14"
+                                VerticalAlignment="Center"
+                                Data="{StaticResource SemiIconEdit}"
+                                Foreground="{DynamicResource LpSubtleText}">
+                                <PathIcon.RenderTransform>
+                                    <TranslateTransform Y="3" />
+                                </PathIcon.RenderTransform>
+                            </PathIcon>
+                            <customControls:BaselinePanel Spacing="8" VerticalAlignment="Center">
+                                <TextBlock
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Text="{I18N {x:Static lang:LangKeys.ui0118}}" />
+                                <TextBlock
+                                    Classes="lp-subtle"
+                                    FontSize="12"
+                                    Text="{Binding SelectedLabel.Index, StringFormat=#{0}, FallbackValue=''}" />
+                            </customControls:BaselinePanel>
                         </StackPanel>
                         <TextBox
                             x:Name="LabelTextBox"
@@ -365,7 +447,9 @@
                             VerticalContentAlignment="Top"
                             AcceptsReturn="True"
                             FontSize="20"
+                            ContextRequested="LabelTextBox_OnContextRequested"
                             PlaceholderText="{I18N {x:Static lang:LangKeys.ui0119}}"
+                            PointerPressed="LabelTextBox_OnPointerPressed"
                             Text="{Binding CurrentText, Mode=TwoWay}"
                             TextAlignment="Start"
                             TextWrapping="Wrap" />
@@ -373,5 +457,60 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <!--  Quick input popup: right-click the translation box or press Alt+A.  -->
+        <Popup
+            x:Name="QuickInputPopup"
+            Grid.RowSpan="2"
+            Closed="QuickInputPopup_OnClosed"
+            IsLightDismissEnabled="True"
+            Placement="TopEdgeAlignedLeft"
+            PlacementTarget="{Binding #LabelTextBox}"
+            VerticalOffset="-6">
+            <Border
+                x:DataType="viewModels:TranslateViewModel"
+                Width="170"
+                Padding="6"
+                Background="{DynamicResource LpSurfaceBrush}"
+                BorderBrush="{DynamicResource LpCardBorderBrush}"
+                BorderThickness="1"
+                BoxShadow="{DynamicResource LpCardShadow}"
+                CornerRadius="8">
+                <StackPanel Spacing="2">
+                    <Grid Margin="4,0,4,2" ColumnDefinitions="*,Auto">
+                        <TextBlock
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Text="{I18N {x:Static lang:LangKeys.quickInputTitle}}"
+                            VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Classes="lp-keycap">
+                            <TextBlock Text="Alt+A" />
+                        </Border>
+                    </Grid>
+                    <u:SelectionList
+                        x:Name="QuickInputList"
+                        MaxHeight="330"
+                        SelectionChanged="QuickInputList_OnSelectionChanged">
+                        <u:SelectionList.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:QuickInputItem">
+                                <Grid
+                                    Width="142"
+                                    Height="22"
+                                    Margin="6,0"
+                                    ColumnDefinitions="*,Auto">
+                                    <TextBlock
+                                        FontSize="14"
+                                        Text="{Binding Text}"
+                                        VerticalAlignment="Center" />
+                                    <Border Grid.Column="1" Classes="lp-keycap">
+                                        <TextBlock Text="{Binding Key}" />
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </u:SelectionList.ItemTemplate>
+                    </u:SelectionList>
+                </StackPanel>
+            </Border>
+        </Popup>
     </Grid>
 </UserControl>

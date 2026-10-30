@@ -7,6 +7,7 @@ public class AppSettings
     [JsonPropertyName("update")] public UpdateSettings Update { get; set; } = new();
     [JsonPropertyName("labelOverlay")] public LabelOverlaySettings LabelOverlay { get; set; } = new();
     [JsonPropertyName("language")] public string? Language { get; set; } = "default";
+    [JsonPropertyName("theme")] public string? Theme { get; set; } = ThemePreference.Default;
 }
 
 public class LabelOverlaySettings

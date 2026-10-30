@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
              xmlns:models="clr-namespace:LabelPlus_Next.Models"
+             xmlns:u="https://irihi.tech/ursa"
              xmlns:vm="clr-namespace:LabelPlus_Next.ViewModels"
              x:DataType="vm:SettingsViewModel" MinHeight="350" MinWidth="600">
     <ScrollViewer>
@@ -15,12 +16,18 @@
             <Border Classes="lp-card">
                 <StackPanel Spacing="12">
                     <StackPanel Spacing="3">
-                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageTitle}}" Classes="lp-section-title" />
-                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageDescription}}" Classes="lp-subtle" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageAppearanceTitle}}" Classes="lp-section-title" />
+                        <TextBlock Text="{I18N {x:Static lang:LangKeys.settingsLanguageAppearanceDescription}}" Classes="lp-subtle" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="12">
+
+                    <Grid ColumnDefinitions="90,Auto,Auto,*" ColumnSpacing="12">
+                        <TextBlock
+                            Text="{I18N {x:Static lang:LangKeys.settingsLanguageLabel}}"
+                            VerticalAlignment="Center" />
                         <ComboBox
+                            Grid.Column="1"
                             Width="260"
+                            HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             ItemsSource="{Binding Languages}"
                             SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}">
@@ -31,10 +38,49 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <Button
+                            Grid.Column="2"
                             Classes="lp-primary"
                             Command="{Binding SaveCommand}"
                             Content="{I18N {x:Static lang:LangKeys.buttonSave}}" />
-                    </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="{DynamicResource LpCardBorderBrush}" />
+
+                    <Grid ColumnDefinitions="90,Auto,Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
+                        <TextBlock
+                            Text="{I18N {x:Static lang:LangKeys.settingsThemeLabel}}"
+                            VerticalAlignment="Center" />
+                        <Border
+                            Grid.Column="1"
+                            Width="32"
+                            Height="32"
+                            Background="{DynamicResource LpSurfaceBrush}"
+                            BorderBrush="{DynamicResource LpCardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <u:ThemeToggleButton
+                                Width="32"
+                                Height="32"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                IsThreeState="True"
+                                SelectedTheme="{Binding SelectedTheme, Mode=TwoWay}"
+                                ToolTip.Tip="{I18N {x:Static lang:LangKeys.settingsThemeHint}}" />
+                        </Border>
+                        <TextBlock
+                            Grid.Column="2"
+                            MinWidth="72"
+                            Text="{Binding ThemeDisplayName}"
+                            VerticalAlignment="Center" />
+                        <TextBlock
+                            Grid.Column="3"
+                            Classes="lp-subtle"
+                            FontSize="12"
+                            Text="{I18N {x:Static lang:LangKeys.settingsThemeHint}}"
+                            VerticalAlignment="Center" />
+                    </Grid>
                 </StackPanel>
             </Border>
 

@@ -14,10 +14,12 @@ using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using LabelPlus_Next.Lang;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Services.Api;
+using LabelPlus_Next.Views.Windows;
 using NLog;
 using Ursa.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -912,8 +914,16 @@ public partial class UploadViewModel : ObservableObject
                 var volNum = TankobonVolumeNumber.GetValueOrDefault(1);
                 var keyPreview = volNum.ToString("00");
                 var msg = UiText.Tr("检测到‘单行本回退模式’：将把整个目录当作卷 {0} 上传，并在项目 JSON 中写入键名 {1}。\n是否继续？", volNum, keyPreview);
-                var confirm = await MessageBox.ShowAsync(msg, UiText.Tr("单行本回退模式"), MessageBoxIcon.Warning, MessageBoxButton.YesNo);
-                if (confirm != MessageBoxResult.Yes)
+                var confirm = await ConfirmDialog.ShowAsync(null, new ConfirmDialogOptions
+                {
+                    Title = UiText.Tr("单行本回退模式"),
+                    Message = msg,
+                    Severity = ConfirmDialogSeverity.Warning,
+                    BodyIcon = ConfirmBodyIcon.Upload,
+                    YesText = UiText.T(LangKeys.buttonContinue, "继续"),
+                    NoText = UiText.T(LangKeys.buttonCancel, "取消"),
+                });
+                if (confirm != ConfirmDialogResult.Yes)
                 {
                     Status = UiText.Tr("已取消（单行本回退模式）");
                     return false;

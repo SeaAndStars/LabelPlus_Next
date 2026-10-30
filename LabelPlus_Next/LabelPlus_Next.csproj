@@ -43,6 +43,7 @@
         <PackageReference Include="Avalonia.Controls.DataGrid" />
         <PackageReference Include="Avalonia.Fonts.Inter" />
         <PackageReference Include="Avalonia.HarfBuzz" />
+        <PackageReference Include="AvaloniaUI.DiagnosticsSupport" />
         <PackageReference Include="Svg.Controls.Skia.Avalonia" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Downloader" />

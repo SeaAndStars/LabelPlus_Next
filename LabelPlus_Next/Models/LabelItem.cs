@@ -1,5 +1,6 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 
 namespace LabelPlus_Next.Models;
 
@@ -10,6 +11,7 @@ public class LabelItem : INotifyPropertyChanged
     // 新增：编号和分类字符串属性
     private int index;
     private string? text;
+    private bool isSearchMatch;
 
     public LabelItem(float xPercent, float yPercent, string? text, int category)
     {
@@ -56,6 +58,19 @@ public class LabelItem : INotifyPropertyChanged
         set
         {
             categoryString = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>True while the label contains the active find/replace term (view-only).</summary>
+    [JsonIgnore]
+    public bool IsSearchMatch
+    {
+        get => isSearchMatch;
+        set
+        {
+            if (isSearchMatch == value) return;
+            isSearchMatch = value;
             OnPropertyChanged();
         }
     }
