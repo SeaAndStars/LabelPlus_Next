@@ -231,10 +231,10 @@ public partial class PackWindowViewModel : ObservableObject
             Logger.Info("Pack started: folder='{folder}', solution='{solution}', project='{project}', version='{version}'",
                 SelectedFolder, SolutionPath, Project, Version);
 
-            var settingsPath = ToolsSettingsStore.DefaultPath;
+            var settingsPath = ToolsSettingsStore.ResolveReadPath();
             if (!File.Exists(settingsPath))
             {
-                Status = "未在程序根目录找到 tools.settings.json";
+                Status = "未在 AppData 或程序根目录找到 tools.settings.json";
                 return;
             }
             var uploadSettings = await ToolsSettingsStore.LoadAsync(settingsPath);
@@ -242,6 +242,18 @@ public partial class PackWindowViewModel : ObservableObject
             {
                 Status = "读取 tools.settings.json 失败";
                 return;
+            }
+            if (!string.Equals(settingsPath, ToolsSettingsStore.DefaultPath, StringComparison.Ordinal))
+            {
+                try
+                {
+                    await ToolsSettingsStore.SaveAsync(ToolsSettingsStore.DefaultPath, uploadSettings);
+                    Logger.Info("Migrated tools settings from {source} to AppData", settingsPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.Warn(ex, "Failed to migrate tools settings to AppData");
+                }
             }
             TargetPath ??= uploadSettings.TargetPath;
 

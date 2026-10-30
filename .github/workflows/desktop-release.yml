@@ -63,6 +63,22 @@ jobs:
           name: desktop-${{ matrix.rid }}
           path: LabelPlus_Next.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish/
 
+      - name: Publish updater ${{ matrix.rid }} (Release, self-contained, single-file)
+        run: >-
+          dotnet publish LabelPlus_Next.Update/LabelPlus_Next.Update.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          -p:PublishSingleFile=true
+          -p:SelfContained=true
+          -p:PublishTrimmed=false
+          -p:EnableCompressionInSingleFile=true
+
+      - name: Upload updater artifact ${{ matrix.rid }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-${{ matrix.rid }}
+          path: LabelPlus_Next.Update/bin/Release/net10.0/${{ matrix.rid }}/publish/
+
   release:
     name: Create GitHub Release and attach assets
     runs-on: ubuntu-latest
@@ -86,10 +102,22 @@ jobs:
           shopt -s nullglob
           cd artifacts
           for d in */; do
-            rid_folder="${d%/}"               # e.g., desktop-win-x64
-            rid="${rid_folder#desktop-}"      # e.g., win-x64
-            out="LabelPlus_Next.Desktop-${rid}.zip"
-            (cd "$rid_folder" && zip -r "../$out" .)
+            folder="${d%/}"                   # e.g., desktop-win-x64 / updater-win-x64
+            case "$folder" in
+              desktop-*)
+                project="LabelPlus_Next.Desktop"
+                rid="${folder#desktop-}"
+                ;;
+              updater-*)
+                project="LabelPlus_Next.Update"
+                rid="${folder#updater-}"
+                ;;
+              *)
+                continue
+                ;;
+            esac
+            out="${project}-${rid}.zip"
+            (cd "$folder" && zip -r "../$out" .)
           done
           ls -al
 

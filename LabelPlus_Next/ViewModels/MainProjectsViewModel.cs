@@ -9,6 +9,7 @@ using System.Threading; // added for Interlocked
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Lang;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Media.Imaging;
@@ -55,9 +56,8 @@ public class MainProjectsViewModel : ViewModelBase
         _ui = ui ?? new AvaloniaUiDispatcher();
         if (string.IsNullOrWhiteSpace(recentStorePath))
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
-            Directory.CreateDirectory(dir);
-            _recentStorePath = Path.Combine(dir, "recent_projects.json");
+            _recentStorePath = AppConfigPaths.RecentProjects;
+            AppConfigPaths.EnsureParent(_recentStorePath);
         }
         else
         {

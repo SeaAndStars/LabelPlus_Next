@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Tools.Models;
 
 namespace LabelPlus_Next.Tools.Services;
@@ -23,8 +24,16 @@ public static class ToolsSettingsStore
         WriteIndented = true
     };
 
-    /// <summary>Default location: next to the executable, like the rest of the tool's files.</summary>
-    public static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "tools.settings.json");
+    /// <summary>Per-user configuration location; legacy files next to the exe are read for migration.</summary>
+    public static string DefaultPath => AppConfigPaths.ToolsSettings;
+
+    public static string ResolveReadPath(string? preferred = null)
+    {
+        var path = string.IsNullOrWhiteSpace(preferred) ? DefaultPath : preferred;
+        return string.Equals(path, DefaultPath, StringComparison.Ordinal)
+            ? AppConfigPaths.ResolveExisting(path, AppConfigPaths.LegacyToolsSettings)
+            : path;
+    }
 
     public static async Task<ToolsSettings?> LoadAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -73,6 +82,7 @@ public static class ToolsSettingsStore
             }
 
             File.Move(tempPath, path, overwrite: true);
+            AppConfigPaths.SecureFile(path);
         }
         catch
         {
@@ -93,6 +103,7 @@ public static class ToolsSettingsStore
         {
             File.WriteAllText(tempPath, json, Utf8NoBom);
             File.Move(tempPath, path, overwrite: true);
+            AppConfigPaths.SecureFile(path);
         }
         catch
         {

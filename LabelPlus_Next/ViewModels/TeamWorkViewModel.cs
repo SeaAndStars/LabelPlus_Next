@@ -78,15 +78,11 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private readonly Dictionary<string, string> _projectMap = new(StringComparer.Ordinal);
 
-    private static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
-
     private async Task<UploadSettings?> LoadUploadSettingsAsync()
     {
         try
         {
-            if (!File.Exists(UploadSettingsPath)) return null;
-            await using var fs = File.OpenRead(UploadSettingsPath);
-            var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
+            var s = await UploadSettingsStore.LoadAsync();
             // Force baseUrl to default as requested (username/password from settings)
             if (s != null) s.BaseUrl = "https://alist1.seastarss.cn";
             return s;

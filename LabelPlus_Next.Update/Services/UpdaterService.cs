@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -47,20 +48,33 @@ public sealed class UpdaterService : IUpdaterService
             var upd = await LoadSettingsAsync(overrideAppDir, ct);
             var resolver = new AlistResolver(upd.BaseUrl!, upd.Username, upd.Password);
 
-            var manifestJson = await FetchManifestJsonAsync(resolver, upd, targetDir, ct);
-            var manifest = manifestJson is null ? null : JsonSerializer.Deserialize<ManifestV1>(manifestJson, WebJson);
-            if (manifest?.Projects is not { Count: > 0 })
-            {
-                SetStatus(DStatus.Error, "获取清单失败");
-                await _messages.ShowAsync(manifestJson is null ? "获取清单失败" : "清单格式不正确", "错误");
-                return;
-            }
-
             var updateDir = Path.Combine(targetDir, "update");
             var clientLocal = ReadLocalVersion(Path.Combine(targetDir, "Client.version.json"));
             var updaterLocal = ReadLocalVersion(Path.Combine(updateDir, "update.json"))
                                ?? ReadLocalVersion(Path.Combine(updateDir, "Update.version.json"))
                                ?? ReadLocalVersion(Path.Combine(targetDir, "Update.version.json"));
+
+            var manifestJson = await FetchManifestJsonAsync(resolver, upd, targetDir, ct);
+            ManifestV1? manifest = null;
+            if (!string.IsNullOrWhiteSpace(manifestJson))
+            {
+                try
+                {
+                    manifest = JsonSerializer.Deserialize<ManifestV1>(manifestJson, WebJson);
+                }
+                catch (JsonException ex)
+                {
+                    Logger.Warn(ex, "Manifest JSON invalid; trying GitHub fallback");
+                }
+            }
+            if (manifest?.Projects is not { Count: > 0 })
+            {
+                // AList/manifest failure: try the public GitHub release as a last resort.
+                if (await TryGitHubUpdateAsync(resolver, targetDir, clientLocal, ct)) return;
+                SetStatus(DStatus.Error, "获取清单失败");
+                await _messages.ShowAsync(manifestJson is null ? "获取清单失败" : "清单格式不正确", "错误");
+                return;
+            }
             manifest.Projects.TryGetValue(ClientProjKey, out var cproj);
             manifest.Projects.TryGetValue(UpdaterProjKey, out var uproj);
             var clientLatest = LatestOf(cproj);
@@ -85,6 +99,7 @@ public sealed class UpdaterService : IUpdaterService
             var url = file?.Url ?? release?.Url;
             if (string.IsNullOrWhiteSpace(url))
             {
+                if (await TryGitHubDownloadForVersionAsync(resolver, targetDir, clientLatest, ct)) return;
                 SetStatus(DStatus.Error, "清单未提供下载地址");
                 await _messages.ShowAsync("清单未提供下载地址", "错误");
                 return;
@@ -93,6 +108,7 @@ public sealed class UpdaterService : IUpdaterService
 
             if (!await DownloadAndApplyAsync(resolver, url!, targetDir, file?.Sha256, ct))
             {
+                if (await TryGitHubDownloadForVersionAsync(resolver, targetDir, clientLatest, ct)) return;
                 await _messages.ShowAsync("客户端更新失败，已保留原有版本", "错误");
                 return;
             }
@@ -151,6 +167,69 @@ public sealed class UpdaterService : IUpdaterService
         }
     }
 
+    /// <summary>
+    /// Manifest is unreachable: use the newest GitHub release when it is newer
+    /// than the local client. Handles "already up to date" as a successful outcome.
+    /// </summary>
+    private async Task<bool> TryGitHubUpdateAsync(AlistResolver resolver, string appDir, string? clientLocal, CancellationToken ct)
+    {
+        var release = await GitHubUpdateSource.FetchLatestAsync(ct);
+        if (release is null) return false;
+
+        LatestVersion = release.Version;
+        if (!UpdateVersion.IsNewer(release.Version, clientLocal))
+        {
+            SetStatus(DStatus.Completed, "已经是最新版本");
+            await _messages.ShowOverlayAsync("已经是最新版本", "提示");
+            TryStartMainApp(appDir);
+            return true;
+        }
+
+        var asset = GitHubUpdateSource.FindAsset(release, "LabelPlus_Next.Desktop", UpdatePlatform.CurrentRid);
+        if (asset is null)
+        {
+            Logger.Warn("GitHub fallback has no Desktop asset for {rid}", UpdatePlatform.CurrentRid);
+            return false;
+        }
+
+        Logger.Info("GitHub fallback update -> {version}, {url}", release.Version, asset.Url);
+        if (!await DownloadAndApplyAsync(resolver, asset.Url, appDir, asset.Sha256, ct)) return false;
+
+        var updateDir = Path.Combine(appDir, "update");
+        UpdatePlatform.CleanupForeignArchives(appDir, Logger);
+        UpdatePlatform.CleanupForeignArchives(updateDir, Logger);
+        await _messages.ShowOverlayAsync("更新完成，正在重启主程序...", "提示");
+        TryStartMainApp(appDir);
+        return true;
+    }
+
+    /// <summary>
+    /// Manifest existed but its download failed (broken AList/asset). Prefer the
+    /// GitHub asset with the same version and its API digest; fall back to the
+    /// deterministic release URL without a digest so the download can still run.
+    /// </summary>
+    private async Task<bool> TryGitHubDownloadForVersionAsync(AlistResolver resolver, string appDir, string? version, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(version)) return false;
+
+        var release = await GitHubUpdateSource.FetchLatestAsync(ct);
+        var asset = release is not null
+                    && string.Equals(release.Version, version, StringComparison.OrdinalIgnoreCase)
+            ? GitHubUpdateSource.FindAsset(release, "LabelPlus_Next.Desktop", UpdatePlatform.CurrentRid)
+            : null;
+        var url = asset?.Url ?? GitHubUpdateSource.DownloadUrl(version, "LabelPlus_Next.Desktop", UpdatePlatform.CurrentRid);
+        Logger.Info("Trying GitHub download fallback: {url}", url);
+
+        if (!await DownloadAndApplyAsync(resolver, url, appDir, asset?.Sha256, ct)) return false;
+
+        var updateDir = Path.Combine(appDir, "update");
+        UpdatePlatform.CleanupForeignArchives(appDir, Logger);
+        UpdatePlatform.CleanupForeignArchives(updateDir, Logger);
+        await _messages.ShowOverlayAsync("更新完成，正在重启主程序...", "提示");
+        TryStartMainApp(appDir);
+        return true;
+    }
+
     private void OnTransferProgress(TransferProgress p)
     {
         BytesReceivedInMB = p.Received / 1048576d;
@@ -170,7 +249,16 @@ public sealed class UpdaterService : IUpdaterService
 
     private static async Task<UpdateSettings> LoadSettingsAsync(string? overrideAppDir, CancellationToken ct)
     {
-        var settingsPath = Path.Combine(DetermineSettingsDir(overrideAppDir, AppContext.BaseDirectory), "settings.json");
+        var fallbacks = new List<string>();
+        if (!string.IsNullOrWhiteSpace(overrideAppDir))
+        {
+            fallbacks.Add(Path.Combine(overrideAppDir, "settings.json"));
+            fallbacks.Add(Path.Combine(overrideAppDir, "update", "settings.json"));
+        }
+        fallbacks.Add(AppConfigPaths.LegacySettings);
+        fallbacks.Add(AppConfigPaths.LegacyUpdateSettings);
+        var settingsPath = AppConfigPaths.ResolveExisting(AppConfigPaths.Settings, fallbacks.ToArray());
+
         UpdateSettings upd = new();
         if (File.Exists(settingsPath))
         {
@@ -183,24 +271,31 @@ public sealed class UpdaterService : IUpdaterService
             {
                 Logger.Warn(ex, "settings.json is invalid at {path}, using defaults", settingsPath);
             }
+
+            if (!string.Equals(settingsPath, AppConfigPaths.Settings, StringComparison.Ordinal)
+                && !File.Exists(AppConfigPaths.Settings))
+            {
+                try
+                {
+                    AppConfigPaths.EnsureParent(AppConfigPaths.Settings);
+                    File.Copy(settingsPath, AppConfigPaths.Settings);
+                    AppConfigPaths.SecureFile(AppConfigPaths.Settings);
+                    Logger.Info("Migrated settings.json from {source} to AppData", settingsPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.Warn(ex, "Failed to migrate settings.json to AppData");
+                }
+            }
         }
         else
         {
-            Logger.Warn("settings.json not found at {path}, using defaults", settingsPath);
+            Logger.Warn("settings.json not found at AppData or legacy locations, using defaults");
         }
         if (string.IsNullOrWhiteSpace(upd.BaseUrl)) upd.BaseUrl = UpdateSettings.DefaultBaseUrl;
         if (string.IsNullOrWhiteSpace(upd.ManifestPath) || string.Equals(upd.ManifestPath.Trim(), LegacyManifestPath, StringComparison.OrdinalIgnoreCase))
             upd.ManifestPath = UpdateSettings.DefaultManifestPath;
         return upd;
-    }
-
-    private static string DetermineSettingsDir(string? overrideAppDir, string runtimeBaseDir)
-    {
-        // 优先级：overrideAppDir → overrideAppDir/update → runtimeBaseDir
-        if (string.IsNullOrWhiteSpace(overrideAppDir) || !Directory.Exists(overrideAppDir)) return runtimeBaseDir;
-        if (File.Exists(Path.Combine(overrideAppDir, "settings.json"))) return overrideAppDir;
-        var upd = Path.Combine(overrideAppDir, "update");
-        return File.Exists(Path.Combine(upd, "settings.json")) ? upd : runtimeBaseDir;
     }
 
     /// <summary>

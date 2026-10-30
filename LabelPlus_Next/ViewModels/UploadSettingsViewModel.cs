@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
+using LabelPlus_Next.Services;
 using System.Text.Json;
 using NLog;
 
@@ -16,14 +17,14 @@ public partial class UploadSettingsViewModel : ObservableObject
     [ObservableProperty] private string? username;
 
     private readonly string _settingsPath;
+    private readonly bool _useAppDataStore;
 
     public UploadSettingsViewModel() : this(null) { }
 
     public UploadSettingsViewModel(string? settingsPath)
     {
-        _settingsPath = string.IsNullOrWhiteSpace(settingsPath)
-            ? Path.Combine(AppContext.BaseDirectory, "upload.json")
-            : settingsPath;
+        _useAppDataStore = string.IsNullOrWhiteSpace(settingsPath);
+        _settingsPath = _useAppDataStore ? UploadSettingsStore.Path : settingsPath!;
         SaveCommand = new AsyncRelayCommand(SaveAsync);
         _ = LoadAsync();
     }
@@ -36,16 +37,16 @@ public partial class UploadSettingsViewModel : ObservableObject
     {
         try
         {
-            if (File.Exists(_settingsPath))
+            var s = _useAppDataStore
+                ? await UploadSettingsStore.LoadAsync()
+                : File.Exists(_settingsPath)
+                    ? await LoadFromPathAsync(_settingsPath)
+                    : null;
+            if (s != null)
             {
-                await using var fs = File.OpenRead(_settingsPath);
-                var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
-                if (s != null)
-                {
-                    BaseUrl = string.IsNullOrWhiteSpace(s.BaseUrl) ? BaseUrl : s.BaseUrl;
-                    Username = s.Username;
-                    Password = s.Password;
-                }
+                BaseUrl = string.IsNullOrWhiteSpace(s.BaseUrl) ? BaseUrl : s.BaseUrl;
+                Username = s.Username;
+                Password = s.Password;
             }
         }
         catch (IOException ex)
@@ -62,13 +63,28 @@ public partial class UploadSettingsViewModel : ObservableObject
         }
     }
 
+    private static async Task<UploadSettings?> LoadFromPathAsync(string path)
+    {
+        await using var fs = File.OpenRead(path);
+        return await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
+    }
+
     private async Task SaveAsync()
     {
         try
         {
             var s = new UploadSettings { BaseUrl = BaseUrl, Username = Username, Password = Password };
-            await using var fs = File.Create(_settingsPath);
-            await JsonSerializer.SerializeAsync(fs, s, AppJsonContext.Default.UploadSettings);
+            if (_useAppDataStore)
+            {
+                await UploadSettingsStore.SaveAsync(s);
+            }
+            else
+            {
+                var dir = Path.GetDirectoryName(_settingsPath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                await using var fs = File.Create(_settingsPath);
+                await JsonSerializer.SerializeAsync(fs, s, AppJsonContext.Default.UploadSettings);
+            }
             RefreshRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (IOException ex)

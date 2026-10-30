@@ -15,6 +15,7 @@ using LabelPlus_Next.Animations;
 using LabelPlus_Next.Lang;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Services.Api;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Pages;
@@ -86,9 +87,8 @@ public partial class MainWindow : UrsaWindow
     #region Upload menu permission cache helpers
     private static string GetPermCachePath()
     {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
-        Directory.CreateDirectory(dir);
-        return Path.Combine(dir, "upload.perm");
+        AppConfigPaths.EnsureParent(AppConfigPaths.Settings);
+        return Path.Combine(AppConfigPaths.Root, "upload.perm");
     }
 
     private static bool TryReadUploadPermCache(out bool hasPerm)
@@ -210,7 +210,7 @@ public partial class MainWindow : UrsaWindow
         if (TryReadUploadPermCache(out var cached) && cached) { InsertUploadMenuIfAbsent(); return; }
         try
         {
-            var cfgPath = Path.Combine(AppContext.BaseDirectory, "upload.json");
+            var cfgPath = UploadSettingsStore.ResolveReadPath();
             if (!File.Exists(cfgPath)) return;
             var cfg = JsonConvert.DeserializeObject<ApiAuthConfig>(await File.ReadAllTextAsync(cfgPath));
             if (cfg is null || string.IsNullOrWhiteSpace(cfg.BaseUrl)) return;

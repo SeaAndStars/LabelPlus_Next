@@ -58,7 +58,7 @@ public class UploadIntegrationTests
             await File.WriteAllTextAsync(psd, "psd");
             await File.WriteAllTextAsync(zip, "zip");
 
-            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), false)
+            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), false, configPath)
             {
                 PendingProjectName = "proj"
             };
@@ -93,7 +93,7 @@ public class UploadIntegrationTests
         try
         {
             await File.WriteAllTextAsync(configPath, "{\"baseUrl\":\"http://127.0.0.1:1\",\"username\":\"u\",\"password\":\"p\"}");
-            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService());
+            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), true, configPath);
             await Task.Delay(100);
             Assert.IsNotNull(vm.Status);
         }
@@ -119,7 +119,7 @@ public class UploadIntegrationTests
         var backup = File.Exists(configPath) ? File.ReadAllBytes(configPath) : null;
         try
         {
-            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), false) { PendingProjectName = "p" };
+            var vm = new UploadViewModel(new MemorySettings(), new NoopFileDialogService(), false, configPath) { PendingProjectName = "p" };
             await File.WriteAllTextAsync(configPath, "{\"baseUrl\":\"\",\"username\":\"\",\"password\":\"\"}");
             Assert.IsFalse(await vm.UploadPendingAsync());
             StringAssert.Contains(vm.Status ?? string.Empty, "configured");

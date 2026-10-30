@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Tools.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -158,6 +159,34 @@ public class ToolsMainWindowHelperTests
         vm.FlushSettings();
         Assert.IsNotNull(vm.BaseUrl);
     }
+    [TestMethod]
+    public void LegacyToolsSettings_MigratesToAppData()
+    {
+        var appData = AppConfigPaths.ToolsSettings;
+        var legacy = AppConfigPaths.LegacyToolsSettings;
+        var appBackup = File.Exists(appData) ? File.ReadAllBytes(appData) : null;
+        var legacyBackup = File.Exists(legacy) ? File.ReadAllBytes(legacy) : null;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(legacy)!);
+            File.WriteAllText(legacy, "{\"baseUrl\":\"https://legacy.invalid\",\"username\":\"legacy-user\"}");
+            if (File.Exists(appData)) File.Delete(appData);
+
+            var vm = new MainWindowViewModel();
+
+            Assert.IsTrue(File.Exists(appData));
+            Assert.AreEqual("https://legacy.invalid", vm.BaseUrl);
+            Assert.AreEqual("legacy-user", vm.Username);
+        }
+        finally
+        {
+            if (appBackup is null) { if (File.Exists(appData)) File.Delete(appData); }
+            else File.WriteAllBytes(appData, appBackup);
+            if (legacyBackup is null) { if (File.Exists(legacy)) File.Delete(legacy); }
+            else File.WriteAllBytes(legacy, legacyBackup);
+        }
+    }
+
     [TestMethod]
     public async Task SnapshotAndSavePersistSettings()
     {

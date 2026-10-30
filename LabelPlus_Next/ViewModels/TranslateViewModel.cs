@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Shared;
 using NLog;
 using System;
 using System.Collections.ObjectModel;
@@ -675,7 +676,7 @@ public partial class TranslateViewModel : ViewModelBase
         CurrentText = moved?.Text ?? string.Empty;
     }
 
-    private static readonly string RecentStorePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next", "recent_projects.json");
+    private static readonly string RecentStorePath = AppConfigPaths.RecentProjects;
 
     private sealed class RecentProjectStore
     {

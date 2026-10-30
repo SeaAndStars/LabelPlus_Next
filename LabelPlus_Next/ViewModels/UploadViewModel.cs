@@ -68,6 +68,7 @@ public partial class UploadViewModel : ObservableObject
     public string? LastSelectedFolderPath { get; set; }
     public ObservableCollection<EpisodeEntry> PendingEpisodes { get; } = new();
 
+    private readonly string? _uploadSettingsPath;
     private string? _pendingProjectName;
     public string? PendingProjectName
     {
@@ -77,8 +78,6 @@ public partial class UploadViewModel : ObservableObject
 
     public bool HasDuplicates { get; private set; }
 
-    public static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
-
     public event EventHandler? MetadataReady;
     public event EventHandler? OpenSettingsRequested;
     public event EventHandler<IReadOnlyList<UploadViewModel>>? MultiMetadataReady;
@@ -87,9 +86,13 @@ public partial class UploadViewModel : ObservableObject
     public UploadViewModel(ISettingsService settingsService, IFileDialogService dialogs) : this(settingsService, dialogs, true) { }
 
     public UploadViewModel(ISettingsService settingsService, IFileDialogService dialogs, bool autoRefresh)
+        : this(settingsService, dialogs, autoRefresh, null) { }
+
+    public UploadViewModel(ISettingsService settingsService, IFileDialogService dialogs, bool autoRefresh, string? uploadSettingsPath)
     {
         _settingsService = settingsService;
         _dialogs = dialogs;
+        _uploadSettingsPath = string.IsNullOrWhiteSpace(uploadSettingsPath) ? null : uploadSettingsPath;
         AddProjectCommand = new AsyncRelayCommand(AddProjectAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         PickUploadFolderCommand = new AsyncRelayCommand(PickUploadFolderAsync);
@@ -104,15 +107,12 @@ public partial class UploadViewModel : ObservableObject
     {
         try
         {
-            if (!File.Exists(UploadSettingsPath))
-            {
-                var def = new UploadSettings { BaseUrl = "https://alist1.seastarss.cn" };
-                await using var fw = File.Create(UploadSettingsPath);
-                await JsonSerializer.SerializeAsync(fw, def, AppJsonContext.Default.UploadSettings);
-                return def;
-            }
-            await using var fs = File.OpenRead(UploadSettingsPath);
-            return await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
+            var settings = await UploadSettingsStore.LoadAsync(_uploadSettingsPath);
+            if (settings is not null) return settings;
+
+            var def = new UploadSettings { BaseUrl = "https://alist1.seastarss.cn" };
+            await UploadSettingsStore.SaveAsync(def, _uploadSettingsPath);
+            return def;
         }
         catch (Exception ex)
         {

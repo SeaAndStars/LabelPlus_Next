@@ -714,10 +714,11 @@ public class MainWindowViewModel : ObservableObject
         {
             isLoadingSettings = true;
 
-            var settings = ToolsSettingsStore.Load(SettingsFilePath);
+            var readPath = ToolsSettingsStore.ResolveReadPath(SettingsFilePath);
+            var settings = ToolsSettingsStore.Load(readPath);
             if (settings is null)
             {
-                Logger.Info("No settings file at {path}; using defaults", SettingsFilePath);
+                Logger.Info("No settings file at {path}; using defaults", readPath);
                 return;
             }
 
@@ -726,7 +727,14 @@ public class MainWindowViewModel : ObservableObject
             Username = settings.Username;
             Password = settings.Password;
             TargetPath = settings.TargetPath;
-            Logger.Info("Settings loaded from {path}: base={base} api={api}", SettingsFilePath, BaseUrl, ApiBaseUrl);
+
+            if (!string.Equals(readPath, SettingsFilePath, StringComparison.Ordinal))
+            {
+                ToolsSettingsStore.Save(SettingsFilePath, settings);
+                Logger.Info("Migrated tools settings from {source} to {target}", readPath, SettingsFilePath);
+            }
+
+            Logger.Info("Settings loaded from {path}: base={base} api={api}", readPath, BaseUrl, ApiBaseUrl);
         }
         catch (Exception ex)
         {
