@@ -79,10 +79,84 @@ jobs:
           name: updater-${{ matrix.rid }}
           path: LabelPlus_Next.Update/bin/Release/net10.0/${{ matrix.rid }}/publish/
 
+  # Build the platform installers for tags from the already-published payloads.
+  # They are produced on Linux with the same scripts used locally (NSIS, dpkg,
+  # rpmbuild, AppImage tooling, HFS+ -> UDIF for macOS), so artifacts match the
+  # repository's packaging scripts. Nightly builds stay zip-only to avoid
+  # uploading ~1.4 GB of installers on every master push.
+  installers:
+    name: Build installers
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-24.04
+    needs: build
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download publish artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Assemble publish tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            mkdir -p "artifacts/publish/$rid/desktop" "artifacts/publish/$rid/updater"
+            cp -a "artifacts/desktop-$rid/." "artifacts/publish/$rid/desktop/"
+            cp -a "artifacts/updater-$rid/." "artifacts/publish/$rid/updater/"
+          done
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            nsis rpm squashfs-tools imagemagick hfsprogs zip cmake \
+            build-essential pkg-config libssl-dev zlib1g-dev python3
+
+      - name: Ensure HFS+ tool is on PATH
+        shell: bash
+        run: |
+          if ! command -v mkfs.hfsplus >/dev/null 2>&1; then
+            sudo ln -sf /usr/sbin/mkfs.hfsplus /usr/local/bin/mkfs.hfsplus
+          fi
+
+      - name: Build installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x packaging/*.sh packaging/lib/*.sh packaging/*/*.sh
+          packaging/windows/build-windows.sh
+          packaging/linux/build-linux.sh
+          packaging/macos/build-macos.sh
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release/installers
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' -printf '%f\n' \
+            | sort | xargs -r sha256sum > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          ls -lh
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers
+          path: release/installers/
+          retention-days: 7
+          if-no-files-found: error
+
   release:
     name: Create GitHub Release and attach assets
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, installers]
+    # `always()` keeps nightly releases working when the installers job is skipped.
+    if: ${{ always() && needs.build.result == 'success' }}
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v4
@@ -189,3 +263,18 @@ jobs:
             artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installers to tag release
+        if: ${{ startsWith(github.ref, 'refs/tags/') && needs.installers.result == 'success' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release upload "$tag" artifacts/installers/* --clobber
+
+      - name: Warn when installers were not built
+        if: ${{ startsWith(github.ref, 'refs/tags/') && needs.installers.result != 'success' }}
+        shell: bash
+        run: echo "::warning::Installer build did not succeed; the release contains zip assets only."

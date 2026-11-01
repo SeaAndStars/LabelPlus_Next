@@ -94,15 +94,15 @@ SHA256 强校验 + 分阶段安装，任一步失败自动回滚，下载中途�
 
 ## 📥 下载
 
-前往 [Releases](https://github.com/SeaAndStars/LabelPlus_Next/releases) 下载对应平台的压缩包，解压后运行即可：
+前往 [Releases](https://github.com/SeaAndStars/LabelPlus_Next/releases) 下载对应平台安装包；也可以使用免安装压缩包，解压后直接运行：
 
-| 平台 | 包名 | 启动 |
+| 平台 | 安装包 | 免安装 |
 | --- | --- | --- |
-| Windows x64 / arm64 | `LabelPlus_Next.Desktop-win-*.zip` | `LabelPlus_Next.Desktop.exe` |
-| macOS Intel / Apple Silicon | `LabelPlus_Next.Desktop-osx-*.zip` | `./LabelPlus_Next.Desktop` |
-| Linux x64 / arm64 | `LabelPlus_Next.Desktop-linux-*.zip` | `./LabelPlus_Next.Desktop` |
+| Windows x64 / arm64 | `LabelPlus_Next-<ver>-win-*-setup.exe` | `LabelPlus_Next.Desktop-win-*.zip` |
+| macOS Intel / Apple Silicon | `LabelPlus_Next-<ver>-macos-*.dmg` | `LabelPlus_Next.Desktop-osx-*.zip` |
+| Linux x64 / arm64 | `labelplus-next_<ver>_*.deb` / `*.rpm` / `*.AppImage` | `LabelPlus_Next.Desktop-linux-*.zip` |
 
-安装后程序会自动检查更新，无需重复下载。
+Windows 安装包按当前用户安装、无需管理员权限；macOS 首次打开请右键 → 打开；Linux deb/rpm 用包管理器安装。安装后程序会自动检查更新（deb/rpm 请通过包管理器升级）。
 
 ## ⌨️ 快捷键
 
