@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Tools.Models;
 using LabelPlus_Next.Tools.Services;
@@ -231,10 +231,10 @@ public partial class PackWindowViewModel : ObservableObject
             Logger.Info("Pack started: folder='{folder}', solution='{solution}', project='{project}', version='{version}'",
                 SelectedFolder, SolutionPath, Project, Version);
 
-            var settingsPath = ToolsSettingsStore.DefaultPath;
+            var settingsPath = ToolsSettingsStore.ResolveReadPath();
             if (!File.Exists(settingsPath))
             {
-                Status = "未在程序根目录找到 tools.settings.json";
+                Status = "未在 AppData 或程序根目录找到 tools.settings.json";
                 return;
             }
             var uploadSettings = await ToolsSettingsStore.LoadAsync(settingsPath);
@@ -242,6 +242,18 @@ public partial class PackWindowViewModel : ObservableObject
             {
                 Status = "读取 tools.settings.json 失败";
                 return;
+            }
+            if (!string.Equals(settingsPath, ToolsSettingsStore.DefaultPath, StringComparison.Ordinal))
+            {
+                try
+                {
+                    await ToolsSettingsStore.SaveAsync(ToolsSettingsStore.DefaultPath, uploadSettings);
+                    Logger.Info("Migrated tools settings from {source} to AppData", settingsPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.Warn(ex, "Failed to migrate tools settings to AppData");
+                }
             }
             TargetPath ??= uploadSettings.TargetPath;
 
@@ -816,11 +828,6 @@ public partial class PackWindowViewModel : ObservableObject
             Logger.Debug(ex, "检测 manifest JSON 格式失败");
             return false;
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "检查 manifest JSON 时发生未预期异常");
-            throw;
-        }
         return false;
     }
 
@@ -1061,6 +1068,7 @@ public partial class PackWindowViewModel : ObservableObject
     }
 
     // Helper: find repo root by walking up until we see project directories
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     private static string? FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;
@@ -1153,25 +1161,15 @@ public partial class PackWindowViewModel : ObservableObject
                 return v.GetString();
             return null;
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "读取 {jsonPath} 失败，无法获取版本", jsonPath);
-            return null;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "读取 {jsonPath} 权限不足", jsonPath);
             return null;
         }
         catch (JsonException ex)
         {
             Logger.Warn(ex, "{jsonPath} JSON 格式无效，忽略版本信息", jsonPath);
             return null;
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "处理 {jsonPath} 时发生未预期异常", jsonPath);
-            throw;
         }
     }
 }

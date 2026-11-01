@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Lang;
+using LabelPlus_Next.Models;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views.Windows;
 using NLog;
@@ -113,12 +114,17 @@ public partial class UploadPage : UserControl
             if (_vm.HasDuplicates)
             {
                 Logger.Info("Duplicate episodes detected, asking for confirmation.");
-                var res = await MessageBox.ShowAsync(
-                    UiText.T(LangKeys.ui0206, "检测到与远端存在相同话数，是否继续?"),
-                    UiText.T(LangKeys.ui0207, "提示"),
-                    MessageBoxIcon.Warning,
-                    MessageBoxButton.YesNo);
-                if (res != MessageBoxResult.Yes)
+                var confirmOwner = TopLevel.GetTopLevel(this) as Window;
+                var res = await ConfirmDialog.ShowAsync(confirmOwner, new ConfirmDialogOptions
+                {
+                    Title = UiText.T(LangKeys.dialogDuplicateTitle, "发现重复话数"),
+                    Message = UiText.T(LangKeys.ui0206, "检测到与远端存在相同话数，是否继续?"),
+                    Severity = ConfirmDialogSeverity.Warning,
+                    BodyIcon = ConfirmBodyIcon.Upload,
+                    YesText = UiText.T(LangKeys.buttonContinue, "继续"),
+                    NoText = UiText.T(LangKeys.buttonCancel, "取消"),
+                });
+                if (res != ConfirmDialogResult.Yes)
                 {
                     Logger.Info("User cancelled due to duplicates.");
                     return;

@@ -23,7 +23,7 @@ public class MainAndTranslateViewModelTests
     [TestMethod]
     public void TranslateViewModel_InitialState()
     {
-        var vm = new TranslateViewModel();
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher(), new LabelFileManager());
         Assert.IsNotNull(vm.ImageFileNames);
         Assert.AreEqual(0, vm.ImageFileNames.Count);
         Assert.IsNull(vm.SelectedImageFile);
@@ -34,7 +34,7 @@ public class MainAndTranslateViewModelTests
     [TestMethod]
     public async Task TranslateViewModel_LabelAddRemoveUndo()
     {
-        var vm = new TranslateViewModel();
+        var vm = new TranslateViewModel(new NoopFileDialogService(), new InlineUiDispatcher(), new LabelFileManager());
 
         // prepare image entry and select it
         await vm.AddImageFileAsync("b.png");

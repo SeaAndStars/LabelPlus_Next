@@ -41,6 +41,7 @@
         <Compile Include="..\Shared\UpdateKit.cs" Link="Shared\UpdateKit.cs" />
         <!-- Shared window chrome helpers (client + updater) -->
         <Compile Include="..\Shared\WindowChrome.cs" Link="Shared\WindowChrome.cs" />
+        <Compile Include="..\Shared\AppConfigPaths.cs" Link="Shared\AppConfigPaths.cs" />
     </ItemGroup>
 
 </Project>

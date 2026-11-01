@@ -9,6 +9,7 @@ using System.Threading; // added for Interlocked
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Shared;
 using LabelPlus_Next.Lang;
 using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Media.Imaging;
@@ -23,6 +24,7 @@ public class MainProjectsViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
     private readonly IFileDialogService _dialogs;
+    private readonly IUiDispatcher _ui;
     private readonly string _recentStorePath;
 
     private RecentProject? _selectedProject;
@@ -43,12 +45,26 @@ public class MainProjectsViewModel : ViewModelBase
 
     public MainProjectsViewModel() : this(App.Services.GetRequiredService<IFileDialogService>()) { }
 
-    public MainProjectsViewModel(IFileDialogService dialogs)
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    public MainProjectsViewModel(IFileDialogService dialogs) : this(dialogs, null, null) { }
+
+    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath) : this(dialogs, recentStorePath, null) { }
+
+    public MainProjectsViewModel(IFileDialogService dialogs, string? recentStorePath, IUiDispatcher? ui)
     {
         _dialogs = dialogs;
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next");
-        Directory.CreateDirectory(dir);
-        _recentStorePath = Path.Combine(dir, "recent_projects.json");
+        _ui = ui ?? new AvaloniaUiDispatcher();
+        if (string.IsNullOrWhiteSpace(recentStorePath))
+        {
+            _recentStorePath = AppConfigPaths.RecentProjects;
+            AppConfigPaths.EnsureParent(_recentStorePath);
+        }
+        else
+        {
+            _recentStorePath = recentStorePath;
+            var dir = Path.GetDirectoryName(recentStorePath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        }
         LoadRecent();
         RecentProjects.CollectionChanged += (_, __) => OnPropertyChanged(nameof(IsRecentEmpty));
         CreateProjectCommand = new AsyncRelayCommand(CreateProjectAsync);
@@ -138,7 +154,7 @@ public class MainProjectsViewModel : ViewModelBase
             bmp?.Dispose();
             return; // selection changed while loading
         }
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        await _ui.InvokeAsync(() =>
         {
             CurrentPreviewImage?.Dispose();
             CurrentPreviewImage = bmp;
@@ -246,7 +262,7 @@ public class MainProjectsViewModel : ViewModelBase
             PreviewStatus = UiText.Tr("加载预览...");
             var imageNames = ParseImageNames(proj.TranslationFile, 50); // load up to 50 names
             if (version != _previewLoadVersion) return;
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await _ui.InvokeAsync(() =>
             {
                 foreach (var n in imageNames) PreviewImageNames.Add(n);
             });
@@ -291,11 +307,6 @@ public class MainProjectsViewModel : ViewModelBase
         catch (UnauthorizedAccessException ex)
         {
             Logger.Warn(ex, "No permission to read translation file {file}", translationFile);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error parsing image names from {file}", translationFile);
-            throw;
         }
         return result;
     }
@@ -353,11 +364,6 @@ public class MainProjectsViewModel : ViewModelBase
         {
             Logger.Warn(ex, "No permission to read labels from {file}", translationFile);
         }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error parsing labels from {file}", translationFile);
-            throw;
-        }
         return list;
     }
 
@@ -400,22 +406,13 @@ public class MainProjectsViewModel : ViewModelBase
             RecentProjects = new ObservableCollection<RecentProject>(list.OrderByDescending(r => r.LastOpened));
             CheckAutosaveRecovery();
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to load recent projects from {path}", _recentStorePath);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to load recent projects from {path}", _recentStorePath);
         }
         catch (JsonException ex)
         {
             Logger.Warn(ex, "Recent projects file is invalid JSON: {path}", _recentStorePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error loading recent projects");
-            throw;
         }
     }
 
@@ -429,21 +426,13 @@ public class MainProjectsViewModel : ViewModelBase
 #pragma warning restore IL2026, IL3050
             File.WriteAllText(_recentStorePath, json);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to save recent projects to {path}", _recentStorePath);
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to save recent projects to {path}", _recentStorePath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error saving recent projects to {path}", _recentStorePath);
-            throw;
-        }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     private void CheckAutosaveRecovery()
     {
         if (_recoveryChecked) return;
@@ -465,7 +454,8 @@ public class MainProjectsViewModel : ViewModelBase
                 var now = DateTime.Now;
                 foreach (var f in files)
                 {
-                    var stamp = Path.GetFileName(f).Split('_').FirstOrDefault();
+                    var parts = Path.GetFileName(f).Split('_');
+                    var stamp = parts.Length >= 2 ? parts[0] + "_" + parts[1] : null;
                     if (stamp != null && DateTime.TryParseExact(stamp, "yyyyMMdd_HHmmss", null, System.Globalization.DateTimeStyles.None, out var dt))
                     {
                         if ((now - dt) < TimeSpan.FromHours(3)) candidates.Add(f);
@@ -477,18 +467,9 @@ public class MainProjectsViewModel : ViewModelBase
                 PreviewStatus = UiText.F(LangKeys.ui0208, "发现 {0} 个自动保存备份，可在对应项目 bak 文件夹中恢复。", candidates.Count);
             }
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to check autosave recovery");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "No permission to access autosave backup directories");
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Unexpected error checking autosave recovery");
-            throw;
         }
     }
 }

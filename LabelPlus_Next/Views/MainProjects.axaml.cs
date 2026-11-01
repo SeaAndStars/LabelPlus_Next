@@ -7,6 +7,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.Lang;
+using LabelPlus_Next.Models;
+using LabelPlus_Next.Views.Windows;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -70,12 +72,17 @@ public partial class MainProjects : UrsaWindow
     {
         if (DataContext is not MainProjectsViewModel vm) return;
         if (vm.SelectedProject is null) return;
-        var res = await MessageBox.ShowAsync(
-            UiText.F(LangKeys.ui0199, "确认移除项目: {0}?", vm.SelectedProject.Name),
-            UiText.T(LangKeys.ui0200, "确认"),
-            MessageBoxIcon.Warning,
-            MessageBoxButton.YesNo);
-        if (res == MessageBoxResult.Yes)
+        var res = await ConfirmDialog.ShowAsync(this, new ConfirmDialogOptions
+        {
+            Title = UiText.T(LangKeys.dialogRemoveProjectTitle, "移除项目"),
+            Message = UiText.F(LangKeys.ui0199, "确认移除项目: {0}?", vm.SelectedProject.Name),
+            Severity = ConfirmDialogSeverity.Danger,
+            BodyIcon = ConfirmBodyIcon.Delete,
+            YesText = UiText.T(LangKeys.buttonRemove, "移除"),
+            NoText = UiText.T(LangKeys.buttonCancel, "取消"),
+            YesIsDanger = true,
+        });
+        if (res == ConfirmDialogResult.Yes)
         {
             if (vm.RemoveSelectedCommand.CanExecute(null)) vm.RemoveSelectedCommand.Execute(null);
         }

@@ -63,6 +63,22 @@ jobs:
           echo "Core line coverage: $LINE_RATE (target 100%)"
           echo "CORE_LINE_COVERAGE=$LINE_RATE" >> "$GITHUB_ENV"
 
+      - name: Enforce core coverage (100%)
+        # Platform-specific updater/WebDAV/test paths differ per OS; the core
+        # coverage contract is enforced on the representative Linux run. All
+        # three matrix legs still run the full test suite.
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -e
+          awk -v rate="$CORE_LINE_COVERAGE" 'BEGIN {
+            if (rate + 0 < 1.0) {
+              printf "Core line coverage %.4f is below 100%%\n", rate + 0;
+              exit 1;
+            }
+            printf "Core line coverage %.4f meets the 100%% threshold\n", rate + 0;
+          }' 
+
       - name: Generate coverage report (Markdown + HTML)
         shell: bash
         run: |

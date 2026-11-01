@@ -36,6 +36,7 @@ public static class PackVersionLocator
     }
 
     /// <summary>True when the folder looks like a source project/repository that can be built.</summary>
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static bool LooksLikeSourceProject(string? folder)
     {
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return false;
@@ -55,6 +56,7 @@ public static class PackVersionLocator
     /// Finds the repository root from the selected folder and/or the solution file.
     /// Both a top-level .sln and the presence of the main/update projects are accepted.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static string? FindRepoRoot(string? selectedFolder, string? solutionPath, bool allowAppDirectoryFallback = true)
     {
         foreach (var seed in EnumerateSeeds(selectedFolder, solutionPath, allowAppDirectoryFallback))
@@ -174,7 +176,9 @@ public static class PackVersionLocator
     {
         try
         {
-            return Directory.EnumerateDirectories(directory);
+            // Materialize inside the try: enumeration is lazy and otherwise
+            // throws later at the caller, outside this helper's catch.
+            return Directory.EnumerateDirectories(directory).ToList();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

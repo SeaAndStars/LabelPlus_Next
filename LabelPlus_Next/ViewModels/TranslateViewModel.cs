@@ -6,9 +6,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Services;
+using LabelPlus_Next.Shared;
 using NLog;
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -26,19 +28,24 @@ using WindowNotificationManager = WindowNotificationManager;
 public partial class TranslateViewModel : ViewModelBase
 {
     private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-    private static readonly LabelFileManager LabelFileManager1 = new();
+    private static readonly LabelFileManager SharedLabelManager = new();
+    private readonly LabelFileManager _labelManager;
     private readonly TimeSpan _autoSaveInterval = TimeSpan.FromMinutes(1);
     private int _autoSaveBusy;
     private Timer? _autoSaveTimer;
     private readonly IFileDialogService _dialogs;
+    private readonly IUiDispatcher _ui;
     private string? _lastBackupSignature;
     private bool _autoSaveConflictNotified; // 防止重复通知
     public CollaborationSession? Collab { get; set; } // null for local-only
 
-    public TranslateViewModel() : this(new NoopFileDialogService()) { }
-    public TranslateViewModel(IFileDialogService dialogs)
+    public TranslateViewModel() : this(new NoopFileDialogService(), null) { }
+    public TranslateViewModel(IFileDialogService dialogs) : this(dialogs, null) { }
+    public TranslateViewModel(IFileDialogService dialogs, IUiDispatcher? ui, LabelFileManager? labelManager = null)
     {
         _dialogs = dialogs;
+        _ui = ui ?? new AvaloniaUiDispatcher();
+        _labelManager = labelManager ?? SharedLabelManager;
     }
     public WindowNotificationManager? NotificationManager { get; set; }
 
@@ -58,17 +65,17 @@ public partial class TranslateViewModel : ViewModelBase
     [ObservableProperty] private LabelItem? selectedLabel;
     [ObservableProperty] private string? selectedLang = "default";
 
-    private static bool OnUiThread => Dispatcher.UIThread.CheckAccess();
+    private bool OnUiThread => _ui.CheckAccess();
 
     private async Task RunOnUiAsync(Action act)
     {
-        if (OnUiThread)
+        if (_ui.CheckAccess())
         {
             act();
         }
         else
         {
-            await Dispatcher.UIThread.InvokeAsync(act);
+            await _ui.InvokeAsync(act);
         }
     }
 
@@ -77,7 +84,7 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
         var newLabel = new LabelItem { XPercent = 0.5f, YPercent = 0.5f, Text = "", Category = 1 };
-        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel).ConfigureAwait(false);
+        await LabelManager.Instance.AddLabelAsync(_labelManager, SelectedImageFile, newLabel).ConfigureAwait(false);
         await RunOnUiAsync(() =>
         {
             UpdateCurrentLabels();
@@ -95,7 +102,7 @@ public partial class TranslateViewModel : ViewModelBase
         {
             // Keep selection near the deleted item instead of jumping to the last
             var oldIndex = SelectedLabel is null ? -1 : CurrentLabels.IndexOf(SelectedLabel);
-            await LabelManager.Instance.RemoveSelectedAsync(LabelFileManager1, SelectedImageFile, CurrentLabels, SelectedLabel).ConfigureAwait(false);
+            await LabelManager.Instance.RemoveSelectedAsync(_labelManager, SelectedImageFile, CurrentLabels, SelectedLabel).ConfigureAwait(false);
             await RunOnUiAsync(() =>
             {
                 UpdateCurrentLabels();
@@ -117,7 +124,7 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(SelectedImageFile))
         {
-            var restored = await LabelManager.Instance.UndoRemoveAsync(LabelFileManager1, SelectedImageFile).ConfigureAwait(false);
+            var restored = await LabelManager.Instance.UndoRemoveAsync(_labelManager, SelectedImageFile).ConfigureAwait(false);
             await RunOnUiAsync(() =>
             {
                 UpdateCurrentLabels();
@@ -191,11 +198,11 @@ public partial class TranslateViewModel : ViewModelBase
         try
         {
             await RunOnUiAsync(() => { IsBusy = true; Progress = 15; ProgressText = UiText.Tr("读取翻译文件..."); OpenTranslationFilePath = path; });
-            await LabelFileManager1.LoadAsync(path).ConfigureAwait(false);
+            await _labelManager.LoadAsync(path).ConfigureAwait(false);
             await RunOnUiAsync(() =>
             {
                 ImageFileNames.Clear();
-                foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
+                foreach (var key in _labelManager.StoreManager.Store.Keys) ImageFileNames.Add(key);
                 if (ImageFileNames.Count > 0) SelectedImageFile = ImageFileNames[0];
                 UpdateCurrentLabels();
                 Progress = 100; ProgressText = UiText.Tr("完成");
@@ -213,7 +220,7 @@ public partial class TranslateViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public async Task FileSave(string path) => await LabelFileManager1.SaveAsync(path).ConfigureAwait(false);
+    public async Task FileSave(string path) => await _labelManager.SaveAsync(path).ConfigureAwait(false);
 
     [RelayCommand]
     private async Task SaveCurrentCommand()
@@ -353,6 +360,7 @@ public partial class TranslateViewModel : ViewModelBase
     {
         await OpenTranslationFileAtPathAsync(path).ConfigureAwait(false);
     }
+    [ExcludeFromCodeCoverage]
     [RelayCommand]
     private void OpenTranslationFolder()
     {
@@ -369,11 +377,11 @@ public partial class TranslateViewModel : ViewModelBase
         catch (Exception ex) { Logger.Warn(ex, "OpenTranslationFolder failed"); }
     }
 
-    public bool HasUnsavedChanges => LabelFileManager1.StoreManager.IsDirty;
+    public bool HasUnsavedChanges => _labelManager.StoreManager.IsDirty;
     public bool HasLabelsForFile(string? file)
     {
         if (string.IsNullOrWhiteSpace(file)) return false;
-        return LabelFileManager1.StoreManager.Store.TryGetValue(file, out var labels) && labels is { Count: > 0 };
+        return _labelManager.StoreManager.Store.TryGetValue(file, out var labels) && labels is { Count: > 0 };
     }
 
     private async Task NotifyAsync(string title, string message, NotificationType type = NotificationType.Information)
@@ -382,7 +390,7 @@ public partial class TranslateViewModel : ViewModelBase
         {
             if (NotificationManager is not null)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => NotificationManager.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]));
+                await _ui.InvokeAsync(() => NotificationManager.Show(new Notification(title, message), showIcon: true, showClose: true, type: type, classes: ["Light"]));
             }
         }
         catch (Exception ex) { Logger.Warn(ex, "NotifyAsync failed: {title} - {message}", title, message); }
@@ -403,10 +411,10 @@ public partial class TranslateViewModel : ViewModelBase
     private async Task<string> BuildSnapshotAsync()
     {
         Logger.Trace("Building snapshot for backup.");
-        var header = await LabelFileHeaderManager.GenerateHeaderAsync(LabelFileManager1.FileHead, LabelFileManager1.GroupStringList, LabelFileManager1.Comment).ConfigureAwait(false);
+        var header = await LabelFileHeaderManager.GenerateHeaderAsync(_labelManager.FileHead, _labelManager.GroupStringList, _labelManager.Comment).ConfigureAwait(false);
         var sb = new StringBuilder();
         sb.AppendLine(header);
-        foreach (var kvp in LabelFileManager1.StoreManager.Store)
+        foreach (var kvp in _labelManager.StoreManager.Store)
         {
             sb.AppendLine();
             sb.AppendLine($">>>>>>>>[{kvp.Key}]<<<<<<<<");
@@ -497,24 +505,24 @@ public partial class TranslateViewModel : ViewModelBase
         finally { Interlocked.Exchange(ref _autoSaveBusy, 0); }
     }
 
-    public IReadOnlyCollection<string> GetIncludedImageFiles() => LabelFileManager1.StoreManager.Store.Keys.ToList();
+    public IReadOnlyCollection<string> GetIncludedImageFiles() => _labelManager.StoreManager.Store.Keys.ToList();
     public async Task AddImageFileAsync(string relativePath)
     {
-        await LabelFileManager1.StoreManager.AddFileAsync(relativePath).ConfigureAwait(false);
+        await _labelManager.StoreManager.AddFileAsync(relativePath).ConfigureAwait(false);
         Logger.Info("Image added to include list: {file}", relativePath);
     }
     public async Task RemoveImageFileAsync(string relativePath)
     {
-        await LabelFileManager1.StoreManager.RemoveFileAsync(relativePath).ConfigureAwait(false);
+        await _labelManager.StoreManager.RemoveFileAsync(relativePath).ConfigureAwait(false);
         Logger.Info("Image removed from include list: {file}", relativePath);
     }
     public void RefreshImagesList()
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(RefreshImagesList); return; }
+        if (!OnUiThread) { _ui.Post(RefreshImagesList); return; }
         Logger.Debug("Refreshing image list UI.");
         var selected = SelectedImageFile;
         ImageFileNames.Clear();
-        foreach (var key in LabelFileManager1.StoreManager.Store.Keys) ImageFileNames.Add(key);
+        foreach (var key in _labelManager.StoreManager.Store.Keys) ImageFileNames.Add(key);
         if (!string.IsNullOrEmpty(selected) && ImageFileNames.Contains(selected)) { SelectedImageFile = selected; }
         else if (ImageFileNames.Count > 0) { SelectedImageFile = ImageFileNames[0]; }
         else { SelectedImageFile = null; }
@@ -526,12 +534,12 @@ public partial class TranslateViewModel : ViewModelBase
         if (category != 1 && category != 2) return;
         SelectedLabel.Category = category;
         SelectedLabel.CategoryString = category == 1 ? "框内" : "框外";
-        LabelFileManager1.StoreManager.TouchDirty();
+        _labelManager.StoreManager.TouchDirty();
     }
-    public (List<string> groupList, string notes) GetFileSettings() => (new List<string>(LabelFileManager1.GroupStringList), LabelFileManager1.Comment);
+    public (List<string> groupList, string notes) GetFileSettings() => (new List<string>(_labelManager.GroupStringList), _labelManager.Comment);
     public async Task<bool> SaveFileSettingsAsync(List<string> groupList, string notes)
     {
-        LabelFileManager1.UpdateHeader(groupList, notes);
+        _labelManager.UpdateHeader(groupList, notes);
         if (!string.IsNullOrEmpty(OpenTranslationFilePath)) { await FileSave(OpenTranslationFilePath).ConfigureAwait(false); return true; }
         return false;
     }
@@ -539,7 +547,7 @@ public partial class TranslateViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
         var newLabel = new LabelItem { XPercent = xPercent, YPercent = yPercent, Text = "", Category = category };
-        await LabelManager.Instance.AddLabelAsync(LabelFileManager1, SelectedImageFile, newLabel).ConfigureAwait(false);
+        await LabelManager.Instance.AddLabelAsync(_labelManager, SelectedImageFile, newLabel).ConfigureAwait(false);
         await RunOnUiAsync(() =>
         {
             UpdateCurrentLabels();
@@ -558,7 +566,7 @@ public partial class TranslateViewModel : ViewModelBase
 
     partial void OnSelectedImageFileChanged(string? value)
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(() => OnSelectedImageFileChanged(value)); return; }
+        if (!OnUiThread) { _ui.Post(() => OnSelectedImageFileChanged(value)); return; }
         UpdateCurrentLabels();
         if (!string.IsNullOrEmpty(value))
         {
@@ -628,16 +636,16 @@ public partial class TranslateViewModel : ViewModelBase
         if (SelectedLabel != null)
         {
             SelectedLabel.Text = value;
-            LabelFileManager1.StoreManager.TouchDirty();
+            _labelManager.StoreManager.TouchDirty();
             Logger.Debug("Label text updated: {text}", value);
         }
     }
 
     private void UpdateCurrentLabels()
     {
-        if (!OnUiThread) { Dispatcher.UIThread.Post(UpdateCurrentLabels); return; }
+        if (!OnUiThread) { _ui.Post(UpdateCurrentLabels); return; }
         CurrentLabels.Clear();
-        if (!string.IsNullOrEmpty(SelectedImageFile) && LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
+        if (!string.IsNullOrEmpty(SelectedImageFile) && _labelManager.StoreManager.Store.TryGetValue(SelectedImageFile, out var labels))
         {
             for (var i = 0; i < labels.Count; i++)
             {
@@ -653,7 +661,7 @@ public partial class TranslateViewModel : ViewModelBase
     public void MoveLabelWithinCurrentImage(int oldIndex, int newIndex)
     {
         if (string.IsNullOrEmpty(SelectedImageFile)) return;
-        if (!LabelFileManager1.StoreManager.Store.TryGetValue(SelectedImageFile, out var list)) return;
+        if (!_labelManager.StoreManager.Store.TryGetValue(SelectedImageFile, out var list)) return;
         if (list.Count == 0) return;
         if (oldIndex < 0 || oldIndex >= list.Count) return;
         // 允许插入到末尾
@@ -661,14 +669,14 @@ public partial class TranslateViewModel : ViewModelBase
         if (newIndex > list.Count) newIndex = list.Count;
 
         var moved = list[oldIndex];
-        LabelFileManager1.StoreManager.MoveLabel(SelectedImageFile, oldIndex, newIndex);
+        _labelManager.StoreManager.MoveLabel(SelectedImageFile, oldIndex, newIndex);
         UpdateCurrentLabels();
         // 保持选中项为移动的对象
         SelectedLabel = moved;
         CurrentText = moved?.Text ?? string.Empty;
     }
 
-    private static readonly string RecentStorePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LabelPlus_Next", "recent_projects.json");
+    private static readonly string RecentStorePath = AppConfigPaths.RecentProjects;
 
     private sealed class RecentProjectStore
     {
@@ -698,14 +706,9 @@ public partial class TranslateViewModel : ViewModelBase
                 }
                 else list = new List<RecentProjectStore>();
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 Logger.Warn(ex, "Failed to read recent projects store {path}", RecentStorePath);
-                list = new List<RecentProjectStore>();
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Logger.Warn(ex, "Access denied reading recent projects store {path}", RecentStorePath);
                 list = new List<RecentProjectStore>();
             }
             catch (JsonException ex)
@@ -740,17 +743,9 @@ public partial class TranslateViewModel : ViewModelBase
 #pragma warning restore IL2026, IL3050
             File.WriteAllText(RecentStorePath, json);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Logger.Warn(ex, "Failed to update recent projects store {path}", RecentStorePath);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Logger.Warn(ex, "Access denied updating recent projects store {path}", RecentStorePath);
-        }
-        catch (JsonException ex)
-        {
-            Logger.Warn(ex, "Failed to serialize recent projects store {path}", RecentStorePath);
         }
     }
 

@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -59,7 +60,9 @@ public partial class TeamWorkViewModel : ObservableObject
     private string? _lastNotifyKey;
     private DateTime _lastNotifyAt;
 
-    public TeamWorkViewModel()
+    public TeamWorkViewModel() : this(true) { }
+
+    public TeamWorkViewModel(bool autoRefresh)
     {
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         StartTranslateCommand = new AsyncRelayCommand<EpisodeItem>(StartTranslateAsync);
@@ -70,20 +73,16 @@ public partial class TeamWorkViewModel : ObservableObject
         RetryCommand = new RelayCommand(async () => { var op = _lastOp; if (op is not null) await op(); });
         ShowFilesCommand = new AsyncRelayCommand<EpisodeItem>(ShowFilesAsync);
         DownloadFileCommand = new AsyncRelayCommand<NodeItem>(DownloadFileAsync); // 新增
-        _ = RefreshAsync();
+        if (autoRefresh) _ = RefreshAsync();
     }
 
     private readonly Dictionary<string, string> _projectMap = new(StringComparer.Ordinal);
-
-    private static string UploadSettingsPath => Path.Combine(AppContext.BaseDirectory, "upload.json");
 
     private async Task<UploadSettings?> LoadUploadSettingsAsync()
     {
         try
         {
-            if (!File.Exists(UploadSettingsPath)) return null;
-            await using var fs = File.OpenRead(UploadSettingsPath);
-            var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.UploadSettings);
+            var s = await UploadSettingsStore.LoadAsync();
             // Force baseUrl to default as requested (username/password from settings)
             if (s != null) s.BaseUrl = "https://alist1.seastarss.cn";
             return s;
@@ -391,18 +390,11 @@ public partial class TeamWorkViewModel : ObservableObject
 
     private static string GetFileNameFromRemote(string remotePath)
     {
-        try
-        {
-            var p = (remotePath ?? string.Empty).Replace('\\', '/');
-            if (string.IsNullOrEmpty(p)) return string.Empty;
-            if (p.EndsWith('/')) p = p.TrimEnd('/');
-            var idx = p.LastIndexOf('/');
-            return idx >= 0 ? p[(idx + 1)..] : p;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return remotePath;
-        }
+        var p = (remotePath ?? string.Empty).Replace('\\', '/');
+        if (string.IsNullOrEmpty(p)) return string.Empty;
+        if (p.EndsWith('/')) p = p.TrimEnd('/');
+        var idx = p.LastIndexOf('/');
+        return idx >= 0 ? p[(idx + 1)..] : p;
     }
 
     // 新增：显示文件列表（用于兼容旧的命令绑定，当前 UI 未使用）
@@ -492,6 +484,7 @@ public partial class TeamWorkViewModel : ObservableObject
         }
     }
 
+    [ExcludeFromCodeCoverage]
     private static string BuildDownloadDirectory(string project, string episode)
     {
         string baseDir;
@@ -522,6 +515,7 @@ public partial class TeamWorkViewModel : ObservableObject
     // 还原缺失的帮助方法
     private static byte[] TrimBom(byte[] bytes) => (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) ? bytes[3..] : bytes;
 
+    [ExcludeFromCodeCoverage]
     private void ShowNotify(string title, string message, NotificationType type)
     {
         // Suppress an identical toast shown twice by overlapping refresh calls.

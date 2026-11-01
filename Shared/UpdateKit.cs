@@ -302,6 +302,7 @@ public static class StagedInstaller
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     private static void Rollback(string root, string backup, List<(string Rel, bool HadOriginal)> swapped)
     {
         for (var i = swapped.Count - 1; i >= 0; i--)

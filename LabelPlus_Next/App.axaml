@@ -48,6 +48,7 @@
                     <SolidColorBrush x:Key="LpOuterTextBrush" Color="#FF0057D9" />
                     <SolidColorBrush x:Key="LpOuterDotBrush" Color="#FF0064FA" />
                     <SolidColorBrush x:Key="LpKeycapBrush" Color="#14000000" />
+                    <SolidColorBrush x:Key="LpSearchHighlightBrush" Color="#FFFFF1B8" />
                     <SolidColorBrush x:Key="LpDangerSoftBrush" Color="#14F53F3F" />
                     <BoxShadows x:Key="LpCardShadow">0 1 2 0 #0A1D2129, 0 4 12 -2 #0F1D2129</BoxShadows>
                     <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
@@ -88,6 +89,7 @@
                     <SolidColorBrush x:Key="LpOuterTextBrush" Color="#FF7FB2FF" />
                     <SolidColorBrush x:Key="LpOuterDotBrush" Color="#FF3C7EFF" />
                     <SolidColorBrush x:Key="LpKeycapBrush" Color="#1FFFFFFF" />
+                    <SolidColorBrush x:Key="LpSearchHighlightBrush" Color="#FF5A4A19" />
                     <SolidColorBrush x:Key="LpDangerSoftBrush" Color="#24F76965" />
                     <BoxShadows x:Key="LpCardShadow">0 1 2 0 #66000000, 0 8 20 -6 #99000000</BoxShadows>
                     <LinearGradientBrush x:Key="LpAppBackground" StartPoint="0%,0%" EndPoint="0%,100%">
@@ -156,10 +158,6 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource LpSubtleText}" />
         </Style>
-        <Style Selector="Border.lp-count-tag">
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8,3" />
-        </Style>
         <Style Selector="Border.lp-empty">
             <Setter Property="Background" Value="{DynamicResource LpCanvasBrush}" />
             <Setter Property="CornerRadius" Value="8" />
@@ -193,13 +191,25 @@
         </Style>
         <Style Selector="Border.lp-segment">
             <Setter Property="Background" Value="{DynamicResource LpSegmentBrush}" />
+            <!--  Outer radius = inner radius + padding, so the two corners stay concentric.  -->
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="3" />
+            <Setter Property="Padding" Value="2" />
         </Style>
         <Style Selector="Border.lp-segment RadioButton">
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.lp-segment-divider">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="IsHitTestVisible" Value="False" />
         </Style>
         <Style Selector="GridSplitter.lp-splitter">
             <Setter Property="Background" Value="Transparent" />

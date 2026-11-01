@@ -1,5 +1,6 @@
-﻿using LabelPlus_Next.Models;
+using LabelPlus_Next.Models;
 using LabelPlus_Next.Serialization;
+using LabelPlus_Next.Shared;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -15,25 +16,40 @@ public interface ISettingsService
 public class JsonSettingsService : ISettingsService
 {
     private readonly string _path;
+    private readonly bool _allowLegacyMigration;
 
     public JsonSettingsService(string? path = null)
     {
-        _path = path ?? Path.Combine(AppContext.BaseDirectory, "settings.json");
+        _allowLegacyMigration = string.IsNullOrWhiteSpace(path);
+        _path = _allowLegacyMigration ? AppConfigPaths.Settings : path!;
     }
 
     public async Task<AppSettings> LoadAsync(CancellationToken ct = default)
     {
-        if (!File.Exists(_path)) return new AppSettings();
-        await using var fs = File.OpenRead(_path);
-        var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.AppSettings, ct);
-        return s ?? new AppSettings();
+        var readPath = _allowLegacyMigration
+            ? AppConfigPaths.ResolveExisting(_path, AppConfigPaths.SettingsCandidates)
+            : _path;
+        if (!File.Exists(readPath)) return new AppSettings();
+
+        await using var fs = File.OpenRead(readPath);
+        var s = await JsonSerializer.DeserializeAsync(fs, AppJsonContext.Default.AppSettings, ct) ?? new AppSettings();
+
+        // The per-user AppData file wins; legacy files next to the executable are
+        // read once and copied to AppData so the next launch no longer touches the
+        // install directory.
+        if (_allowLegacyMigration && !string.Equals(readPath, _path, StringComparison.Ordinal))
+        {
+            await SaveAsync(s, ct);
+        }
+        return s;
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken ct = default)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        AppConfigPaths.EnsureParent(_path);
         await using var fs = File.Create(_path);
         await JsonSerializer.SerializeAsync(fs, settings, AppJsonContext.Default.AppSettings, ct);
+        AppConfigPaths.SecureFile(_path);
     }
 }
 

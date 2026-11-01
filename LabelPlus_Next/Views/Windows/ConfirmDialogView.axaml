@@ -1,0 +1,144 @@
+<UserControl
+    x:Class="LabelPlus_Next.Views.Windows.ConfirmDialogView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:windows="clr-namespace:LabelPlus_Next.Views.Windows"
+    x:DataType="windows:ConfirmDialogViewModel">
+    <UserControl.Styles>
+        <Style Selector="Button.dialog-default">
+            <Setter Property="Background" Value="{DynamicResource LpSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LpCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.dialog-icon">
+            <Setter Property="Background" Value="{DynamicResource LpInnerSoftBrush}" />
+        </Style>
+        <Style Selector="Border.dialog-icon.danger">
+            <Setter Property="Background" Value="{DynamicResource LpDangerSoftBrush}" />
+        </Style>
+        <Style Selector="Border.dialog-icon.info">
+            <Setter Property="Background" Value="{DynamicResource LpOuterSoftBrush}" />
+        </Style>
+        <Style Selector="PathIcon.dialog-glyph">
+            <Setter Property="Foreground" Value="{DynamicResource LpInnerDotBrush}" />
+        </Style>
+        <Style Selector="PathIcon.dialog-glyph.danger">
+            <Setter Property="Foreground" Value="{DynamicResource LpDangerBrush}" />
+        </Style>
+        <Style Selector="PathIcon.dialog-glyph.info">
+            <Setter Property="Foreground" Value="{DynamicResource LpPrimaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+    <Grid
+        Width="400"
+        Height="160"
+        Margin="20,64,20,16"
+        RowDefinitions="*,Auto"
+        RowSpacing="16">
+        <Grid Margin="0,28,0,0" ColumnDefinitions="44,*" ColumnSpacing="14">
+            <Border
+                Width="44"
+                Height="44"
+                VerticalAlignment="Top"
+                Classes="dialog-icon"
+                Classes.danger="{Binding IsDanger}"
+                Classes.info="{Binding IsInfo}"
+                CornerRadius="12">
+                <Grid>
+                    <PathIcon
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="dialog-glyph"
+                        Classes.danger="{Binding IsDanger}"
+                        Classes.info="{Binding IsInfo}"
+                        Data="{StaticResource SemiIconDelete}"
+                        IsVisible="{Binding ShowDeleteIcon}" />
+                    <PathIcon
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="dialog-glyph"
+                        Classes.danger="{Binding IsDanger}"
+                        Classes.info="{Binding IsInfo}"
+                        Data="{StaticResource SemiIconSave}"
+                        IsVisible="{Binding ShowSaveIcon}" />
+                    <PathIcon
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="dialog-glyph"
+                        Classes.danger="{Binding IsDanger}"
+                        Classes.info="{Binding IsInfo}"
+                        Data="{StaticResource SemiIconUpload}"
+                        IsVisible="{Binding ShowUploadIcon}" />
+                    <PathIcon
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="dialog-glyph"
+                        Classes.danger="{Binding IsDanger}"
+                        Classes.info="{Binding IsInfo}"
+                        Data="{StaticResource SemiIconAlertTriangle}"
+                        IsVisible="{Binding ShowWarningIcon}" />
+                    <PathIcon
+                        Width="22"
+                        Height="22"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Classes="dialog-glyph"
+                        Classes.danger="{Binding IsDanger}"
+                        Classes.info="{Binding IsInfo}"
+                        Data="{StaticResource SemiIconInfoCircle}"
+                        IsVisible="{Binding ShowInfoIcon}" />
+                </Grid>
+            </Border>
+            <ScrollViewer
+                Grid.Column="1"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <TextBlock
+                    Margin="0,2,0,0"
+                    FontSize="14"
+                    LineHeight="22"
+                    Text="{Binding Message}"
+                    TextWrapping="Wrap" />
+            </ScrollViewer>
+        </Grid>
+
+        <StackPanel
+            Grid.Row="1"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                x:Name="CancelButton"
+                Height="32"
+                MinWidth="80"
+                Classes="dialog-default"
+                Click="Cancel_OnClick"
+                Content="{Binding CancelText}"
+                IsVisible="{Binding ShowCancel}" />
+            <Button
+                x:Name="NoButton"
+                Height="32"
+                MinWidth="80"
+                Click="No_OnClick"
+                Classes.lp-danger="{Binding NoIsDanger}"
+                Content="{Binding NoText}"
+                IsVisible="{Binding ShowNo}" />
+            <Button
+                x:Name="YesButton"
+                Height="32"
+                MinWidth="80"
+                Click="Yes_OnClick"
+                Classes.lp-danger="{Binding YesIsDanger}"
+                Classes.lp-primary="{Binding YesIsPrimary}"
+                Content="{Binding YesText}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,15 +1,18 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using LabelPlus_Next.CustomControls;
 using LabelPlus_Next.Models;
 using LabelPlus_Next.Lang;
 using LabelPlus_Next.Services;
 using LabelPlus_Next.ViewModels;
+using LabelPlus_Next.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Ursa.Controls;
 using WindowNotificationManager = Ursa.Controls.WindowNotificationManager;
@@ -23,6 +26,12 @@ public partial class TranslateView : UserControl
     private LabelItem? _lastCentered;
     private PicViewer? _picViewer;
     private SettingsViewModel? _settingsVm;
+    private InputElement? _shortcutHost;
+    private FindReplaceWindow? _searchWindow;
+    private Popup? _quickInputPopup;
+    private TextBox? _labelTextBox;
+    private SelectionList? _quickInputList;
+    private bool _suppressQuickInsert;
 
     // 拖拽相关
     private static readonly DataFormat<LabelItem> DragDataFormat =
@@ -57,6 +66,7 @@ public partial class TranslateView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        AttachShortcutHost();
         if (_initialized) return;
         _initialized = true;
         _picViewer = this.FindControl<PicViewer>("Pic");
@@ -64,8 +74,13 @@ public partial class TranslateView : UserControl
         _settingsVm.LabelOverlaySettingsChanged += OnLabelOverlaySettingsChanged;
         ApplyLabelOverlaySettings();
         _labelsGrid = this.FindControl<DataGrid>("LabelsGrid");
+        ResolvePopupControls();
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
-        if (DataContext is TranslateViewModel vm) SetNotification(vm);
+        if (DataContext is TranslateViewModel vm)
+        {
+            SetNotification(vm);
+            vm.SearchPreviewRequested += OnSearchPreviewRequested;
+        }
         if (_labelsGrid is not null)
         {
             _labelsGrid.SelectionChanged += OnGridSelectionChanged;
@@ -83,9 +98,38 @@ public partial class TranslateView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        DetachShortcutHost();
         if (_settingsVm is not null) _settingsVm.LabelOverlaySettingsChanged -= OnLabelOverlaySettingsChanged;
         if (_picViewer is not null) _picViewer.AddLabelRequested -= OnAddLabelRequested;
+        if (DataContext is TranslateViewModel vm) vm.SearchPreviewRequested -= OnSearchPreviewRequested;
+        if (_searchWindow is { } searchWindow)
+        {
+            searchWindow.Closed -= OnSearchWindowClosed;
+            searchWindow.Close();
+            _searchWindow = null;
+        }
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        ResolvePopupControls();
+    }
+
+    private void ResolvePopupControls()
+    {
+        _quickInputPopup ??= this.FindControl<Popup>("QuickInputPopup");
+        _labelTextBox ??= this.FindControl<TextBox>("LabelTextBox");
+        _quickInputList ??= this.FindControl<SelectionList>("QuickInputList");
+
+        // Popups are reparented to a PopupRoot; assign DataContext explicitly so
+        // compiled bindings keep working after the popup opens.
+        if (_quickInputPopup is not null)
+        {
+            _quickInputPopup.DataContext = DataContext;
+            if (_quickInputPopup.Child is Control quickChild) quickChild.DataContext = DataContext;
+        }
     }
 
     private void OnLabelOverlaySettingsChanged(object? sender, EventArgs e) => ApplyLabelOverlaySettings();
@@ -157,9 +201,47 @@ public partial class TranslateView : UserControl
         return false;
     }
 
+    private void AttachShortcutHost()
+    {
+        if (_shortcutHost is not null) DetachShortcutHost();
+        _shortcutHost = TopLevel.GetTopLevel(this) as InputElement;
+        _shortcutHost?.AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    private void DetachShortcutHost()
+    {
+        _shortcutHost?.RemoveHandler(KeyDownEvent, OnWindowKeyDown);
+        _shortcutHost = null;
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled || Vm is null) return;
+        if ((e.KeyModifiers & KeyModifiers.Control) == 0 || e.Key != Key.F) return;
+
+        if (_quickInputPopup?.IsOpen == true) CloseQuickInput();
+        OpenSearch();
+        e.Handled = true;
+    }
+
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+
+        if (e.Key == Key.A && (e.KeyModifiers & KeyModifiers.Alt) != 0 &&
+            (_labelTextBox?.IsKeyboardFocusWithin == true || _quickInputPopup?.IsOpen == true))
+        {
+            ToggleQuickInput();
+            e.Handled = true;
+            return;
+        }
+
+        if (_quickInputPopup?.IsOpen == true && HandleQuickInputKey(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         var vm = Vm;
         var pic = _picViewer ?? this.FindControl<PicViewer>("Pic");
         var gridFocused = _labelsGrid?.IsKeyboardFocusWithin == true;
@@ -297,12 +379,19 @@ public partial class TranslateView : UserControl
     {
         var vm = Vm;
         if (vm?.SelectedLabel == null || string.IsNullOrEmpty(vm.SelectedImageFile)) return;
-        var res = await MessageBox.ShowAsync(
-            UiText.T(LangKeys.ui0203, "确认删除当前标签?"),
-            UiText.T(LangKeys.ui0204, "删除"),
-            MessageBoxIcon.Warning,
-            MessageBoxButton.YesNo);
-        if (res == MessageBoxResult.Yes) vm.RemoveLabelCommandCommand?.Execute(null);
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var res = await ConfirmDialog.ShowAsync(owner, new ConfirmDialogOptions
+        {
+            Title = UiText.T(LangKeys.dialogDeleteLabelTitle, "删除标签"),
+            Message = UiText.T(LangKeys.ui0203, "确认删除当前标签?"),
+            Severity = ConfirmDialogSeverity.Danger,
+            BodyIcon = ConfirmBodyIcon.Delete,
+            YesText = UiText.T(LangKeys.ui0204, "删除"),
+            NoText = UiText.T(LangKeys.buttonCancel, "取消"),
+            ShowNo = true,
+            YesIsDanger = true,
+        });
+        if (res == ConfirmDialogResult.Yes) vm.RemoveLabelCommandCommand?.Execute(null);
     }
 
     private void MoveSelection(int delta)
@@ -542,5 +631,217 @@ public partial class TranslateView : UserControl
             var result = await dlg.ShowDialog<bool?>(win);
             if (result == true && dlg.DataContext is FileSettingsViewModel fvm) { await vm.SaveFileSettingsAsync(fvm.GroupList, fvm.Notes); }
         }
+    }
+
+    // ---------------------------------------------------------- find & replace
+
+    private void SearchButton_OnClick(object? sender, RoutedEventArgs e) => OpenSearch();
+
+    private void OpenSearch()
+    {
+        if (Vm is not { } vm) return;
+
+        if (_searchWindow is { } existing)
+        {
+            if (existing.WindowState == WindowState.Minimized) existing.WindowState = WindowState.Normal;
+            existing.Activate();
+            existing.FocusSearch();
+            return;
+        }
+
+        var window = new FindReplaceWindow(vm);
+        _searchWindow = window;
+        window.Closed += OnSearchWindowClosed;
+        vm.IsSearchOpen = true;
+
+        if (TopLevel.GetTopLevel(this) is Window owner)
+        {
+            var scale = owner.RenderScaling;
+            var x = owner.Position.X + (int)((owner.Bounds.Width - window.Width) / 2 * scale);
+            var y = owner.Position.Y + (int)((owner.Bounds.Height - window.Height) / 2 * scale);
+            window.Position = new PixelPoint(x, y);
+            window.Show(owner);
+        }
+        else
+        {
+            window.Show();
+        }
+    }
+
+    private void OnSearchWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is FindReplaceWindow window) window.Closed -= OnSearchWindowClosed;
+        _searchWindow = null;
+    }
+
+    private void OnSearchPreviewRequested(object? sender, EventArgs e)
+    {
+        if (Vm is not { } vm) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _labelTextBox ??= this.FindControl<TextBox>("LabelTextBox");
+            if (_labelTextBox is null) return;
+            if (vm.SearchPreviewStart < 0 || vm.SearchPreviewEnd <= vm.SearchPreviewStart)
+            {
+                _labelTextBox.SelectionStart = 0;
+                _labelTextBox.SelectionEnd = 0;
+                return;
+            }
+
+            var length = _labelTextBox.Text?.Length ?? 0;
+            var start = Math.Clamp(vm.SearchPreviewStart, 0, length);
+            var end = Math.Clamp(vm.SearchPreviewEnd, start, length);
+            _labelTextBox.SelectionStart = start;
+            _labelTextBox.SelectionEnd = end;
+        }, DispatcherPriority.Background);
+    }
+
+    // ------------------------------------------------------------- quick input
+
+    private static readonly IReadOnlyDictionary<Key, string> QuickInputKeys = new Dictionary<Key, string>
+    {
+        [Key.A] = "啊",
+        [Key.E] = "嗯",
+        [Key.W] = "呜",
+        [Key.G] = "咕",
+        [Key.Y] = "咿",
+        [Key.J] = "啾",
+        [Key.P] = "噗",
+        [Key.D1] = "♥",
+        [Key.NumPad1] = "♥",
+        [Key.D2] = "♡",
+        [Key.NumPad2] = "♡",
+        [Key.D3] = "♪",
+        [Key.NumPad3] = "♪"
+    };
+
+    private void LabelTextBox_OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        // Replace the default cut/copy/paste menu with the quick-input list.
+        e.Handled = true;
+        OpenQuickInput();
+    }
+
+    private void LabelTextBox_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_labelTextBox is null) return;
+        var properties = e.GetCurrentPoint(_labelTextBox).Properties;
+        if (properties.IsRightButtonPressed) return;
+        if (_quickInputPopup?.IsOpen == true) CloseQuickInput();
+    }
+
+    private void ToggleQuickInput()
+    {
+        if (_quickInputPopup?.IsOpen == true) CloseQuickInput();
+        else OpenQuickInput();
+    }
+
+    private void OpenQuickInput()
+    {
+        if (Vm?.SelectedLabel is null) return;
+        _quickInputPopup ??= this.FindControl<Popup>("QuickInputPopup");
+        if (_quickInputPopup is null) return;
+
+        _quickInputPopup.DataContext = Vm;
+        if (_quickInputPopup.Child is Control child) child.DataContext = Vm;
+
+        _quickInputList ??= _quickInputPopup.Child?.GetVisualDescendants().OfType<SelectionList>().FirstOrDefault();
+        _quickInputList ??= this.FindControl<SelectionList>("QuickInputList");
+        if (_quickInputList is not null && Vm is { } vm)
+        {
+            _quickInputList.ItemsSource = vm.QuickInputItems;
+            if (vm.QuickInputItems.Count > 0)
+            {
+                _suppressQuickInsert = true;
+                _quickInputList.SelectedItem = vm.QuickInputItems[0];
+                _suppressQuickInsert = false;
+            }
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_quickInputList is not { ItemCount: > 0 }) return;
+                _suppressQuickInsert = true;
+                _quickInputList.SelectedIndex = 0;
+                _suppressQuickInsert = false;
+            }, DispatcherPriority.Loaded);
+        }
+
+        _quickInputPopup.IsOpen = true;
+    }
+
+    private void CloseQuickInput()
+    {
+        if (_quickInputPopup is not null) _quickInputPopup.IsOpen = false;
+        _labelTextBox?.Focus();
+    }
+
+    private void QuickInputPopup_OnClosed(object? sender, EventArgs e)
+    {
+        _suppressQuickInsert = false;
+    }
+
+    private void QuickInputList_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressQuickInsert) return;
+        if (e.AddedItems.Count == 0) return;
+        if (e.AddedItems[0] is not QuickInputItem item) return;
+        InsertQuickText(item.Text);
+        CloseQuickInput();
+    }
+
+    private bool HandleQuickInputKey(KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Escape:
+                CloseQuickInput();
+                return true;
+            case Key.Up:
+                MoveQuickSelection(-1);
+                return true;
+            case Key.Down:
+                MoveQuickSelection(1);
+                return true;
+            case Key.Enter:
+                InsertSelectedQuickInput();
+                return true;
+        }
+
+        if (e.KeyModifiers == KeyModifiers.None && QuickInputKeys.TryGetValue(e.Key, out var text))
+        {
+            InsertQuickText(text);
+            CloseQuickInput();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void MoveQuickSelection(int delta)
+    {
+        if (_quickInputList is not { ItemCount: > 0 }) return;
+        var next = Math.Clamp(_quickInputList.SelectedIndex + delta, 0, _quickInputList.ItemCount - 1);
+        _suppressQuickInsert = true;
+        _quickInputList.SelectedIndex = next;
+        _suppressQuickInsert = false;
+    }
+
+    private void InsertSelectedQuickInput()
+    {
+        if (_quickInputList?.SelectedItem is not QuickInputItem item) return;
+        InsertQuickText(item.Text);
+        CloseQuickInput();
+    }
+
+    private void InsertQuickText(string text)
+    {
+        if (_labelTextBox is null) return;
+        var current = _labelTextBox.Text ?? string.Empty;
+        var start = Math.Clamp(_labelTextBox.SelectionStart, 0, current.Length);
+        var end = Math.Clamp(_labelTextBox.SelectionEnd, start, current.Length);
+        _labelTextBox.Text = current[..start] + text + current[end..];
+        _labelTextBox.CaretIndex = start + text.Length;
+        _labelTextBox.SelectionStart = _labelTextBox.CaretIndex;
+        _labelTextBox.SelectionEnd = _labelTextBox.CaretIndex;
+        _labelTextBox.Focus();
     }
 }

@@ -1002,4 +1002,109 @@
     <data name="ui0212" xml:space="preserve">
     <value>Images</value>
   </data>
+    <data name="findReplaceOpenTooltip" xml:space="preserve">
+    <value>Find and replace</value>
+  </data>
+    <data name="findReplaceTitle" xml:space="preserve">
+    <value>Find and replace</value>
+  </data>
+    <data name="findReplaceFindPlaceholder" xml:space="preserve">
+    <value>Find</value>
+  </data>
+    <data name="findReplaceReplacePlaceholder" xml:space="preserve">
+    <value>Replace with</value>
+  </data>
+    <data name="findReplaceFindNext" xml:space="preserve">
+    <value>Find next</value>
+  </data>
+    <data name="findReplaceFindPrevious" xml:space="preserve">
+    <value>Find previous</value>
+  </data>
+    <data name="findReplaceReplace" xml:space="preserve">
+    <value>Replace</value>
+  </data>
+    <data name="findReplaceReplaceAll" xml:space="preserve">
+    <value>Replace all</value>
+  </data>
+    <data name="findReplaceMatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+    <data name="findReplaceWrapAround" xml:space="preserve">
+    <value>Wrap around</value>
+  </data>
+    <data name="findReplaceNoResult" xml:space="preserve">
+    <value>No matches</value>
+  </data>
+    <data name="findReplaceMatchPosition" xml:space="preserve">
+    <value>Match {0} of {1}</value>
+  </data>
+    <data name="findReplaceReplacedCount" xml:space="preserve">
+    <value>Replaced {0} occurrence(s)</value>
+  </data>
+    <data name="findReplaceCloseTooltip" xml:space="preserve">
+    <value>Close</value>
+  </data>
+    <data name="quickInputTitle" xml:space="preserve">
+    <value>Quick input</value>
+  </data>
+    <data name="quickInputTooltip" xml:space="preserve">
+    <value>Quick input (Alt+A)</value>
+  </data>
+    <data name="settingsLanguageLabel" xml:space="preserve">
+    <value>Language</value>
+  </data>
+    <data name="settingsLanguageAppearanceTitle" xml:space="preserve">
+    <value>Language &amp; appearance</value>
+  </data>
+    <data name="settingsLanguageAppearanceDescription" xml:space="preserve">
+    <value>Choose the interface language and color theme. Changes apply immediately.</value>
+  </data>
+    <data name="settingsThemeLabel" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+    <data name="settingsThemeHint" xml:space="preserve">
+    <value>Click to cycle Light / Dark / Follow system</value>
+  </data>
+    <data name="settingsThemeSystem" xml:space="preserve">
+    <value>Follow system</value>
+  </data>
+    <data name="settingsThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+    <data name="settingsThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+    <data name="button_no" xml:space="preserve">
+    <value>No</value>
+  </data>
+    <data name="buttonRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+    <data name="buttonContinue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+    <data name="dialogUnsavedTitle" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+    <data name="dialogDeleteLabelTitle" xml:space="preserve">
+    <value>Delete label</value>
+  </data>
+    <data name="dialogRemoveProjectTitle" xml:space="preserve">
+    <value>Remove project</value>
+  </data>
+    <data name="dialogDiscardFilesTitle" xml:space="preserve">
+    <value>Remove included files</value>
+  </data>
+    <data name="dialogDuplicateTitle" xml:space="preserve">
+    <value>Duplicate episodes found</value>
+  </data>
+    <data name="buttonDontSave" xml:space="preserve">
+    <value>Don't save</value>
+  </data>
+    <data name="findReplaceScopeAll" xml:space="preserve">
+    <value>All images</value>
+  </data>
+    <data name="findReplaceScopeAllTip" xml:space="preserve">
+    <value>Search all images (all pages)</value>
+  </data>
 </root>

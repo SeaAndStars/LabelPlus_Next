@@ -2543,5 +2543,319 @@ namespace LabelPlus_Next.Lang {
                 return ResourceManager.GetString("ui0212", resourceCulture);
             }
         }
+        /// <summary>
+        ///   查找类似 查找与替换 的本地化字符串。
+        /// </summary>
+        public static string findReplaceOpenTooltip {
+            get {
+                return ResourceManager.GetString("findReplaceOpenTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 查找与替换 的本地化字符串。
+        /// </summary>
+        public static string findReplaceTitle {
+            get {
+                return ResourceManager.GetString("findReplaceTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 查找内容 的本地化字符串。
+        /// </summary>
+        public static string findReplaceFindPlaceholder {
+            get {
+                return ResourceManager.GetString("findReplaceFindPlaceholder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 替换为 的本地化字符串。
+        /// </summary>
+        public static string findReplaceReplacePlaceholder {
+            get {
+                return ResourceManager.GetString("findReplaceReplacePlaceholder", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 查找下一个 的本地化字符串。
+        /// </summary>
+        public static string findReplaceFindNext {
+            get {
+                return ResourceManager.GetString("findReplaceFindNext", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 查找上一个 的本地化字符串。
+        /// </summary>
+        public static string findReplaceFindPrevious {
+            get {
+                return ResourceManager.GetString("findReplaceFindPrevious", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 替换 的本地化字符串。
+        /// </summary>
+        public static string findReplaceReplace {
+            get {
+                return ResourceManager.GetString("findReplaceReplace", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 全部替换 的本地化字符串。
+        /// </summary>
+        public static string findReplaceReplaceAll {
+            get {
+                return ResourceManager.GetString("findReplaceReplaceAll", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 区分大小写 的本地化字符串。
+        /// </summary>
+        public static string findReplaceMatchCase {
+            get {
+                return ResourceManager.GetString("findReplaceMatchCase", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 循环 的本地化字符串。
+        /// </summary>
+        public static string findReplaceWrapAround {
+            get {
+                return ResourceManager.GetString("findReplaceWrapAround", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 没有匹配项 的本地化字符串。
+        /// </summary>
+        public static string findReplaceNoResult {
+            get {
+                return ResourceManager.GetString("findReplaceNoResult", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 第 {0} / {1} 处 的本地化字符串。
+        /// </summary>
+        public static string findReplaceMatchPosition {
+            get {
+                return ResourceManager.GetString("findReplaceMatchPosition", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 已替换 {0} 处 的本地化字符串。
+        /// </summary>
+        public static string findReplaceReplacedCount {
+            get {
+                return ResourceManager.GetString("findReplaceReplacedCount", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 关闭 的本地化字符串。
+        /// </summary>
+        public static string findReplaceCloseTooltip {
+            get {
+                return ResourceManager.GetString("findReplaceCloseTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 快捷输入 的本地化字符串。
+        /// </summary>
+        public static string quickInputTitle {
+            get {
+                return ResourceManager.GetString("quickInputTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 快捷输入 (Alt+A) 的本地化字符串。
+        /// </summary>
+        public static string quickInputTooltip {
+            get {
+                return ResourceManager.GetString("quickInputTooltip", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 界面语言 的本地化字符串。
+        /// </summary>
+        public static string settingsLanguageLabel {
+            get {
+                return ResourceManager.GetString("settingsLanguageLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 语言与外观 的本地化字符串。
+        /// </summary>
+        public static string settingsLanguageAppearanceTitle {
+            get {
+                return ResourceManager.GetString("settingsLanguageAppearanceTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 选择界面语言与明暗主题，切换后立即生效。 的本地化字符串。
+        /// </summary>
+        public static string settingsLanguageAppearanceDescription {
+            get {
+                return ResourceManager.GetString("settingsLanguageAppearanceDescription", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 主题 的本地化字符串。
+        /// </summary>
+        public static string settingsThemeLabel {
+            get {
+                return ResourceManager.GetString("settingsThemeLabel", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 点击在浅色 / 深色 / 跟随系统之间切换 的本地化字符串。
+        /// </summary>
+        public static string settingsThemeHint {
+            get {
+                return ResourceManager.GetString("settingsThemeHint", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 跟随系统 的本地化字符串。
+        /// </summary>
+        public static string settingsThemeSystem {
+            get {
+                return ResourceManager.GetString("settingsThemeSystem", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 浅色 的本地化字符串。
+        /// </summary>
+        public static string settingsThemeLight {
+            get {
+                return ResourceManager.GetString("settingsThemeLight", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 深色 的本地化字符串。
+        /// </summary>
+        public static string settingsThemeDark {
+            get {
+                return ResourceManager.GetString("settingsThemeDark", resourceCulture);
+            }
+        }
+        /// <summary>
+        ///   查找类似 否 的本地化字符串。
+        /// </summary>
+        public static string button_no {
+            get {
+                return ResourceManager.GetString("button_no", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 移除 的本地化字符串。
+        /// </summary>
+        public static string buttonRemove {
+            get {
+                return ResourceManager.GetString("buttonRemove", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 继续 的本地化字符串。
+        /// </summary>
+        public static string buttonContinue {
+            get {
+                return ResourceManager.GetString("buttonContinue", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 未保存的更改 的本地化字符串。
+        /// </summary>
+        public static string dialogUnsavedTitle {
+            get {
+                return ResourceManager.GetString("dialogUnsavedTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 删除标签 的本地化字符串。
+        /// </summary>
+        public static string dialogDeleteLabelTitle {
+            get {
+                return ResourceManager.GetString("dialogDeleteLabelTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 移除项目 的本地化字符串。
+        /// </summary>
+        public static string dialogRemoveProjectTitle {
+            get {
+                return ResourceManager.GetString("dialogRemoveProjectTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 移出包含文件 的本地化字符串。
+        /// </summary>
+        public static string dialogDiscardFilesTitle {
+            get {
+                return ResourceManager.GetString("dialogDiscardFilesTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 发现重复话数 的本地化字符串。
+        /// </summary>
+        public static string dialogDuplicateTitle {
+            get {
+                return ResourceManager.GetString("dialogDuplicateTitle", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 不保存 的本地化字符串。
+        /// </summary>
+        public static string buttonDontSave {
+            get {
+                return ResourceManager.GetString("buttonDontSave", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 全部图片 的本地化字符串。
+        /// </summary>
+        public static string findReplaceScopeAll {
+            get {
+                return ResourceManager.GetString("findReplaceScopeAll", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   查找类似 搜索全部图片（跨页） 的本地化字符串。
+        /// </summary>
+        public static string findReplaceScopeAllTip {
+            get {
+                return ResourceManager.GetString("findReplaceScopeAllTip", resourceCulture);
+            }
+        }
+
     }
 }

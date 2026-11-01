@@ -1,0 +1,74 @@
+Name:           labelplus-next
+Version:        @VERSION@
+Release:        1
+Summary:        Comic translation workbench
+License:        MIT
+URL:            @HOMEPAGE@
+AutoReqProv:    no
+
+Requires:       glibc >= 2.31
+Requires:       libgcc
+Requires:       libstdc++
+Requires:       openssl-libs
+Requires:       libicu
+Requires:       libX11
+Requires:       libXext
+Requires:       libXrandr
+Requires:       libXi
+Requires:       libXcursor
+Requires:       libICE
+Requires:       libSM
+Requires:       fontconfig
+Requires:       freetype
+Requires:       mesa-libGL
+Requires:       mesa-libEGL
+Requires:       zlib
+
+%description
+LabelPlus Next is a cross-platform workbench for comic translation:
+image annotation, translation and proofreading, team collaboration and
+publishing. This package ships the self-contained .NET desktop client
+together with its updater.
+
+%prep
+
+%build
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}/usr/lib/labelplus-next
+mkdir -p %{buildroot}/usr/bin
+mkdir -p %{buildroot}/usr/share/applications
+mkdir -p %{buildroot}%{_docdir}/labelplus-next
+cp -a %{_sourcedir}/payload/. %{buildroot}/usr/lib/labelplus-next/
+ln -s /usr/lib/labelplus-next/LabelPlus_Next.Desktop %{buildroot}/usr/bin/labelplus-next
+install -m 0644 %{_sourcedir}/labelplus-next.desktop \
+    %{buildroot}/usr/share/applications/labelplus-next.desktop
+for size in 16 24 32 48 64 128 256; do
+  install -D -m 0644 %{_sourcedir}/icons/icon-$size.png \
+    %{buildroot}/usr/share/icons/hicolor/${size}x${size}/apps/labelplus-next.png
+done
+install -m 0644 %{_sourcedir}/LICENSE.md %{buildroot}%{_docdir}/labelplus-next/LICENSE.md
+
+%post
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications || :
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+fi
+
+%postun
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications || :
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || :
+fi
+
+%files
+/usr/lib/labelplus-next
+/usr/bin/labelplus-next
+/usr/share/applications/labelplus-next.desktop
+/usr/share/icons/hicolor/*/apps/labelplus-next.png
+%{_docdir}/labelplus-next/LICENSE.md

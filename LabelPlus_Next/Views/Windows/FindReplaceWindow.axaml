@@ -1,0 +1,115 @@
+<u:UrsaWindow
+    x:Class="LabelPlus_Next.Views.Windows.FindReplaceWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:cc="clr-namespace:LabelPlus_Next.CustomControls"
+    xmlns:lang="clr-namespace:LabelPlus_Next.Lang"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:viewModels="clr-namespace:LabelPlus_Next.ViewModels"
+    Title="{I18N {x:Static lang:LangKeys.findReplaceTitle}}"
+    Width="460"
+    Height="190"
+    CanResize="False"
+    ExtendClientAreaTitleBarHeightHint="0"
+    ExtendClientAreaToDecorationsHint="True"
+    IsTitleBarVisible="False"
+    ShowInTaskbar="False"
+    WindowDecorations="BorderOnly"
+    WindowStartupLocation="Manual"
+    x:DataType="viewModels:TranslateViewModel">
+    <Grid RowDefinitions="Auto,*">
+        <cc:ChromeTitleBar Grid.Row="0" Title="{I18N {x:Static lang:LangKeys.findReplaceTitle}}" />
+
+        <Grid
+            Grid.Row="1"
+            Margin="14"
+            RowDefinitions="Auto,Auto,Auto"
+            RowSpacing="8">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <TextBox
+                    x:Name="SearchTextBox"
+                    KeyDown="SearchTextBox_OnKeyDown"
+                    PlaceholderText="{I18N {x:Static lang:LangKeys.findReplaceFindPlaceholder}}"
+                    Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.InnerLeftContent>
+                        <PathIcon
+                            Width="14"
+                            Height="14"
+                            Margin="0,0,6,0"
+                            Data="{StaticResource SemiIconSearch}"
+                            Foreground="{DynamicResource LpSubtleText}" />
+                    </TextBox.InnerLeftContent>
+                </TextBox>
+                <u:IconButton
+                    Grid.Column="1"
+                    Theme="{DynamicResource BorderlessIconButton}"
+                    Command="{Binding FindPreviousCommand}"
+                    Icon="{StaticResource SemiIconChevronUp}"
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.findReplaceFindPrevious}}" />
+                <u:IconButton
+                    Grid.Column="2"
+                    Theme="{DynamicResource BorderlessIconButton}"
+                    Command="{Binding FindNextCommand}"
+                    Icon="{StaticResource SemiIconChevronDown}"
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.findReplaceFindNext}}" />
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <TextBox
+                    x:Name="ReplaceTextBox"
+                    KeyDown="ReplaceTextBox_OnKeyDown"
+                    PlaceholderText="{I18N {x:Static lang:LangKeys.findReplaceReplacePlaceholder}}"
+                    Text="{Binding ReplaceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button
+                    Grid.Column="1"
+                    Width="72"
+                    Height="32"
+                    Classes="lp-primary"
+                    Command="{Binding ReplaceSearchMatchCommand}"
+                    Content="{I18N {x:Static lang:LangKeys.findReplaceReplace}}" />
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
+                <StackPanel
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    ToolTip.Tip="{I18N {x:Static lang:LangKeys.findReplaceScopeAllTip}}">
+                    <PathIcon
+                        Width="12"
+                        Height="12"
+                        Data="{StaticResource SemiIconImage}"
+                        Foreground="{DynamicResource LpSubtleText}" />
+                    <TextBlock
+                        FontSize="11"
+                        Foreground="{DynamicResource LpSubtleText}"
+                        Text="{I18N {x:Static lang:LangKeys.findReplaceScopeAll}}" />
+                </StackPanel>
+                <CheckBox
+                    Grid.Column="1"
+                    Content="{I18N {x:Static lang:LangKeys.findReplaceMatchCase}}"
+                    IsChecked="{Binding SearchMatchCase, Mode=TwoWay}" />
+                <CheckBox
+                    Grid.Column="2"
+                    Content="{I18N {x:Static lang:LangKeys.findReplaceWrapAround}}"
+                    IsChecked="{Binding SearchWrapAround, Mode=TwoWay}" />
+                <TextBlock
+                    Grid.Column="3"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    Foreground="{DynamicResource LpSubtleText}"
+                    Text="{Binding SearchStatus}" />
+                <Button
+                    Grid.Column="4"
+                    Height="26"
+                    Padding="8,0"
+                    Classes="lp-flat"
+                    Command="{Binding ReplaceAllSearchMatchesCommand}"
+                    Content="{I18N {x:Static lang:LangKeys.findReplaceReplaceAll}}"
+                    FontSize="12" />
+            </Grid>
+        </Grid>
+    </Grid>
+</u:UrsaWindow>

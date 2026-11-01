@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Markup.Xaml;
+using LabelPlus_Next.Models;
 using LabelPlus_Next.ViewModels;
 using LabelPlus_Next.Views;
 using NLog;
@@ -75,7 +76,14 @@ public class App : Application
         };
     }
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+
+#if DEBUG
+        this.AttachDeveloperTools();
+#endif
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -97,9 +105,9 @@ public class App : Application
             Services = sc.BuildServiceProvider();
         }
 
-        // Apply the saved language before any view is created so the first paint
-        // already uses the selected culture.
-        ApplySavedLanguage();
+        // Apply the saved language and theme before any view is created so the
+        // first paint already uses the selected culture and color palette.
+        ApplySavedSettings();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -166,7 +174,7 @@ public class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void ApplySavedLanguage()
+    private static void ApplySavedSettings()
     {
         try
         {
@@ -175,10 +183,11 @@ public class App : Application
             var settings = Task.Run(() => Services.GetRequiredService<ISettingsService>().LoadAsync())
                 .GetAwaiter().GetResult();
             LocalizationService.Apply(settings.Language);
+            if (Current is { } app) app.RequestedThemeVariant = ThemePreference.Parse(settings.Theme);
         }
         catch (Exception ex)
         {
-            GLogger.Warn(ex, "Failed to apply saved language");
+            GLogger.Warn(ex, "Failed to apply saved language/theme");
         }
     }
 
